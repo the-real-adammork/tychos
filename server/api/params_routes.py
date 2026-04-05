@@ -478,7 +478,7 @@ async def get_version(param_set_id: int, version_id: int):
             seen.add(current_parent_id)
             anc_cursor = await conn.execute(
                 """
-                SELECT pv.id, pv.version_number, pv.parent_version_id, pv.params_md5, pv.notes, pv.created_at
+                SELECT pv.id, pv.version_number, pv.parent_version_id, pv.params_md5, pv.params_json, pv.notes, pv.created_at
                 FROM param_versions pv
                 WHERE pv.id = ?
                 """,
