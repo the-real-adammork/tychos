@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -134,13 +134,12 @@ export function ParamList() {
                     >
                       Fork
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      render={<Link href={`/parameters/${ps.id}`} />}
+                    <Link
+                      href={`/parameters/${ps.id}`}
+                      className={buttonVariants({ size: "sm", variant: "outline" })}
                     >
                       Edit
-                    </Button>
+                    </Link>
                     <Button
                       size="sm"
                       variant="outline"
