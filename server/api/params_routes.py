@@ -194,15 +194,19 @@ async def get_param_set(param_set_id: int):
             placeholders = ",".join("?" * len(version_ids))
 
             for test_type in ("solar", "lunar"):
+                # Find best overall pass rate across all versions
                 best_cursor = await conn.execute(
                     f"""
-                    SELECT r.detected, r.total_eclipses, pv.version_number
+                    SELECT r.id AS run_id, r.total_eclipses, pv.version_number,
+                           SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
                     FROM runs r
                     JOIN param_versions pv ON r.param_version_id = pv.id
+                    JOIN eclipse_results er ON er.run_id = r.id
                     WHERE r.param_version_id IN ({placeholders})
                       AND r.test_type = ? AND r.status = 'done'
                       AND r.total_eclipses > 0
-                    ORDER BY CAST(r.detected AS REAL) / r.total_eclipses DESC
+                    GROUP BY r.id
+                    ORDER BY CAST(overall_pass AS REAL) / r.total_eclipses DESC
                     LIMIT 1
                     """,
                     (*version_ids, test_type),
@@ -210,7 +214,7 @@ async def get_param_set(param_set_id: int):
                 best_row = await best_cursor.fetchone()
                 if best_row:
                     item[f"{test_type}_stats"] = {
-                        "detected": best_row["detected"],
+                        "overall_pass": best_row["overall_pass"],
                         "total_eclipses": best_row["total_eclipses"],
                         "version_number": best_row["version_number"],
                     }
@@ -473,7 +477,24 @@ async def get_version(param_set_id: int, version_id: int):
             """,
             (version_id,),
         )
-        item["runs"] = [_row_to_dict(r) for r in await runs_cursor.fetchall()]
+        runs_list = [_row_to_dict(r) for r in await runs_cursor.fetchall()]
+
+        # Compute overall_pass for each done run
+        for run in runs_list:
+            if run["status"] == "done":
+                op_cursor = await conn.execute(
+                    """
+                    SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
+                    FROM eclipse_results WHERE run_id = ?
+                    """,
+                    (run["id"],),
+                )
+                op_row = await op_cursor.fetchone()
+                run["overall_pass"] = op_row["overall_pass"] or 0
+            else:
+                run["overall_pass"] = None
+
+        item["runs"] = runs_list
 
         # Walk ancestor chain
         ancestors = []
