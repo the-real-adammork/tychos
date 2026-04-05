@@ -26,4 +26,15 @@ app.add_middleware(
 )
 
 from server.api.auth_routes import router as auth_router  # noqa: E402
+from server.api.params_routes import router as params_router  # noqa: E402
+from server.api.runs_routes import router as runs_router  # noqa: E402
+from server.api.results_routes import router as results_router  # noqa: E402
+from server.api.compare_routes import router as compare_router  # noqa: E402
+from server.api.dashboard_routes import router as dashboard_router  # noqa: E402
+
 app.include_router(auth_router)
+app.include_router(params_router)
+app.include_router(runs_router)
+app.include_router(results_router)
+app.include_router(compare_router)
+app.include_router(dashboard_router)
