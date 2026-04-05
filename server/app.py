@@ -36,3 +36,15 @@ app.include_router(runs_router)
 app.include_router(results_router)
 app.include_router(compare_router)
 app.include_router(dashboard_router)
+
+from fastapi.responses import FileResponse
+
+# Serve built admin SPA in production (admin/dist/ exists after `npm run build`)
+_admin_dist = Path(__file__).parent.parent / "admin" / "dist"
+if _admin_dist.is_dir():
+    app.mount("/assets", StaticFiles(directory=_admin_dist / "assets"), name="static-assets")
+
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str):
+        """Serve index.html for all non-API routes (SPA client routing)."""
+        return FileResponse(_admin_dist / "index.html")
