@@ -318,11 +318,19 @@ export default function ParamVersionDetailPage() {
                         {(() => {
                           const o = parseFloat(change.oldVal);
                           const n = parseFloat(change.newVal);
-                          if (!isNaN(o) && !isNaN(n)) {
-                            const diff = n - o;
+                          if (!isNaN(o) && !isNaN(n) && o !== n) {
+                            // Determine precision from the input strings
+                            const decPlaces = (s: string) => {
+                              const dot = s.indexOf(".");
+                              return dot === -1 ? 0 : s.length - dot - 1;
+                            };
+                            const precision = Math.max(decPlaces(change.oldVal), decPlaces(change.newVal));
+                            const diff = +(n - o).toFixed(precision);
+                            if (diff === 0) return null;
+                            const formatted = diff > 0 ? `+${diff.toFixed(precision)}` : diff.toFixed(precision);
                             return (
                               <span className={`ml-1 text-xs ${diff > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                ({diff > 0 ? "+" : ""}{diff})
+                                ({formatted})
                               </span>
                             );
                           }
