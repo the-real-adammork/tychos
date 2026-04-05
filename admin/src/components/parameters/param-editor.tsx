@@ -1,14 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 const PARAM_FIELDS = [
   "orbit_radius",
@@ -210,44 +202,29 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
         />
       </div>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="sticky left-0 bg-background">Body</TableHead>
-              {PARAM_FIELDS.map((f) => (
-                <TableHead key={f} className="whitespace-nowrap text-xs">
-                  {f}
-                </TableHead>
+      <div className="space-y-4">
+        {bodies.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-8">No bodies found</p>
+        )}
+        {bodies.map((body) => (
+          <div key={body} className="border rounded-lg overflow-hidden">
+            <div className="px-4 py-2 bg-muted/30 font-medium capitalize text-sm">
+              {body}
+            </div>
+            <div className="px-4 py-3 grid grid-cols-4 gap-x-4 gap-y-2">
+              {PARAM_FIELDS.map((field) => (
+                <div key={field}>
+                  <label className="text-xs text-muted-foreground">{field}</label>
+                  <input
+                    className="mt-0.5 w-full h-8 rounded border border-input bg-background px-2 text-sm font-mono"
+                    value={values[body]?.[field] ?? ""}
+                    onChange={(e) => handleChange(body, field, e.target.value)}
+                  />
+                </div>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {bodies.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={PARAM_FIELDS.length + 1} className="text-center text-muted-foreground">
-                  No bodies found in params_json
-                </TableCell>
-              </TableRow>
-            )}
-            {bodies.map((body) => (
-              <TableRow key={body}>
-                <TableCell className="sticky left-0 bg-background font-medium capitalize">
-                  {body}
-                </TableCell>
-                {PARAM_FIELDS.map((field) => (
-                  <TableCell key={field} className="p-1">
-                    <input
-                      className="h-7 w-24 rounded border border-input bg-background px-2 text-xs font-mono"
-                      value={values[body]?.[field] ?? ""}
-                      onChange={(e) => handleChange(body, field, e.target.value)}
-                    />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
