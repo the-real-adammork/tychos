@@ -10,7 +10,7 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-@router.get("/")
+@router.get("")
 def dashboard():
     """Return aggregate stats, best runs, recent runs, and a leaderboard."""
     with get_db() as conn:

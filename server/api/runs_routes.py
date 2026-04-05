@@ -14,7 +14,7 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-@router.get("/")
+@router.get("")
 def list_runs(
     param_set_id: int | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -54,7 +54,7 @@ class CreateRunBody(BaseModel):
     test_type: str
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_run(body: CreateRunBody, request: Request):
     """Queue a new run. Auth required."""
     user = require_user(request)

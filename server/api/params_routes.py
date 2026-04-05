@@ -21,7 +21,7 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-@router.get("/")
+@router.get("")
 def list_param_sets():
     """List all param sets with owner info and latest done runs."""
     with get_db() as conn:
@@ -71,7 +71,7 @@ class CreateParamSetBody(BaseModel):
     params_json: str
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_param_set(body: CreateParamSetBody, request: Request):
     """Create a new param set. Auth required."""
     user = require_user(request)
