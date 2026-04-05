@@ -38,9 +38,9 @@ def _process_one() -> None:
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT r.id, r.test_type, p.params_json
+            SELECT r.id, r.test_type, pv.params_json
               FROM runs r
-              JOIN param_sets p ON r.param_set_id = p.id
+              JOIN param_versions pv ON r.param_version_id = pv.id
              WHERE r.status = 'queued'
              ORDER BY r.created_at ASC
              LIMIT 1
