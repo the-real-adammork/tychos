@@ -32,6 +32,127 @@ const MOON_RADIUS_ARCMIN = 15.55;
 const UMBRA_RADIUS_ARCMIN = 42.0;
 const PENUMBRA_RADIUS_ARCMIN = 78.0;
 
+function radToHMS(rad: number): string {
+  const hours = (rad * 12) / Math.PI;
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  const s = ((hours - h) * 60 - m) * 60;
+  return `${h}h ${m.toString().padStart(2, "0")}m ${s.toFixed(1).padStart(4, "0")}s`;
+}
+
+function radToDMS(rad: number): string {
+  const deg = (rad * 180) / Math.PI;
+  const sign = deg >= 0 ? "+" : "-";
+  const absDeg = Math.abs(deg);
+  const d = Math.floor(absDeg);
+  const m = Math.floor((absDeg - d) * 60);
+  const s = ((absDeg - d) * 60 - m) * 60;
+  return `${sign}${d}\u00B0 ${m.toString().padStart(2, "0")}' ${s.toFixed(1).padStart(4, "0")}"`;
+}
+
+function SkyPositionDiagram({ result }: { result: ResultDetail }) {
+  const sunRa = result.sun_ra_rad;
+  const sunDec = result.sun_dec_rad;
+  const moonRa = result.moon_ra_rad;
+  const moonDec = result.moon_dec_rad;
+
+  if (sunRa == null || sunDec == null || moonRa == null || moonDec == null) {
+    return <p className="text-sm text-muted-foreground">No position data</p>;
+  }
+
+  // Full sky: RA 0-24h (0 to 2π), Dec -90° to +90° (-π/2 to π/2)
+  const svgW = 400;
+  const svgH = 200;
+  const pad = 30;
+  const plotW = svgW - pad * 2;
+  const plotH = svgH - pad * 2;
+
+  // Map RA (0 to 2π) → x, reversed so RA increases right-to-left (sky convention)
+  const raToX = (ra: number) => pad + plotW - (ra / (2 * Math.PI)) * plotW;
+  // Map Dec (-π/2 to π/2) → y, flipped so +Dec is up
+  const decToY = (dec: number) => pad + plotH / 2 - (dec / (Math.PI / 2)) * (plotH / 2);
+
+  const sunX = raToX(sunRa);
+  const sunY = decToY(sunDec);
+  const moonX = raToX(moonRa);
+  const moonY = decToY(moonDec);
+
+  // Ecliptic: approximate as sinusoidal with obliquity 23.44°
+  const obliquity = 23.44 * (Math.PI / 180);
+  const eclipticPoints: string[] = [];
+  for (let i = 0; i <= 100; i++) {
+    const ra = (i / 100) * 2 * Math.PI;
+    const dec = Math.asin(Math.sin(obliquity) * Math.sin(ra));
+    eclipticPoints.push(`${raToX(ra)},${decToY(dec)}`);
+  }
+
+  // RA hour labels
+  const raLabels = [0, 3, 6, 9, 12, 15, 18, 21];
+
+  return (
+    <div className="flex flex-col gap-2">
+      <svg width={svgW} height={svgH} className="border rounded-lg bg-zinc-950">
+        {/* Dec grid lines */}
+        {[-60, -30, 0, 30, 60].map(d => {
+          const decRad = d * (Math.PI / 180);
+          const y = decToY(decRad);
+          return (
+            <g key={d}>
+              <line x1={pad} y1={y} x2={svgW - pad} y2={y} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
+              <text x={pad - 4} y={y + 3} textAnchor="end" fill="rgba(255,255,255,0.25)" fontSize={8}>{d}°</text>
+            </g>
+          );
+        })}
+
+        {/* RA grid lines */}
+        {raLabels.map(h => {
+          const ra = h * (Math.PI / 12);
+          const x = raToX(ra);
+          return (
+            <g key={h}>
+              <line x1={x} y1={pad} x2={x} y2={svgH - pad} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
+              <text x={x} y={svgH - pad + 12} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={8}>{h}h</text>
+            </g>
+          );
+        })}
+
+        {/* Ecliptic */}
+        <polyline points={eclipticPoints.join(" ")} fill="none" stroke="rgba(255,200,50,0.15)" strokeWidth={1} />
+
+        {/* Celestial equator */}
+        <line x1={pad} y1={decToY(0)} x2={svgW - pad} y2={decToY(0)} stroke="rgba(100,150,255,0.15)" strokeWidth={1} />
+
+        {/* Sun */}
+        <circle cx={sunX} cy={sunY} r={6} fill="rgba(255,200,50,0.4)" stroke="rgba(255,200,50,0.8)" strokeWidth={1.5} />
+        <text x={sunX} y={sunY - 9} textAnchor="middle" fill="rgba(255,200,50,0.7)" fontSize={9}>Sun</text>
+
+        {/* Moon */}
+        <circle cx={moonX} cy={moonY} r={5} fill="rgba(180,180,180,0.3)" stroke="rgba(180,180,180,0.8)" strokeWidth={1.5} />
+        <text x={moonX} y={moonY - 9} textAnchor="middle" fill="rgba(200,200,200,0.7)" fontSize={9}>Moon</text>
+
+        {/* Connection line */}
+        <line x1={sunX} y1={sunY} x2={moonX} y2={moonY} stroke="rgba(255,100,100,0.3)" strokeWidth={1} strokeDasharray="2 2" />
+      </svg>
+
+      {/* Text readout below */}
+      <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+        <div>
+          <span className="text-muted-foreground">Sun  RA:</span> {radToHMS(sunRa)}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Dec:</span> {radToDMS(sunDec)}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Moon RA:</span> {radToHMS(moonRa)}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Dec:</span> {radToDMS(moonDec)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EclipseDiagram({ result }: { result: ResultDetail }) {
   const isLunar = result.test_type === "lunar";
   const sunRa = result.sun_ra_rad;
@@ -246,15 +367,8 @@ export default function ResultDetailPage() {
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">Predicted Positions (J2000)</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm font-mono">
-              <div>
-                <span className="text-muted-foreground">Sun  RA:</span> {result.sun_ra_rad?.toFixed(6) ?? "—"} rad
-                <span className="ml-4 text-muted-foreground">Dec:</span> {result.sun_dec_rad?.toFixed(6) ?? "—"} rad
-              </div>
-              <div>
-                <span className="text-muted-foreground">Moon RA:</span> {result.moon_ra_rad?.toFixed(6) ?? "—"} rad
-                <span className="ml-4 text-muted-foreground">Dec:</span> {result.moon_dec_rad?.toFixed(6) ?? "—"} rad
-              </div>
+            <CardContent>
+              <SkyPositionDiagram result={result} />
             </CardContent>
           </Card>
         </div>
