@@ -31,7 +31,7 @@ export function ParamForm({ onCreated }: ParamFormProps) {
       const res = await fetch("/api/params", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: description || undefined, paramsJson }),
+        body: JSON.stringify({ name, description: description || undefined, params_json: paramsJson }),
       });
       if (!res.ok) {
         const data = await res.json();

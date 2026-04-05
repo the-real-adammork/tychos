@@ -78,7 +78,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
 
     const params = new URLSearchParams()
     params.set("page", String(page))
-    if (typeFilter !== "all") params.set("catalogType", typeFilter)
+    if (typeFilter !== "all") params.set("catalog_type", typeFilter)
     if (detectedFilter === "detected") params.set("detected", "true")
     if (detectedFilter === "missed") params.set("detected", "false")
 
@@ -88,9 +88,25 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         return res.json() as Promise<ApiResponse>
       })
       .then((data) => {
-        setResults(data.results)
+        const mapped = data.results.map((r: Record<string, unknown>) => ({
+          id: r.id,
+          julianDayTt: r.julian_day_tt,
+          date: r.date,
+          catalogType: r.catalog_type,
+          magnitude: r.magnitude,
+          detected: r.detected,
+          thresholdArcmin: r.threshold_arcmin,
+          minSeparationArcmin: r.min_separation_arcmin,
+          timingOffsetMin: r.timing_offset_min,
+          bestJd: r.best_jd,
+          sunRaRad: r.sun_ra_rad,
+          sunDecRad: r.sun_dec_rad,
+          moonRaRad: r.moon_ra_rad,
+          moonDecRad: r.moon_dec_rad,
+        })) as EclipseResult[]
+        setResults(mapped)
         setTotal(data.total)
-        setPageSize(data.pageSize)
+        setPageSize(data.page_size ?? data.pageSize)
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Unknown error")
