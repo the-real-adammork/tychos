@@ -22,12 +22,6 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" />;
-  return <>{children}</>;
-}
-
 export default function App() {
   const [user, setUser] = useState<User>(null);
   const [loading, setLoading] = useState(true);
@@ -49,9 +43,9 @@ export default function App() {
         <Route
           path="/*"
           element={
-            <ProtectedRoute>
+            user ? (
               <div className="flex h-screen overflow-hidden">
-                <Sidebar userName={user!.name} userEmail={user!.email} />
+                <Sidebar userName={user.name} userEmail={user.email} />
                 <main className="flex-1 overflow-y-auto p-6">
                   <Routes>
                     <Route path="/" element={<DashboardPage />} />
@@ -63,7 +57,9 @@ export default function App() {
                   </Routes>
                 </main>
               </div>
-            </ProtectedRoute>
+            ) : (
+              <Navigate to="/login" />
+            )
           }
         />
       </Routes>

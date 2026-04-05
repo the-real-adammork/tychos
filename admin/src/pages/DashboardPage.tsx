@@ -4,21 +4,21 @@ import { RecentRuns } from "@/components/dashboard/recent-runs";
 import { Leaderboard } from "@/components/dashboard/leaderboard";
 
 interface DashboardData {
-  totalParamSets: number;
-  bestSolar: { name: string; rate: number } | null;
-  bestLunar: { name: string; rate: number } | null;
-  recentRuns: Array<{
+  total_param_sets: number;
+  best_solar: { name: string; rate: number } | null;
+  best_lunar: { name: string; rate: number } | null;
+  recent_runs: Array<{
     id: number;
-    testType: string;
+    test_type: string;
     status: string;
-    totalEclipses: number | null;
+    total_eclipses: number | null;
     detected: number | null;
-    paramSet: { name: string };
+    param_set_name: string;
   }>;
   leaderboard: Array<{
-    paramSetName: string;
-    ownerName: string;
-    avgRate: number;
+    param_set_name: string;
+    owner_name: string;
+    avg_rate: number;
   }>;
 }
 
@@ -38,14 +38,29 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-semibold">Dashboard</h1>
 
       <StatsCards
-        totalParamSets={data.totalParamSets}
-        bestSolar={data.bestSolar}
-        bestLunar={data.bestLunar}
+        totalParamSets={data.total_param_sets}
+        bestSolar={data.best_solar}
+        bestLunar={data.best_lunar}
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <RecentRuns runs={data.recentRuns} />
-        <Leaderboard entries={data.leaderboard} />
+        <RecentRuns
+          runs={data.recent_runs.map((r) => ({
+            id: r.id,
+            testType: r.test_type,
+            status: r.status,
+            totalEclipses: r.total_eclipses,
+            detected: r.detected,
+            paramSet: { name: r.param_set_name },
+          }))}
+        />
+        <Leaderboard
+          entries={data.leaderboard.map((e) => ({
+            paramSetName: e.param_set_name,
+            ownerName: e.owner_name,
+            avgRate: e.avg_rate,
+          }))}
+        />
       </div>
     </div>
   );
