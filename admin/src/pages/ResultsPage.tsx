@@ -52,11 +52,6 @@ export default function ResultsPage() {
   if (loading) return null;
   if (notFound || !run) return <Navigate to="/" />;
 
-  const detectionRate =
-    run.detected !== null && run.totalEclipses
-      ? ((run.detected / run.totalEclipses) * 100).toFixed(1) + "%"
-      : "\u2014";
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
@@ -76,10 +71,6 @@ export default function ResultsPage() {
               <span className="font-medium capitalize text-foreground">
                 {run.status}
               </span>
-            </span>
-            <span>
-              Detection rate:{" "}
-              <span className="font-medium text-foreground">{detectionRate}</span>
             </span>
             {run.totalEclipses !== null && (
               <span>
