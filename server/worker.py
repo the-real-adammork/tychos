@@ -72,37 +72,33 @@ def _process_one() -> None:
 
         detected = sum(1 for r in results if r["detected"])
 
-        # Batch-write all results in one transaction
-        with get_db() as conn:
-            conn.executemany(
-                """
-                INSERT INTO eclipse_results (
-                    run_id, julian_day_tt, date, catalog_type, magnitude,
-                    detected, threshold_arcmin, min_separation_arcmin,
-                    timing_offset_min, best_jd,
-                    sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    (
-                        run_id,
-                        r["julian_day_tt"],
-                        r["date"],
-                        r["catalog_type"],
-                        r["magnitude"],
-                        r["detected"],
-                        r["threshold_arcmin"],
-                        r["min_separation_arcmin"],
-                        r["timing_offset_min"],
-                        r["best_jd"],
-                        r["sun_ra_rad"],
-                        r["sun_dec_rad"],
-                        r["moon_ra_rad"],
-                        r["moon_dec_rad"],
-                    )
-                    for r in results
-                ],
+        # Write results in small chunks to avoid holding the write lock
+        CHUNK_SIZE = 50
+        insert_sql = """
+            INSERT INTO eclipse_results (
+                run_id, julian_day_tt, date, catalog_type, magnitude,
+                detected, threshold_arcmin, min_separation_arcmin,
+                timing_offset_min, best_jd,
+                sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        rows = [
+            (
+                run_id,
+                r["julian_day_tt"], r["date"], r["catalog_type"], r["magnitude"],
+                r["detected"], r["threshold_arcmin"], r["min_separation_arcmin"],
+                r["timing_offset_min"], r["best_jd"],
+                r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
             )
+            for r in results
+        ]
+        for i in range(0, len(rows), CHUNK_SIZE):
+            chunk = rows[i : i + CHUNK_SIZE]
+            with get_db() as conn:
+                conn.executemany(insert_sql, chunk)
+                conn.commit()
+
+        with get_db() as conn:
             conn.execute(
                 """
                 UPDATE runs
