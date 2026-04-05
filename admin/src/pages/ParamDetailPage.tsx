@@ -191,9 +191,6 @@ export default function ParamDetailPage() {
           <Button variant="outline" onClick={handleFork}>
             Fork
           </Button>
-          <Button onClick={() => navigate(`/parameters/${id}/edit`)}>
-            Edit
-          </Button>
           <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
             {deleting ? "Deleting…" : "Delete"}
           </Button>
@@ -291,28 +288,16 @@ export default function ParamDetailPage() {
                       {format(new Date(v.created_at), "MMM d, yyyy HH:mm")}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/parameters/${id}/versions/${v.id}`);
-                          }}
-                        >
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/parameters/${id}/edit?from=${v.id}`);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/parameters/${id}/versions/${v.id}`);
+                        }}
+                      >
+                        View
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
