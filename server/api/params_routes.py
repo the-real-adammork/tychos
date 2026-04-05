@@ -278,6 +278,7 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
             await conn.commit()
 
         # Handle params_json: create new version only if md5 differs from latest
+        new_version_id = None
         if body.params_json is not None:
             try:
                 new_md5 = _compute_md5(body.params_json)
@@ -312,6 +313,7 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
                     (param_set_id, next_version, parent_id, new_md5, body.params_json, body.notes),
                 )
                 param_version_id = pv_cursor.lastrowid
+                new_version_id = param_version_id
                 await conn.commit()
                 await auto_queue_runs(conn, param_version_id)
 
@@ -326,7 +328,10 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
         )
         updated = await updated_cursor.fetchone()
 
-    return _row_to_dict(updated)
+    result = _row_to_dict(updated)
+    if new_version_id is not None:
+        result["new_version_id"] = new_version_id
+    return result
 
 
 @router.delete("/{param_set_id}", status_code=204)

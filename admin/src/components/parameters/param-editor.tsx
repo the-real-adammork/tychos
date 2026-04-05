@@ -141,13 +141,19 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
         body: JSON.stringify({ params_json: paramsJson, parent_version_id: meta?.latestVersionId, notes: notes || null }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        setSaveError(data.error ?? "Failed to save");
+        const errData = await res.json();
+        setSaveError(errData.error ?? "Failed to save");
         return;
       }
+      const result = await res.json();
       setSaved(true);
       onSaved?.();
-      navigate(`/parameters/${id}`);
+      // Navigate to new version detail if one was created, otherwise back to param set
+      if (result.new_version_id) {
+        navigate(`/parameters/${id}/versions/${result.new_version_id}`);
+      } else {
+        navigate(`/parameters/${id}`);
+      }
     } catch {
       setSaveError("Network error");
     } finally {

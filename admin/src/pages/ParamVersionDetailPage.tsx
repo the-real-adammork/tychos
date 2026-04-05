@@ -224,9 +224,14 @@ export default function ParamVersionDetailPage() {
               {data.notes || "Add notes..."}
             </div>
           )}
-          <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
-            Back to Param Set
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => navigate(`/parameters/${id}/edit?from=${versionId}`)}>
+              New Version Based On v{data.version_number}
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
+              Back to Param Set
+            </Button>
+          </div>
         </div>
       </div>
 
