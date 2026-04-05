@@ -133,3 +133,10 @@ def _process_one() -> None:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+if __name__ == "__main__":
+    from server.db import init_db
+    init_db()
+    print("[worker] Starting standalone worker process")
+    _worker_loop()

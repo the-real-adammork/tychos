@@ -5,13 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from server.db import init_db
-from server.worker import start_worker
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    start_worker()
     yield
 
 

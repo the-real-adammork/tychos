@@ -1,7 +1,12 @@
-"""SQLite database connection and schema management."""
+"""SQLite database connection and schema management.
+
+Provides both sync (for worker process) and async (for API server) access.
+"""
 import sqlite3
 from pathlib import Path
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
+
+import aiosqlite
 
 DB_PATH = Path(__file__).parent.parent / "results" / "tychos_results.db"
 
@@ -75,9 +80,11 @@ def init_db():
     conn.close()
 
 
+# --- Sync access (used by worker process) ---
+
 @contextmanager
 def get_db():
-    """Yield a sqlite3 connection with row_factory set to Row."""
+    """Yield a sync sqlite3 connection with row_factory set to Row."""
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -85,3 +92,17 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+
+# --- Async access (used by API server) ---
+
+@asynccontextmanager
+async def get_async_db():
+    """Yield an async aiosqlite connection with row_factory set to Row."""
+    conn = await aiosqlite.connect(str(DB_PATH), timeout=10)
+    conn.row_factory = aiosqlite.Row
+    await conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield conn
+    finally:
+        await conn.close()
