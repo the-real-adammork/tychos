@@ -187,3 +187,23 @@ def get_param_set(conn, name):
         "SELECT param_set_id, name, params_md5, params_json FROM param_sets WHERE name = ?",
         (name,),
     ).fetchone()
+
+
+def insert_results_for_run(conn, run_id, eclipse_rows):
+    """Insert eclipse result rows for an existing run_id (no new run row created).
+
+    Writes to the Prisma-managed EclipseResult table using camelCase column names.
+    eclipse_rows is a list of dicts with keys matching the Python runner's output.
+    """
+    conn.executemany(
+        'INSERT INTO "EclipseResult" (runId, julianDayTt, date, catalogType, '
+        "magnitude, detected, thresholdArcmin, minSeparationArcmin, "
+        'timingOffsetMin, bestJd, sunRaRad, sunDecRad, moonRaRad, moonDecRad) '
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [(run_id, r["julian_day_tt"], r["date"], r["catalog_type"],
+          r["magnitude"], r["detected"], r["threshold_arcmin"],
+          r["min_separation_arcmin"], r["timing_offset_min"], r["best_jd"],
+          r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"])
+         for r in eclipse_rows],
+    )
+    conn.commit()
