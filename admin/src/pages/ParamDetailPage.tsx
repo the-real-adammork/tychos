@@ -29,6 +29,7 @@ interface VersionRow {
   version_number: number;
   parent_version_id: number | null;
   params_md5: string;
+  notes: string | null;
   created_at: string;
 }
 
@@ -99,8 +100,8 @@ function StatCard({
             <p className="text-sm text-muted-foreground mt-1">
               {stats.detected}/{stats.total_eclipses} detected
             </p>
-            <p className="text-xs text-muted-foreground">
-              v{stats.version_number}
+            <p className="text-xs text-muted-foreground mt-1">
+              <span className="font-medium">Version:</span> v{stats.version_number}
             </p>
           </>
         ) : (
@@ -201,8 +202,8 @@ export default function ParamDetailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <StatCard title="Solar Detection" stats={data.solar_stats} />
-        <StatCard title="Lunar Detection" stats={data.lunar_stats} />
+        <StatCard title="Best Solar Detection" stats={data.solar_stats} />
+        <StatCard title="Best Lunar Detection" stats={data.lunar_stats} />
       </div>
 
       {/* Latest Runs */}
@@ -259,6 +260,7 @@ export default function ParamDetailPage() {
               <TableRow>
                 <TableHead>Version</TableHead>
                 <TableHead>Based On</TableHead>
+                <TableHead>Notes</TableHead>
                 <TableHead>MD5</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead></TableHead>
@@ -279,6 +281,9 @@ export default function ParamDetailPage() {
                     <TableCell className="text-muted-foreground text-xs">
                       {parent ? `v${parent.version_number}` : "—"}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-48 truncate">
+                      {v.notes || "—"}
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {v.params_md5.slice(0, 12)}…
                     </TableCell>
@@ -286,16 +291,28 @@ export default function ParamDetailPage() {
                       {format(new Date(v.created_at), "MMM d, yyyy HH:mm")}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/parameters/${id}/edit?from=${v.id}`);
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/parameters/${id}/versions/${v.id}`);
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/parameters/${id}/edit?from=${v.id}`);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

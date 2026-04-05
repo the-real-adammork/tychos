@@ -51,7 +51,7 @@ export default function DashboardPage() {
             status: r.status,
             totalEclipses: r.total_eclipses,
             detected: r.detected,
-            paramSet: { name: r.param_set_name },
+            paramSet: { name: `${r.param_set_name} v${r.version_number}` },
           }))}
         />
         <Leaderboard
