@@ -312,9 +312,9 @@ export default function ParamVersionDetailPage() {
                     {entry.changes.map((change, i) => (
                       <div key={i}>
                         <span className="text-muted-foreground font-semibold">{change.body}.{change.param}:</span>
-                        <span className="ml-2 bg-red-500/15 text-red-400 px-1 rounded">{change.oldVal}</span>
+                        <span className="ml-2 bg-red-300/40 text-red-950 dark:bg-red-500/25 dark:text-red-200 px-1 rounded">{change.oldVal}</span>
                         <span className="mx-1 text-muted-foreground">→</span>
-                        <span className="bg-green-500/15 text-green-400 px-1 rounded">{change.newVal}</span>
+                        <span className="bg-green-300/40 text-green-950 dark:bg-green-500/25 dark:text-green-200 px-1 rounded">{change.newVal}</span>
                       </div>
                     ))}
                   </div>
