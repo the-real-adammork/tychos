@@ -187,31 +187,37 @@ async def get_param_set(param_set_id: int):
         versions = [_row_to_dict(v) for v in await ver_cursor.fetchall()]
         item["versions"] = versions
 
-        # Latest version stats and runs
-        if versions:
-            latest_version_id = versions[0]["id"]
+        # Best detection across ALL versions
+        version_ids = [v["id"] for v in versions]
+        if version_ids:
+            placeholders = ",".join("?" * len(version_ids))
 
-            # Done runs for latest version to compute solar/lunar detection stats
-            stats_cursor = await conn.execute(
-                """
-                SELECT test_type, total_eclipses, detected
-                FROM runs
-                WHERE param_version_id = ? AND status = 'done'
-                ORDER BY completed_at DESC
-                """,
-                (latest_version_id,),
-            )
-            stats_rows = await stats_cursor.fetchall()
-            solar_stats = next(
-                (_row_to_dict(r) for r in stats_rows if r["test_type"] == "solar"), None
-            )
-            lunar_stats = next(
-                (_row_to_dict(r) for r in stats_rows if r["test_type"] == "lunar"), None
-            )
-            item["solar_stats"] = solar_stats
-            item["lunar_stats"] = lunar_stats
+            for test_type in ("solar", "lunar"):
+                best_cursor = await conn.execute(
+                    f"""
+                    SELECT r.detected, r.total_eclipses, pv.version_number
+                    FROM runs r
+                    JOIN param_versions pv ON r.param_version_id = pv.id
+                    WHERE r.param_version_id IN ({placeholders})
+                      AND r.test_type = ? AND r.status = 'done'
+                      AND r.total_eclipses > 0
+                    ORDER BY CAST(r.detected AS REAL) / r.total_eclipses DESC
+                    LIMIT 1
+                    """,
+                    (*version_ids, test_type),
+                )
+                best_row = await best_cursor.fetchone()
+                if best_row:
+                    item[f"{test_type}_stats"] = {
+                        "detected": best_row["detected"],
+                        "total_eclipses": best_row["total_eclipses"],
+                        "version_number": best_row["version_number"],
+                    }
+                else:
+                    item[f"{test_type}_stats"] = None
 
             # All runs for latest version
+            latest_version_id = versions[0]["id"]
             runs_cursor = await conn.execute(
                 """
                 SELECT id, test_type, status, total_eclipses, detected, created_at, completed_at
