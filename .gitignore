@@ -6,3 +6,6 @@ __pycache__/
 .pytest_cache/
 *.bsp
 .superpowers/
+admin/dist/
+admin/node_modules/
+admin/.next/
