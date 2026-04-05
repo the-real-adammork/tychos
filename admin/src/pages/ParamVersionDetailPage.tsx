@@ -315,6 +315,19 @@ export default function ParamVersionDetailPage() {
                         <span className="ml-2 bg-red-300/40 text-red-950 dark:bg-red-500/25 dark:text-red-200 px-1 rounded">{change.oldVal}</span>
                         <span className="mx-1 text-muted-foreground">→</span>
                         <span className="bg-green-300/40 text-green-950 dark:bg-green-500/25 dark:text-green-200 px-1 rounded">{change.newVal}</span>
+                        {(() => {
+                          const o = parseFloat(change.oldVal);
+                          const n = parseFloat(change.newVal);
+                          if (!isNaN(o) && !isNaN(n)) {
+                            const diff = n - o;
+                            return (
+                              <span className={`ml-1 text-xs ${diff > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                ({diff > 0 ? "+" : ""}{diff})
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     ))}
                   </div>
