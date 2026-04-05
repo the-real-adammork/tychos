@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS param_versions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     param_set_id INTEGER NOT NULL REFERENCES param_sets(id) ON DELETE CASCADE,
     version_number INTEGER NOT NULL DEFAULT 1,
+    parent_version_id INTEGER REFERENCES param_versions(id) ON DELETE SET NULL,
     params_md5 TEXT NOT NULL,
     params_json TEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
