@@ -21,10 +21,12 @@ HOUR_IN_DAYS = 1.0 / 24.0
 def _tychos_moon_velocity(system, jd, m_ra, m_dec):
     """Compute Moon RA/Dec velocity (radians per hour) at the given JD.
 
-    Takes the current Moon position to avoid an extra move_system call.
+    Takes the current Moon position to avoid computing it twice.
+    Restores system to original JD after.
     """
     system.move_system(jd + HOUR_IN_DAYS)
     m_ra2, m_dec2, _ = system['moon'].radec_direct(system['earth'], epoch='j2000', formatted=False)
+    system.move_system(jd)  # restore
     return float(m_ra2 - m_ra), float(m_dec2 - m_dec)
 
 
