@@ -114,6 +114,15 @@ export default function ParamVersionDetailPage() {
       .finally(() => setLoading(false));
   }, [id, versionId]);
 
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  // Reset notes value when data loads
+  useEffect(() => {
+    if (data) setNotesValue(data.notes || "");
+  }, [data]);
+
   if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) return null;
@@ -126,7 +135,6 @@ export default function ParamVersionDetailPage() {
   type ChainEntry = { version: Ancestor & { params_json: string }; changes: ParamChange[] };
 
   const versionChain: ChainEntry[] = (() => {
-    // Build ordered list: current version first, then ancestors
     const allVersions: Array<Ancestor & { params_json: string }> = [
       { ...data, solar_detected: solarRun?.detected ?? null, solar_total: solarRun?.total_eclipses ?? null,
         lunar_detected: lunarRun?.detected ?? null, lunar_total: lunarRun?.total_eclipses ?? null },
@@ -134,7 +142,6 @@ export default function ParamVersionDetailPage() {
     ];
 
     return allVersions.map((ver, idx) => {
-      // Find this version's parent in the chain
       const parent = idx < allVersions.length - 1 ? allVersions[idx + 1] : null;
       const changes: ParamChange[] = [];
 
@@ -159,10 +166,6 @@ export default function ParamVersionDetailPage() {
       return { version: ver, changes };
     });
   })();
-
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesValue, setNotesValue] = useState(data.notes || "");
-  const [savingNotes, setSavingNotes] = useState(false);
 
   async function handleSaveNotes() {
     setSavingNotes(true);
