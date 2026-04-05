@@ -23,9 +23,10 @@ async def dashboard():
         # Best solar: highest detected/total_eclipses rate among done runs
         best_solar_cursor = await conn.execute(
             """
-            SELECT p.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
+            SELECT ps.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
             WHERE r.test_type = 'solar' AND r.status = 'done'
               AND r.total_eclipses > 0
             ORDER BY rate DESC
@@ -42,9 +43,10 @@ async def dashboard():
         # Best lunar
         best_lunar_cursor = await conn.execute(
             """
-            SELECT p.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
+            SELECT ps.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
             WHERE r.test_type = 'lunar' AND r.status = 'done'
               AND r.total_eclipses > 0
             ORDER BY rate DESC
@@ -61,11 +63,12 @@ async def dashboard():
         # Recent runs (last 10)
         recent_cursor = await conn.execute(
             """
-            SELECT r.id, p.name AS param_set_name, u.name AS owner_name,
+            SELECT r.id, ps.name AS param_set_name, u.name AS owner_name,
                    r.test_type, r.status, r.total_eclipses, r.detected, r.created_at
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
-            JOIN users u ON p.owner_id = u.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            JOIN users u ON ps.owner_id = u.id
             ORDER BY r.created_at DESC
             LIMIT 10
             """
@@ -76,13 +79,14 @@ async def dashboard():
         # Leaderboard: param sets ordered by avg detection rate across done runs
         leader_cursor = await conn.execute(
             """
-            SELECT p.name AS param_set_name, u.name AS owner_name,
+            SELECT ps.name AS param_set_name, u.name AS owner_name,
                    AVG(CAST(r.detected AS REAL) / r.total_eclipses) AS avg_rate
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
-            JOIN users u ON p.owner_id = u.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            JOIN users u ON ps.owner_id = u.id
             WHERE r.status = 'done' AND r.total_eclipses > 0
-            GROUP BY p.id
+            GROUP BY ps.id
             ORDER BY avg_rate DESC
             LIMIT 20
             """

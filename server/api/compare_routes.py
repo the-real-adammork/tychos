@@ -11,15 +11,16 @@ def _row_to_dict(row) -> dict:
 
 
 async def _get_latest_done_run(conn, param_set_id: int, test_type: str):
-    """Return the latest done run for a param_set + test_type, or None."""
+    """Return the latest done run for a param_set + test_type via param_versions, or None."""
     cursor = await conn.execute(
         """
-        SELECT r.id, r.total_eclipses, r.detected, p.name AS param_set_name, u.name AS owner_name,
-               p.params_json
+        SELECT r.id, r.total_eclipses, r.detected, ps.name AS param_set_name,
+               u.name AS owner_name, pv.params_json
         FROM runs r
-        JOIN param_sets p ON r.param_set_id = p.id
-        JOIN users u ON p.owner_id = u.id
-        WHERE r.param_set_id = ? AND r.test_type = ? AND r.status = 'done'
+        JOIN param_versions pv ON r.param_version_id = pv.id
+        JOIN param_sets ps ON pv.param_set_id = ps.id
+        JOIN users u ON ps.owner_id = u.id
+        WHERE pv.param_set_id = ? AND r.test_type = ? AND r.status = 'done'
         ORDER BY r.completed_at DESC
         LIMIT 1
         """,
