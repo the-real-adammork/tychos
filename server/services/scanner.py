@@ -1,18 +1,10 @@
-"""
-Scanner service — pure computation, no database.
-
-Wraps the eclipse scan helpers from tests/helpers.py and exposes
-two public functions: scan_solar_eclipses and scan_lunar_eclipses.
-"""
+"""Eclipse scanning service — thin wrapper around tests/helpers.py logic."""
 import json
-import sys
 from pathlib import Path
 
-# Allow imports of tychos_skyfield and tests/helpers from anywhere
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tychos_skyfield"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
 import numpy as np
+
+# tychos_skyfield and helpers are expected on PYTHONPATH (set by the caller).
 from tychos_skyfield import baselib as T
 from helpers import (
     scan_min_separation,
@@ -22,54 +14,38 @@ from helpers import (
     MINUTE_IN_DAYS,
 )
 
-_DATA_DIR = Path(__file__).parent.parent.parent / "tests" / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "tests" / "data"
 
 
 def load_eclipse_catalog(test_type: str) -> list[dict]:
-    """Load solar or lunar eclipse catalog from tests/data/.
-
-    Args:
-        test_type: "solar" or "lunar"
-
-    Returns:
-        List of eclipse dicts with keys: julian_day_tt, date, type, magnitude.
-    """
-    path = _DATA_DIR / f"{test_type}_eclipses.json"
+    """Load solar or lunar eclipse catalog from tests/data."""
+    path = DATA_DIR / f"{test_type}_eclipses.json"
     with open(path) as f:
         return json.load(f)
 
 
 def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
-    """Scan a list of solar eclipse candidates against a Tychos parameter set.
+    """Run solar eclipse scan for the given params and eclipse list.
 
-    Args:
-        params:   TychosSystem parameter dict (contents of a params/*.json file).
-        eclipses: List of eclipse dicts, each with julian_day_tt, date, type, magnitude.
-
-    Returns:
-        List of result dicts with snake_case keys describing each eclipse outcome.
+    Returns a list of result dicts matching the eclipse_results schema.
     """
-    if not eclipses:
-        return []
-
     system = T.TychosSystem(params=params)
-    threshold_rad = SOLAR_DETECTION_THRESHOLD
-    threshold_arcmin = np.degrees(threshold_rad) * 60
-    results = []
+    threshold_arcmin = np.degrees(SOLAR_DETECTION_THRESHOLD) * 60
+    rows = []
 
     for ecl in eclipses:
         jd = ecl["julian_day_tt"]
         min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_min_separation(system, jd)
+        det = min_sep < SOLAR_DETECTION_THRESHOLD
 
-        detected = bool(min_sep < threshold_rad)
-        results.append({
+        rows.append({
             "julian_day_tt": jd,
             "date": ecl["date"],
             "catalog_type": ecl["type"],
             "magnitude": ecl["magnitude"],
-            "detected": detected,
+            "detected": 1 if det else 0,
             "threshold_arcmin": round(threshold_arcmin, 4),
-            "min_separation_arcmin": round(float(np.degrees(min_sep) * 60), 2),
+            "min_separation_arcmin": round(np.degrees(min_sep) * 60, 2),
             "timing_offset_min": round((best_jd - jd) / MINUTE_IN_DAYS, 1),
             "best_jd": best_jd,
             "sun_ra_rad": float(s_ra),
@@ -78,41 +54,32 @@ def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
             "moon_dec_rad": float(m_dec),
         })
 
-    return results
+    return rows
 
 
 def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
-    """Scan a list of lunar eclipse candidates against a Tychos parameter set.
+    """Run lunar eclipse scan for the given params and eclipse list.
 
-    Args:
-        params:   TychosSystem parameter dict (contents of a params/*.json file).
-        eclipses: List of eclipse dicts, each with julian_day_tt, date, type, magnitude.
-
-    Returns:
-        List of result dicts with snake_case keys describing each eclipse outcome.
+    Returns a list of result dicts matching the eclipse_results schema.
     """
-    if not eclipses:
-        return []
-
     system = T.TychosSystem(params=params)
-    results = []
+    rows = []
 
     for ecl in eclipses:
         jd = ecl["julian_day_tt"]
-        catalog_type = ecl["type"]
         min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_lunar_eclipse(system, jd)
+        threshold = lunar_threshold(ecl["type"])
+        threshold_arcmin = np.degrees(threshold) * 60
+        det = min_sep < threshold
 
-        threshold_rad = lunar_threshold(catalog_type)
-        threshold_arcmin = np.degrees(threshold_rad) * 60
-        detected = bool(min_sep < threshold_rad)
-        results.append({
+        rows.append({
             "julian_day_tt": jd,
             "date": ecl["date"],
-            "catalog_type": catalog_type,
+            "catalog_type": ecl["type"],
             "magnitude": ecl["magnitude"],
-            "detected": detected,
+            "detected": 1 if det else 0,
             "threshold_arcmin": round(threshold_arcmin, 4),
-            "min_separation_arcmin": round(float(np.degrees(min_sep) * 60), 2),
+            "min_separation_arcmin": round(np.degrees(min_sep) * 60, 2),
             "timing_offset_min": round((best_jd - jd) / MINUTE_IN_DAYS, 1),
             "best_jd": best_jd,
             "sun_ra_rad": float(s_ra),
@@ -121,4 +88,4 @@ def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
             "moon_dec_rad": float(m_dec),
         })
 
-    return results
+    return rows
