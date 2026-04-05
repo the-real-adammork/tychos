@@ -24,7 +24,7 @@ async def list_runs(
     values: list = []
 
     if param_set_id is not None:
-        conditions.append("r.param_set_id = ?")
+        conditions.append("pv.param_set_id = ?")
         values.append(param_set_id)
     if status is not None:
         conditions.append("r.status = ?")
@@ -35,10 +35,11 @@ async def list_runs(
     async with get_async_db() as conn:
         cursor = await conn.execute(
             f"""
-            SELECT r.*, p.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.name AS param_set_name, u.name AS owner_name
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
-            JOIN users u ON p.owner_id = u.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            JOIN users u ON ps.owner_id = u.id
             {where_clause}
             ORDER BY r.created_at DESC
             LIMIT 100
@@ -57,7 +58,7 @@ class CreateRunBody(BaseModel):
 
 @router.post("", status_code=201)
 async def create_run(body: CreateRunBody, request: Request):
-    """Queue a new run. Auth required."""
+    """Force-queue a new run for the latest version of a param set. Auth required."""
     user = await require_user(request)
 
     if body.test_type not in VALID_TEST_TYPES:
@@ -67,28 +68,38 @@ async def create_run(body: CreateRunBody, request: Request):
         )
 
     async with get_async_db() as conn:
-        ps_cursor = await conn.execute(
-            "SELECT id FROM param_sets WHERE id = ?", (body.param_set_id,)
+        # Find latest version for this param set
+        ver_cursor = await conn.execute(
+            """
+            SELECT id FROM param_versions
+            WHERE param_set_id = ?
+            ORDER BY version_number DESC
+            LIMIT 1
+            """,
+            (body.param_set_id,),
         )
-        param_set = await ps_cursor.fetchone()
-        if param_set is None:
-            raise HTTPException(status_code=404, detail="Param set not found")
+        latest_ver = await ver_cursor.fetchone()
+        if latest_ver is None:
+            raise HTTPException(status_code=404, detail="Param set not found or has no versions")
+
+        param_version_id = latest_ver["id"]
 
         cursor = await conn.execute(
             """
-            INSERT INTO runs (param_set_id, test_type, status)
+            INSERT INTO runs (param_version_id, test_type, status)
             VALUES (?, ?, 'queued')
             """,
-            (body.param_set_id, body.test_type),
+            (param_version_id, body.test_type),
         )
         await conn.commit()
 
         row_cursor = await conn.execute(
             """
-            SELECT r.*, p.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.name AS param_set_name, u.name AS owner_name
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
-            JOIN users u ON p.owner_id = u.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            JOIN users u ON ps.owner_id = u.id
             WHERE r.id = ?
             """,
             (cursor.lastrowid,),
@@ -104,10 +115,11 @@ async def get_run(run_id: int):
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT r.*, p.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.name AS param_set_name, u.name AS owner_name
             FROM runs r
-            JOIN param_sets p ON r.param_set_id = p.id
-            JOIN users u ON p.owner_id = u.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            JOIN users u ON ps.owner_id = u.id
             WHERE r.id = ?
             """,
             (run_id,),
