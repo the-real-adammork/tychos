@@ -25,7 +25,7 @@ from helpers import (
 )
 from db import (
     init_db, sync_param_sets, run_exists, insert_run,
-    get_param_set, canonical_md5,
+    get_param_set, canonical_md5, insert_results_for_run,
 )
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -137,10 +137,16 @@ def print_summary(test_type, total, detected, rows):
         print(f"  Timing offset (detected): mean={np.mean(offsets):.1f}min, max={np.max(offsets):.1f}min")
 
 
-def run_for_param_set(conn, param_name, params_dict, params_md5, param_set_id, force):
-    """Run solar and lunar tests for one parameter set."""
-    for test_type in ("solar", "lunar"):
-        if not force and run_exists(conn, params_md5, test_type):
+def run_for_param_set(conn, param_name, params_dict, params_md5, param_set_id, force,
+                      test_types=("solar", "lunar"), run_id=None):
+    """Run solar and/or lunar tests for one parameter set.
+
+    When run_id is provided, results are written to that existing Run row via
+    insert_results_for_run() instead of creating a new run row.
+    test_types controls which eclipse types are executed.
+    """
+    for test_type in test_types:
+        if run_id is None and not force and run_exists(conn, params_md5, test_type):
             print(f"  [{param_name}/{test_type}] already exists, skipping (use --force to re-run)")
             continue
 
@@ -153,8 +159,11 @@ def run_for_param_set(conn, param_name, params_dict, params_md5, param_set_id, f
         else:
             detected, rows = run_lunar(system, eclipses)
 
-        insert_run(conn, param_set_id, param_name, test_type,
-                   len(eclipses), detected, rows)
+        if run_id is not None:
+            insert_results_for_run(conn, run_id, rows)
+        else:
+            insert_run(conn, param_set_id, param_name, test_type,
+                       len(eclipses), detected, rows)
         print_summary(test_type, len(eclipses), detected, rows)
 
 
@@ -162,10 +171,23 @@ def main():
     parser = argparse.ArgumentParser(description="Run Tychos eclipse prediction tests")
     parser.add_argument("params_file", nargs="?", help="Specific params file to test")
     parser.add_argument("--force", action="store_true", help="Re-run even if results exist")
+    parser.add_argument("--db", metavar="PATH", help="Path to SQLite database file (overrides default)")
+    parser.add_argument("--run-id", type=int, metavar="INT",
+                        help="Existing Run ID to write results to (skip creating a new run row)")
+    parser.add_argument("--test-type", choices=["solar", "lunar"],
+                        help="Run only this test type instead of both")
     args = parser.parse_args()
+
+    # Override DB_PATH before init_db() if --db was given
+    if args.db:
+        import db as db_module
+        db_module.DB_PATH = Path(args.db)
 
     conn = init_db()
     sync_param_sets(conn)
+
+    # Determine which test types to run
+    test_types = (args.test_type,) if args.test_type else ("solar", "lunar")
 
     if args.params_file:
         path = Path(args.params_file)
@@ -177,7 +199,8 @@ def main():
             sys.exit(1)
         param_set_id, _, params_md5, params_json = ps
         params_dict = json.loads(params_json)
-        run_for_param_set(conn, name, params_dict, params_md5, param_set_id, args.force)
+        run_for_param_set(conn, name, params_dict, params_md5, param_set_id, args.force,
+                          test_types=test_types, run_id=args.run_id)
     else:
         # Run all param sets
         params_dir = Path(__file__).parent.parent / "params"
@@ -188,17 +211,19 @@ def main():
                 continue
             param_set_id, _, params_md5, params_json = ps
             params_dict = json.loads(params_json)
-            run_for_param_set(conn, name, params_dict, params_md5, param_set_id, args.force)
+            run_for_param_set(conn, name, params_dict, params_md5, param_set_id, args.force,
+                              test_types=test_types, run_id=args.run_id)
 
-    # Final summary across all runs
-    print("\n=== ALL RUNS ===")
-    cursor = conn.execute(
-        "SELECT params_name, test_type, total_eclipses, detected, "
-        "ROUND(100.0 * detected / total_eclipses, 1) AS pct "
-        "FROM runs ORDER BY params_name, test_type"
-    )
-    for row in cursor:
-        print(f"  {row[0]:20s} {row[1]:6s}  {row[3]}/{row[2]} ({row[4]}%)")
+    # Final summary across all runs (only shown in legacy mode without --run-id)
+    if args.run_id is None:
+        print("\n=== ALL RUNS ===")
+        cursor = conn.execute(
+            "SELECT params_name, test_type, total_eclipses, detected, "
+            "ROUND(100.0 * detected / total_eclipses, 1) AS pct "
+            "FROM runs ORDER BY params_name, test_type"
+        )
+        for row in cursor:
+            print(f"  {row[0]:20s} {row[1]:6s}  {row[3]}/{row[2]} ({row[4]}%)")
 
     conn.close()
 
