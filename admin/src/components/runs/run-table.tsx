@@ -27,6 +27,7 @@ interface Run {
   totalEclipses: number | null
   detected: number | null
   createdAt: string
+  versionNumber: number | null
   paramSet: {
     id: number
     name: string
@@ -92,8 +93,9 @@ export default function RunTable() {
           totalEclipses: r.total_eclipses,
           detected: r.detected,
           createdAt: r.created_at,
+          versionNumber: r.version_number ?? null,
           paramSet: {
-            id: r.param_set_id,
+            id: r.param_version_id,
             name: r.param_set_name,
             owner: { name: r.owner_name },
           },

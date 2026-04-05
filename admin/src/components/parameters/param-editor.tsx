@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -29,14 +30,17 @@ interface ParamSetMeta {
   name: string;
   description: string | null;
   paramsJson: string;
+  latestVersionId: number;
   owner: { id: number; name: string };
 }
 
 interface ParamEditorProps {
   id: string;
+  onSaved?: () => void;
 }
 
-export function ParamEditor({ id }: ParamEditorProps) {
+export function ParamEditor({ id, onSaved }: ParamEditorProps) {
+  const navigate = useNavigate();
   const [meta, setMeta] = React.useState<ParamSetMeta | null>(null);
   const [values, setValues] = React.useState<ParamsData>({});
   const [loading, setLoading] = React.useState(true);
@@ -50,18 +54,37 @@ export function ParamEditor({ id }: ParamEditorProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/params/${id}`);
-        if (!res.ok) {
-          setError(res.status === 404 ? "Parameter set not found" : "Failed to load");
+        // First, get the param set detail to find the latest version id
+        const detailRes = await fetch(`/api/params/${id}`);
+        if (!detailRes.ok) {
+          setError(detailRes.status === 404 ? "Parameter set not found" : "Failed to load");
           return;
         }
-        const raw = await res.json();
+        const detail = await detailRes.json();
+
+        const versions: Array<{ id: number; version_number: number }> = detail.versions ?? [];
+        if (versions.length === 0) {
+          setError("No versions found for this parameter set");
+          return;
+        }
+        // versions are returned newest first
+        const latestVersion = versions[0];
+
+        // Fetch the latest version to get params_json
+        const verRes = await fetch(`/api/params/${id}/versions/${latestVersion.id}`);
+        if (!verRes.ok) {
+          setError("Failed to load parameter version");
+          return;
+        }
+        const verData = await verRes.json();
+
         const data: ParamSetMeta = {
-          id: raw.id,
-          name: raw.name,
-          description: raw.description,
-          paramsJson: raw.params_json,
-          owner: { id: raw.owner_id, name: raw.owner_name },
+          id: detail.id,
+          name: detail.name,
+          description: detail.description,
+          paramsJson: verData.params_json,
+          latestVersionId: latestVersion.id,
+          owner: { id: detail.owner_id, name: detail.owner_name },
         };
         setMeta(data);
         try {
@@ -76,7 +99,7 @@ export function ParamEditor({ id }: ParamEditorProps) {
           }
           setValues(stringified);
         } catch {
-          setError("paramsJson is not valid JSON");
+          setError("params_json is not valid JSON");
         }
       } catch {
         setError("Network error");
@@ -121,6 +144,8 @@ export function ParamEditor({ id }: ParamEditorProps) {
         return;
       }
       setSaved(true);
+      onSaved?.();
+      navigate(`/parameters/${id}`);
     } catch {
       setSaveError("Network error");
     } finally {
@@ -157,6 +182,9 @@ export function ParamEditor({ id }: ParamEditorProps) {
           {saveError && (
             <span className="text-sm text-destructive">{saveError}</span>
           )}
+          <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
+            Cancel
+          </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
@@ -179,7 +207,7 @@ export function ParamEditor({ id }: ParamEditorProps) {
             {bodies.length === 0 && (
               <TableRow>
                 <TableCell colSpan={PARAM_FIELDS.length + 1} className="text-center text-muted-foreground">
-                  No bodies found in paramsJson
+                  No bodies found in params_json
                 </TableCell>
               </TableRow>
             )}
