@@ -156,7 +156,12 @@ export default function RunTable() {
                     : undefined
                 }
               >
-                <TableCell className="font-medium">{run.paramSet.name}</TableCell>
+                <TableCell className="font-medium">
+                  {run.paramSet.name}
+                  {run.versionNumber != null && (
+                    <span className="ml-1 text-xs text-muted-foreground">v{run.versionNumber}</span>
+                  )}
+                </TableCell>
                 <TableCell>{run.paramSet.owner.name}</TableCell>
                 <TableCell>{run.testType}</TableCell>
                 <TableCell>
