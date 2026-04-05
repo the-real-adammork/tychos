@@ -6,8 +6,9 @@ import { Sidebar } from "@/components/sidebar";
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
 });
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Tychos Admin",
@@ -22,12 +23,12 @@ export default async function RootLayout({
   const user = await getSessionUser();
 
   return (
-    <html lang="en" className={`${inter.variable} dark`}>
-      <body className={`${inter.variable} antialiased`}>
+    <html lang="en" className={inter.className}>
+      <body>
         {user ? (
           <div className="flex h-screen overflow-hidden">
             <Sidebar userName={user.name} userEmail={user.email} />
-            <main className="flex-1 overflow-y-auto">{children}</main>
+            <main className="flex-1 overflow-y-auto p-6">{children}</main>
           </div>
         ) : (
           children
