@@ -26,7 +26,9 @@ interface ResultDetail {
   jpl_moon_dec_rad: number | null;
   jpl_separation_arcmin: number | null;
   moon_error_arcmin: number | null;
-  accuracy: "pass" | "close" | "fail" | "unknown";
+  status: "pass" | "fail";
+  threshold_pass: boolean;
+  jpl_rescued: boolean;
   test_type: string;
   version_number: number;
   param_set_id: number;
@@ -293,13 +295,9 @@ export default function ResultDetailPage() {
   if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (!result) return <p className="text-sm text-destructive">Result not found</p>;
 
-  const accuracy = result.accuracy ?? "unknown";
-  const accuracyColors = {
-    pass: "bg-green-600 text-white",
-    close: "bg-yellow-500 text-white",
-    fail: "bg-red-600 text-white",
-    unknown: "bg-muted text-muted-foreground",
-  };
+  const thresholdPass = result.detected === 1 || result.detected === true;
+  const status = result.status ?? (thresholdPass ? "pass" : "fail");
+  const jplRescued = result.jpl_rescued ?? false;
 
   return (
     <div className="flex flex-col gap-6">
@@ -310,9 +308,21 @@ export default function ResultDetailPage() {
             Eclipse: {result.date.split("T")[0]}
           </h1>
           <div className="flex items-center gap-3 mt-1">
-            <Badge className={accuracyColors[accuracy]}>
-              {accuracy}
+            <Badge className={status === "pass" ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
+              {status}
             </Badge>
+            {thresholdPass ? (
+              <Badge variant="outline" className="text-green-600 border-green-600/30">threshold pass</Badge>
+            ) : (
+              <>
+                <Badge variant="outline" className="text-red-600 border-red-600/30">threshold fail</Badge>
+                {jplRescued && (
+                  <Badge variant="outline" className="text-blue-600 border-blue-600/30">
+                    JPL rescued ({result.moon_error_arcmin?.toFixed(1)}')
+                  </Badge>
+                )}
+              </>
+            )}
             <span className="text-sm text-muted-foreground capitalize">{result.catalog_type}</span>
             <span className="text-sm text-muted-foreground">Magnitude: {result.magnitude}</span>
             <span className="text-sm text-muted-foreground">
@@ -427,15 +437,23 @@ export default function ResultDetailPage() {
           </div>
           <div className="mt-4 pt-3 border-t space-y-2 text-sm">
             <div className="flex justify-between items-center">
-              <span className="font-medium">Moon Position Error (Tychos vs JPL)</span>
-              <span className={`font-mono font-medium ${
-                accuracy === "pass" ? "text-green-600" :
-                accuracy === "close" ? "text-yellow-600" :
-                accuracy === "fail" ? "text-red-600" : ""
-              }`}>
-                {result.moon_error_arcmin?.toFixed(1) ?? "—"} arcmin
+              <span className="font-medium">Threshold Detection</span>
+              <span className={`font-medium ${thresholdPass ? "text-green-600" : "text-red-600"}`}>
+                {thresholdPass ? "Pass" : "Fail"}
               </span>
             </div>
+            {!thresholdPass && (
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Moon Error vs JPL</span>
+                <span className={`font-mono font-medium ${
+                  result.moon_error_arcmin != null && result.moon_error_arcmin < 60
+                    ? "text-blue-600" : "text-red-600"
+                }`}>
+                  {result.moon_error_arcmin?.toFixed(1) ?? "—"} arcmin
+                  {jplRescued && " (rescued)"}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Catalog Date</span>
               <span className="font-mono">{result.date}</span>

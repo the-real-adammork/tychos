@@ -7,25 +7,32 @@ router = APIRouter(prefix="/api/results")
 
 PAGE_SIZE = 50
 
-# Accuracy thresholds (arcminutes)
-PASS_THRESHOLD = 30.0
-CLOSE_THRESHOLD = 60.0
+# JPL accuracy thresholds (arcminutes) — only used when threshold detection fails
+JPL_CLOSE_THRESHOLD = 60.0
 
 
-def _accuracy_label(moon_error):
-    if moon_error is None:
-        return "unknown"
-    if moon_error < PASS_THRESHOLD:
+def _compute_status(detected, moon_error_arcmin):
+    """Compute overall status.
+
+    - threshold pass → "pass"
+    - threshold fail + JPL close enough (<60') → "pass" (jpl_rescued)
+    - threshold fail + JPL fail (>=60' or unknown) → "fail"
+    """
+    if detected:
         return "pass"
-    if moon_error < CLOSE_THRESHOLD:
-        return "close"
+    if moon_error_arcmin is not None and moon_error_arcmin < JPL_CLOSE_THRESHOLD:
+        return "pass"
     return "fail"
 
 
 def _enrich(row_dict):
-    """Add accuracy label from stored moon_error_arcmin."""
+    """Add computed status and jpl_rescued flag."""
     d = dict(row_dict)
-    d["accuracy"] = _accuracy_label(d.get("moon_error_arcmin"))
+    detected = d.get("detected") in (1, True)
+    moon_error = d.get("moon_error_arcmin")
+    d["status"] = _compute_status(detected, moon_error)
+    d["threshold_pass"] = detected
+    d["jpl_rescued"] = not detected and moon_error is not None and moon_error < JPL_CLOSE_THRESHOLD
     return d
 
 
@@ -34,7 +41,7 @@ async def list_results(
     run_id: int,
     page: int = Query(default=1, ge=1),
     catalog_type: str | None = Query(default=None),
-    accuracy: str | None = Query(default=None),
+    status_filter: str | None = Query(default=None, alias="status"),
 ):
     """Paginated eclipse results for a run."""
     async with get_async_db() as conn:
@@ -52,19 +59,23 @@ async def list_results(
             conditions.append("er.catalog_type = ?")
             values.append(catalog_type)
 
-        # Accuracy filter via moon_error_arcmin
-        if accuracy == "pass":
-            conditions.append("er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < ?")
-            values.append(PASS_THRESHOLD)
-        elif accuracy == "close":
-            conditions.append("er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin >= ? AND er.moon_error_arcmin < ?")
-            values.extend([PASS_THRESHOLD, CLOSE_THRESHOLD])
-        elif accuracy == "fail":
-            conditions.append("(er.moon_error_arcmin IS NULL OR er.moon_error_arcmin >= ?)")
-            values.append(CLOSE_THRESHOLD)
-        elif accuracy == "close+fail":
-            conditions.append("(er.moon_error_arcmin IS NULL OR er.moon_error_arcmin >= ?)")
-            values.append(PASS_THRESHOLD)
+        # Status filter:
+        # pass = threshold detected OR (not detected but moon_error < 60)
+        # fail = not detected AND (moon_error >= 60 or null)
+        if status_filter == "pass":
+            conditions.append(
+                "(er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < ?))"
+            )
+            values.append(JPL_CLOSE_THRESHOLD)
+        elif status_filter == "fail":
+            conditions.append(
+                "er.detected = 0 AND (er.moon_error_arcmin IS NULL OR er.moon_error_arcmin >= ?)"
+            )
+            values.append(JPL_CLOSE_THRESHOLD)
+        elif status_filter == "threshold_pass":
+            conditions.append("er.detected = 1")
+        elif status_filter == "threshold_fail":
+            conditions.append("er.detected = 0")
 
         where_clause = "WHERE " + " AND ".join(conditions)
 
@@ -74,19 +85,22 @@ async def list_results(
         )
         total = (await total_cursor.fetchone())[0]
 
-        # Stats (always for the full run, ignoring accuracy filter)
+        # Stats (always for full run)
         stats_cursor = await conn.execute(
             """
             SELECT
-                SUM(CASE WHEN moon_error_arcmin IS NOT NULL AND moon_error_arcmin < ? THEN 1 ELSE 0 END) AS pass_count,
-                SUM(CASE WHEN moon_error_arcmin IS NOT NULL AND moon_error_arcmin >= ? AND moon_error_arcmin < ? THEN 1 ELSE 0 END) AS close_count,
-                SUM(CASE WHEN moon_error_arcmin IS NULL OR moon_error_arcmin >= ? THEN 1 ELSE 0 END) AS fail_count
+                SUM(CASE WHEN detected = 1 THEN 1 ELSE 0 END) AS threshold_pass,
+                SUM(CASE WHEN detected = 0 THEN 1 ELSE 0 END) AS threshold_fail,
+                SUM(CASE WHEN detected = 0 AND moon_error_arcmin IS NOT NULL AND moon_error_arcmin < ? THEN 1 ELSE 0 END) AS jpl_rescued,
+                SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < ?) THEN 1 ELSE 0 END) AS overall_pass,
+                SUM(CASE WHEN detected = 0 AND (moon_error_arcmin IS NULL OR moon_error_arcmin >= ?) THEN 1 ELSE 0 END) AS overall_fail,
+                COUNT(*) AS total
             FROM eclipse_results
             WHERE run_id = ?
             """,
-            (PASS_THRESHOLD, PASS_THRESHOLD, CLOSE_THRESHOLD, CLOSE_THRESHOLD, run_id),
+            (JPL_CLOSE_THRESHOLD, JPL_CLOSE_THRESHOLD, JPL_CLOSE_THRESHOLD, run_id),
         )
-        stats_row = await stats_cursor.fetchone()
+        s = await stats_cursor.fetchone()
 
         # Paginated results
         offset = (page - 1) * PAGE_SIZE
@@ -108,9 +122,12 @@ async def list_results(
         "page": page,
         "page_size": PAGE_SIZE,
         "stats": {
-            "pass": stats_row["pass_count"] or 0,
-            "close": stats_row["close_count"] or 0,
-            "fail": stats_row["fail_count"] or 0,
+            "threshold_pass": s["threshold_pass"] or 0,
+            "threshold_fail": s["threshold_fail"] or 0,
+            "jpl_rescued": s["jpl_rescued"] or 0,
+            "overall_pass": s["overall_pass"] or 0,
+            "overall_fail": s["overall_fail"] or 0,
+            "total": s["total"] or 0,
         },
     }
 
