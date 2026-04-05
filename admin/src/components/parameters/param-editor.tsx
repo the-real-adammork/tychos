@@ -76,6 +76,7 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
   const navigate = useNavigate();
   const [meta, setMeta] = React.useState<ParamSetMeta | null>(null);
   const [values, setValues] = React.useState<ParamsData>({});
+  const [originalValues, setOriginalValues] = React.useState<ParamsData>({});
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -132,6 +133,7 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
             }
           }
           setValues(stringified);
+          setOriginalValues(stringified);
         } catch {
           setError("params_json is not valid JSON");
         }
@@ -150,6 +152,21 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
       [body]: { ...prev[body], [field]: value },
     }));
   }
+
+  function isFieldChanged(body: string, field: ParamField): boolean {
+    return (values[body]?.[field] ?? "") !== (originalValues[body]?.[field] ?? "");
+  }
+
+  const hasChanges = React.useMemo(() => {
+    for (const body of Object.keys(values)) {
+      for (const field of PARAM_FIELDS) {
+        if ((values[body]?.[field] ?? "") !== (originalValues[body]?.[field] ?? "")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [values, originalValues]);
 
   async function handleSave() {
     setSaving(true);
@@ -225,7 +242,7 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
           <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || !hasChanges}>
             {saving ? "Saving…" : "Save"}
           </Button>
         </div>
@@ -265,7 +282,11 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
                         <div key={field}>
                           <label className="text-xs text-muted-foreground">{field}</label>
                           <input
-                            className="mt-0.5 w-full h-8 rounded border border-input bg-background px-2 text-sm font-mono"
+                            className={`mt-0.5 w-full h-8 rounded border px-2 text-sm font-mono ${
+                              isFieldChanged(body, field)
+                                ? "border-teal-400 bg-teal-400/10 ring-1 ring-teal-400/30"
+                                : "border-input bg-background"
+                            }`}
                             value={values[body]?.[field] ?? ""}
                             onChange={(e) => handleChange(body, field, e.target.value)}
                           />
