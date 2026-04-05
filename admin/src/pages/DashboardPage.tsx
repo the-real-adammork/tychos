@@ -50,7 +50,7 @@ export default function DashboardPage() {
             testType: r.test_type,
             status: r.status,
             totalEclipses: r.total_eclipses,
-            detected: r.detected,
+            detected: r.overall_pass ?? r.detected,
             paramSet: { name: `${r.param_set_name} v${r.version_number}` },
           }))}
         />

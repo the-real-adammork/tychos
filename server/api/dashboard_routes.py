@@ -14,53 +14,54 @@ def _row_to_dict(row) -> dict:
 async def dashboard():
     """Return aggregate stats, best runs, recent runs, and a leaderboard."""
     async with get_async_db() as conn:
-        total_cursor = await conn.execute(
-            "SELECT COUNT(*) FROM param_sets"
-        )
-        total_row = await total_cursor.fetchone()
-        total_param_sets = total_row[0]
+        total_cursor = await conn.execute("SELECT COUNT(*) FROM param_sets")
+        total_param_sets = (await total_cursor.fetchone())[0]
 
-        # Best solar: highest detected/total_eclipses rate among done runs
+        # Best solar: highest overall_pass rate (threshold + JPL rescued)
         best_solar_cursor = await conn.execute(
             """
-            SELECT ps.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
+            SELECT ps.name, pv.version_number,
+                   SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass,
+                   COUNT(*) AS total,
+                   CAST(SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
-            WHERE r.test_type = 'solar' AND r.status = 'done'
-              AND r.total_eclipses > 0
+            JOIN eclipse_results er ON er.run_id = r.id
+            WHERE r.test_type = 'solar' AND r.status = 'done' AND r.total_eclipses > 0
+            GROUP BY r.id
             ORDER BY rate DESC
             LIMIT 1
             """
         )
         best_solar_row = await best_solar_cursor.fetchone()
         best_solar = (
-            {"name": best_solar_row["name"], "rate": best_solar_row["rate"]}
-            if best_solar_row
-            else None
+            {"name": f"{best_solar_row['name']} v{best_solar_row['version_number']}", "rate": best_solar_row["rate"]}
+            if best_solar_row else None
         )
 
         # Best lunar
         best_lunar_cursor = await conn.execute(
             """
-            SELECT ps.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
+            SELECT ps.name, pv.version_number,
+                   CAST(SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
-            WHERE r.test_type = 'lunar' AND r.status = 'done'
-              AND r.total_eclipses > 0
+            JOIN eclipse_results er ON er.run_id = r.id
+            WHERE r.test_type = 'lunar' AND r.status = 'done' AND r.total_eclipses > 0
+            GROUP BY r.id
             ORDER BY rate DESC
             LIMIT 1
             """
         )
         best_lunar_row = await best_lunar_cursor.fetchone()
         best_lunar = (
-            {"name": best_lunar_row["name"], "rate": best_lunar_row["rate"]}
-            if best_lunar_row
-            else None
+            {"name": f"{best_lunar_row['name']} v{best_lunar_row['version_number']}", "rate": best_lunar_row["rate"]}
+            if best_lunar_row else None
         )
 
-        # Recent runs (last 10)
+        # Recent runs with overall_pass
         recent_cursor = await conn.execute(
             """
             SELECT r.id, ps.name AS param_set_name, pv.version_number, u.name AS owner_name,
@@ -74,25 +75,48 @@ async def dashboard():
             """
         )
         recent_rows = await recent_cursor.fetchall()
-        recent_runs = [_row_to_dict(r) for r in recent_rows]
+        recent_runs = []
+        for row in recent_rows:
+            d = _row_to_dict(row)
+            if d["status"] == "done":
+                op_cursor = await conn.execute(
+                    """
+                    SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
+                    FROM eclipse_results WHERE run_id = ?
+                    """,
+                    (d["id"],),
+                )
+                op_row = await op_cursor.fetchone()
+                d["overall_pass"] = op_row["overall_pass"] or 0
+            else:
+                d["overall_pass"] = None
+            recent_runs.append(d)
 
-        # Leaderboard: param sets ordered by avg detection rate across done runs
+        # Leaderboard: param sets ordered by avg overall pass rate
         leader_cursor = await conn.execute(
             """
             SELECT ps.name AS param_set_name, u.name AS owner_name,
-                   AVG(CAST(r.detected AS REAL) / r.total_eclipses) AS avg_rate
-            FROM runs r
-            JOIN param_versions pv ON r.param_version_id = pv.id
-            JOIN param_sets ps ON pv.param_set_id = ps.id
+                   AVG(
+                       CAST(sub.overall_pass AS REAL) / sub.total
+                   ) AS avg_rate
+            FROM (
+                SELECT r.id AS run_id, pv.param_set_id,
+                       SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass,
+                       COUNT(*) AS total
+                FROM runs r
+                JOIN param_versions pv ON r.param_version_id = pv.id
+                JOIN eclipse_results er ON er.run_id = r.id
+                WHERE r.status = 'done' AND r.total_eclipses > 0
+                GROUP BY r.id
+            ) sub
+            JOIN param_sets ps ON sub.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
-            WHERE r.status = 'done' AND r.total_eclipses > 0
             GROUP BY ps.id
             ORDER BY avg_rate DESC
             LIMIT 20
             """
         )
-        leader_rows = await leader_cursor.fetchall()
-        leaderboard = [_row_to_dict(r) for r in leader_rows]
+        leaderboard = [_row_to_dict(r) for r in await leader_cursor.fetchall()]
 
     return {
         "total_param_sets": total_param_sets,
