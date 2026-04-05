@@ -36,10 +36,11 @@ interface ParamSetMeta {
 
 interface ParamEditorProps {
   id: string;
+  versionId?: string;  // if editing from a specific version
   onSaved?: () => void;
 }
 
-export function ParamEditor({ id, onSaved }: ParamEditorProps) {
+export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
   const navigate = useNavigate();
   const [meta, setMeta] = React.useState<ParamSetMeta | null>(null);
   const [values, setValues] = React.useState<ParamsData>({});
@@ -54,7 +55,7 @@ export function ParamEditor({ id, onSaved }: ParamEditorProps) {
       setLoading(true);
       setError(null);
       try {
-        // First, get the param set detail to find the latest version id
+        // Get the param set detail
         const detailRes = await fetch(`/api/params/${id}`);
         if (!detailRes.ok) {
           setError(detailRes.status === 404 ? "Parameter set not found" : "Failed to load");
@@ -67,11 +68,11 @@ export function ParamEditor({ id, onSaved }: ParamEditorProps) {
           setError("No versions found for this parameter set");
           return;
         }
-        // versions are returned newest first
-        const latestVersion = versions[0];
 
-        // Fetch the latest version to get params_json
-        const verRes = await fetch(`/api/params/${id}/versions/${latestVersion.id}`);
+        // If editing a specific version, use that. Otherwise use latest.
+        const targetVersionId = versionId ? parseInt(versionId) : versions[0].id;
+
+        const verRes = await fetch(`/api/params/${id}/versions/${targetVersionId}`);
         if (!verRes.ok) {
           setError("Failed to load parameter version");
           return;
@@ -83,7 +84,7 @@ export function ParamEditor({ id, onSaved }: ParamEditorProps) {
           name: detail.name,
           description: detail.description,
           paramsJson: verData.params_json,
-          latestVersionId: latestVersion.id,
+          latestVersionId: targetVersionId,
           owner: { id: detail.owner_id, name: detail.owner_name },
         };
         setMeta(data);
@@ -136,7 +137,7 @@ export function ParamEditor({ id, onSaved }: ParamEditorProps) {
       const res = await fetch(`/api/params/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ params_json: paramsJson }),
+        body: JSON.stringify({ params_json: paramsJson, parent_version_id: meta?.latestVersionId }),
       });
       if (!res.ok) {
         const data = await res.json();

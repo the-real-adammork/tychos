@@ -177,7 +177,7 @@ async def get_param_set(param_set_id: int):
         # All versions (newest first)
         ver_cursor = await conn.execute(
             """
-            SELECT id, version_number, created_at, params_md5
+            SELECT id, version_number, parent_version_id, created_at, params_md5
             FROM param_versions
             WHERE param_set_id = ?
             ORDER BY version_number DESC
@@ -236,6 +236,7 @@ class UpdateParamSetBody(BaseModel):
     name: str | None = None
     description: str | None = None
     params_json: str | None = None
+    parent_version_id: int | None = None  # which version this edit is based on
 
 
 @router.put("/{param_set_id}")
@@ -291,12 +292,16 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
 
             if latest_ver is None or latest_ver["params_md5"] != new_md5:
                 next_version = (latest_ver["version_number"] + 1) if latest_ver else 1
+                # parent_version_id: explicitly provided, or default to latest
+                parent_id = body.parent_version_id
+                if parent_id is None and latest_ver is not None:
+                    parent_id = latest_ver["id"]
                 pv_cursor = await conn.execute(
                     """
-                    INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
-                    (param_set_id, next_version, new_md5, body.params_json),
+                    (param_set_id, next_version, parent_id, new_md5, body.params_json),
                 )
                 param_version_id = pv_cursor.lastrowid
                 await conn.commit()
@@ -416,7 +421,7 @@ async def list_versions(param_set_id: int):
 
         cursor = await conn.execute(
             """
-            SELECT id, version_number, params_md5, created_at
+            SELECT id, version_number, parent_version_id, params_md5, created_at
             FROM param_versions
             WHERE param_set_id = ?
             ORDER BY version_number DESC
@@ -434,7 +439,7 @@ async def get_version(param_set_id: int, version_id: int):
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT id, version_number, params_md5, params_json, created_at
+            SELECT id, version_number, parent_version_id, params_md5, params_json, created_at
             FROM param_versions
             WHERE id = ? AND param_set_id = ?
             """,

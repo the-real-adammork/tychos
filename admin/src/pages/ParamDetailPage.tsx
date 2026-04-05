@@ -27,6 +27,7 @@ interface RunRow {
 interface VersionRow {
   id: number;
   version_number: number;
+  parent_version_id: number | null;
   params_md5: string;
   created_at: string;
 }
@@ -254,26 +255,48 @@ export default function ParamDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Version</TableHead>
+                <TableHead>Based On</TableHead>
                 <TableHead>MD5</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.versions.map((v) => (
-                <TableRow
-                  key={v.id}
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/parameters/${id}/versions/${v.id}`)}
-                >
-                  <TableCell className="font-medium">v{v.version_number}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {v.params_md5.slice(0, 12)}…
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {format(new Date(v.created_at), "MMM d, yyyy HH:mm")}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {data.versions.map((v) => {
+                const parent = v.parent_version_id
+                  ? data.versions.find((p) => p.id === v.parent_version_id)
+                  : null;
+                return (
+                  <TableRow
+                    key={v.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/parameters/${id}/versions/${v.id}`)}
+                  >
+                    <TableCell className="font-medium">v{v.version_number}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">
+                      {parent ? `v${parent.version_number}` : "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {v.params_md5.slice(0, 12)}…
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs">
+                      {format(new Date(v.created_at), "MMM d, yyyy HH:mm")}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/parameters/${id}/edit?from=${v.id}`);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
