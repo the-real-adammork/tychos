@@ -14,6 +14,46 @@ const PARAM_FIELDS = [
 ] as const;
 
 type ParamField = (typeof PARAM_FIELDS)[number];
+
+const BODY_GROUPS = [
+  {
+    label: "Earth & Polar Axis",
+    bodies: ["earth", "polar_axis"],
+  },
+  {
+    label: "Sun",
+    bodies: ["sun_def", "sun"],
+  },
+  {
+    label: "Moon",
+    bodies: ["moon_def_a", "moon_def_b", "moon"],
+  },
+  {
+    label: "Mercury",
+    bodies: ["mercury_def_a", "mercury_def_b", "mercury"],
+  },
+  {
+    label: "Venus",
+    bodies: ["venus_def_a", "venus_def_b", "venus"],
+  },
+  {
+    label: "Mars",
+    bodies: ["mars_def_e", "mars_def_s", "mars", "phobos", "deimos"],
+  },
+  {
+    label: "Outer Planets",
+    bodies: [
+      "jupiter_def", "jupiter",
+      "saturn_def", "saturn",
+      "uranus_def", "uranus",
+      "neptune_def", "neptune",
+    ],
+  },
+  {
+    label: "Comets & Asteroids",
+    bodies: ["halleys_def", "halleys", "eros_def_a", "eros_def_b", "eros"],
+  },
+];
 type BodyParams = Partial<Record<ParamField, string>>;
 type ParamsData = Record<string, BodyParams>;
 
@@ -202,29 +242,42 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
         />
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-8">
         {bodies.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">No bodies found</p>
         )}
-        {bodies.map((body) => (
-          <div key={body} className="border rounded-lg overflow-hidden">
-            <div className="px-4 py-2 bg-muted/30 font-medium capitalize text-sm">
-              {body}
-            </div>
-            <div className="px-4 py-3 grid grid-cols-4 gap-x-4 gap-y-2">
-              {PARAM_FIELDS.map((field) => (
-                <div key={field}>
-                  <label className="text-xs text-muted-foreground">{field}</label>
-                  <input
-                    className="mt-0.5 w-full h-8 rounded border border-input bg-background px-2 text-sm font-mono"
-                    value={values[body]?.[field] ?? ""}
-                    onChange={(e) => handleChange(body, field, e.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+        {BODY_GROUPS.map((group) => {
+          const groupBodies = group.bodies.filter((b) => bodies.includes(b));
+          if (groupBodies.length === 0) return null;
+          return (
+            <section key={group.label}>
+              <h2 className="text-lg font-semibold mb-3 sticky top-0 bg-background py-2 z-10 border-b">
+                {group.label}
+              </h2>
+              <div className="space-y-3">
+                {groupBodies.map((body) => (
+                  <div key={body} className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-muted/30 font-medium capitalize text-sm">
+                      {body.replace(/_/g, " ")}
+                    </div>
+                    <div className="px-4 py-3 grid grid-cols-4 gap-x-4 gap-y-2">
+                      {PARAM_FIELDS.map((field) => (
+                        <div key={field}>
+                          <label className="text-xs text-muted-foreground">{field}</label>
+                          <input
+                            className="mt-0.5 w-full h-8 rounded border border-input bg-background px-2 text-sm font-mono"
+                            value={values[body]?.[field] ?? ""}
+                            onChange={(e) => handleChange(body, field, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
