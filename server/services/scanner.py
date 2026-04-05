@@ -18,13 +18,14 @@ DATA_DIR = Path(__file__).parent.parent.parent / "tests" / "data"
 HOUR_IN_DAYS = 1.0 / 24.0
 
 
-def _tychos_moon_velocity(system, jd):
-    """Compute Moon RA/Dec velocity (radians per hour) at the given JD."""
+def _tychos_moon_velocity(system, jd, m_ra, m_dec):
+    """Compute Moon RA/Dec velocity (radians per hour) at the given JD.
+
+    Takes the current Moon position to avoid an extra move_system call.
+    """
     system.move_system(jd + HOUR_IN_DAYS)
     m_ra2, m_dec2, _ = system['moon'].radec_direct(system['earth'], epoch='j2000', formatted=False)
-    system.move_system(jd)
-    m_ra1, m_dec1, _ = system['moon'].radec_direct(system['earth'], epoch='j2000', formatted=False)
-    return float(m_ra2 - m_ra1), float(m_dec2 - m_dec1)
+    return float(m_ra2 - m_ra), float(m_dec2 - m_dec)
 
 
 def load_eclipse_catalog(test_type: str) -> list[dict]:
@@ -47,7 +48,7 @@ def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
         jd = ecl["julian_day_tt"]
         min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_min_separation(system, jd)
         det = min_sep < SOLAR_DETECTION_THRESHOLD
-        m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd)
+        m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
         rows.append({
             "julian_day_tt": jd,
@@ -84,7 +85,7 @@ def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
         threshold = lunar_threshold(ecl["type"])
         threshold_arcmin = np.degrees(threshold) * 60
         det = min_sep < threshold
-        m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd)
+        m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
         rows.append({
             "julian_day_tt": jd,
