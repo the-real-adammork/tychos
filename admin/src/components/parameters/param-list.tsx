@@ -47,8 +47,20 @@ export function ParamList() {
     try {
       const res = await fetch("/api/params");
       if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
-      setParamSets(data);
+      const data: any[] = await res.json();
+      setParamSets(data.map((ps) => ({
+        id: ps.id,
+        name: ps.name,
+        description: ps.description,
+        createdAt: ps.created_at,
+        owner: { id: ps.owner_id, name: ps.owner_name },
+        forkedFrom: ps.forked_from_name ? { id: ps.forked_from_id, name: ps.forked_from_name } : null,
+        runs: (ps.latest_runs || []).map((r: any) => ({
+          testType: r.test_type,
+          totalEclipses: r.total_eclipses,
+          detected: r.detected,
+        })),
+      })));
     } catch {
       setError("Failed to load parameter sets");
     } finally {
