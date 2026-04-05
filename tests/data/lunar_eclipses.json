@@ -1,0 +1,2744 @@
+[
+  {
+    "julian_day_tt": 2415508.271273,
+    "date": "1901-05-03T18:30:38",
+    "type": "penumbral",
+    "magnitude": 1.0431
+  },
+  {
+    "julian_day_tt": 2415685.135625,
+    "date": "1901-10-27T15:15:18",
+    "type": "partial",
+    "magnitude": 1.1841
+  },
+  {
+    "julian_day_tt": 2415862.286574,
+    "date": "1902-04-22T18:52:40",
+    "type": "total",
+    "magnitude": 2.4002
+  },
+  {
+    "julian_day_tt": 2416039.752384,
+    "date": "1902-10-17T06:03:26",
+    "type": "total",
+    "magnitude": 2.4514
+  },
+  {
+    "julian_day_tt": 2416216.509016,
+    "date": "1903-04-12T00:12:59",
+    "type": "partial",
+    "magnitude": 1.9877
+  },
+  {
+    "julian_day_tt": 2416394.137188,
+    "date": "1903-10-06T15:17:33",
+    "type": "partial",
+    "magnitude": 1.9133
+  },
+  {
+    "julian_day_tt": 2416541.626782,
+    "date": "1904-03-02T03:02:34",
+    "type": "penumbral",
+    "magnitude": 0.1748
+  },
+  {
+    "julian_day_tt": 2416571.022546,
+    "date": "1904-03-31T12:32:28",
+    "type": "penumbral",
+    "magnitude": 0.7036
+  },
+  {
+    "julian_day_tt": 2416748.232454,
+    "date": "1904-09-24T17:34:44",
+    "type": "penumbral",
+    "magnitude": 0.544
+  },
+  {
+    "julian_day_tt": 2416896.29169,
+    "date": "1905-02-19T19:00:02",
+    "type": "partial",
+    "magnitude": 1.3809
+  },
+  {
+    "julian_day_tt": 2417072.653461,
+    "date": "1905-08-15T03:40:59",
+    "type": "partial",
+    "magnitude": 1.3259
+  },
+  {
+    "julian_day_tt": 2417250.824282,
+    "date": "1906-02-09T07:46:58",
+    "type": "total",
+    "magnitude": 2.6507
+  },
+  {
+    "julian_day_tt": 2417427.041782,
+    "date": "1906-08-04T13:00:10",
+    "type": "total",
+    "magnitude": 2.7615
+  },
+  {
+    "julian_day_tt": 2417605.068056,
+    "date": "1907-01-29T13:38:00",
+    "type": "partial",
+    "magnitude": 1.7936
+  },
+  {
+    "julian_day_tt": 2417781.682257,
+    "date": "1907-07-25T04:22:27",
+    "type": "partial",
+    "magnitude": 1.5595
+  },
+  {
+    "julian_day_tt": 2417959.056667,
+    "date": "1908-01-18T13:21:36",
+    "type": "penumbral",
+    "magnitude": 0.537
+  },
+  {
+    "julian_day_tt": 2418107.08787,
+    "date": "1908-06-14T14:06:32",
+    "type": "penumbral",
+    "magnitude": 0.8135
+  },
+  {
+    "julian_day_tt": 2418136.398553,
+    "date": "1908-07-13T21:33:55",
+    "type": "penumbral",
+    "magnitude": 0.2292
+  },
+  {
+    "julian_day_tt": 2418283.413299,
+    "date": "1908-12-07T21:55:09",
+    "type": "penumbral",
+    "magnitude": 1.0344
+  },
+  {
+    "julian_day_tt": 2418461.561701,
+    "date": "1909-06-04T01:28:51",
+    "type": "total",
+    "magnitude": 2.18
+  },
+  {
+    "julian_day_tt": 2418637.871308,
+    "date": "1909-11-27T08:54:41",
+    "type": "total",
+    "magnitude": 2.3544
+  },
+  {
+    "julian_day_tt": 2418815.73213,
+    "date": "1910-05-24T05:34:16",
+    "type": "total",
+    "magnitude": 2.1625
+  },
+  {
+    "julian_day_tt": 2418992.514491,
+    "date": "1910-11-17T00:20:52",
+    "type": "total",
+    "magnitude": 2.0905
+  },
+  {
+    "julian_day_tt": 2419169.7475,
+    "date": "1911-05-13T05:56:24",
+    "type": "penumbral",
+    "magnitude": 0.7987
+  },
+  {
+    "julian_day_tt": 2419347.150521,
+    "date": "1911-11-06T15:36:45",
+    "type": "penumbral",
+    "magnitude": 0.8154
+  },
+  {
+    "julian_day_tt": 2419494.426574,
+    "date": "1912-04-01T22:14:16",
+    "type": "partial",
+    "magnitude": 1.1884
+  },
+  {
+    "julian_day_tt": 2419671.989468,
+    "date": "1912-09-26T11:44:50",
+    "type": "partial",
+    "magnitude": 1.1779
+  },
+  {
+    "julian_day_tt": 2419848.998484,
+    "date": "1913-03-22T11:57:49",
+    "type": "total",
+    "magnitude": 2.534
+  },
+  {
+    "julian_day_tt": 2420026.033553,
+    "date": "1913-09-15T12:48:19",
+    "type": "total",
+    "magnitude": 2.5122
+  },
+  {
+    "julian_day_tt": 2420203.675787,
+    "date": "1914-03-12T04:13:08",
+    "type": "partial",
+    "magnitude": 1.8764
+  },
+  {
+    "julian_day_tt": 2420380.079826,
+    "date": "1914-09-04T13:54:57",
+    "type": "partial",
+    "magnitude": 1.9127
+  },
+  {
+    "julian_day_tt": 2420528.706736,
+    "date": "1915-01-31T04:57:42",
+    "type": "penumbral",
+    "magnitude": 0.0451
+  },
+  {
+    "julian_day_tt": 2420558.263565,
+    "date": "1915-03-01T18:19:32",
+    "type": "penumbral",
+    "magnitude": 0.5548
+  },
+  {
+    "julian_day_tt": 2420705.017118,
+    "date": "1915-07-26T12:24:39",
+    "type": "penumbral",
+    "magnitude": 0.3545
+  },
+  {
+    "julian_day_tt": 2420734.393947,
+    "date": "1915-08-24T21:27:17",
+    "type": "penumbral",
+    "magnitude": 0.575
+  },
+  {
+    "julian_day_tt": 2420882.860891,
+    "date": "1916-01-20T08:39:41",
+    "type": "partial",
+    "magnitude": 1.2277
+  },
+  {
+    "julian_day_tt": 2421059.698692,
+    "date": "1916-07-15T04:46:07",
+    "type": "partial",
+    "magnitude": 1.7351
+  },
+  {
+    "julian_day_tt": 2421236.822778,
+    "date": "1917-01-08T07:44:48",
+    "type": "total",
+    "magnitude": 2.4663
+  },
+  {
+    "julian_day_tt": 2421414.40213,
+    "date": "1917-07-04T21:39:04",
+    "type": "total",
+    "magnitude": 2.5762
+  },
+  {
+    "julian_day_tt": 2421590.907315,
+    "date": "1917-12-28T09:46:32",
+    "type": "total",
+    "magnitude": 2.0652
+  },
+  {
+    "julian_day_tt": 2421768.936146,
+    "date": "1918-06-24T10:28:03",
+    "type": "partial",
+    "magnitude": 1.1376
+  },
+  {
+    "julian_day_tt": 2421945.295845,
+    "date": "1918-12-17T19:06:01",
+    "type": "penumbral",
+    "magnitude": 0.834
+  },
+  {
+    "julian_day_tt": 2422093.551389,
+    "date": "1919-05-15T01:14:00",
+    "type": "penumbral",
+    "magnitude": 0.9103
+  },
+  {
+    "julian_day_tt": 2422270.489213,
+    "date": "1919-11-07T23:44:28",
+    "type": "partial",
+    "magnitude": 1.1445
+  },
+  {
+    "julian_day_tt": 2422447.577176,
+    "date": "1920-05-03T01:51:08",
+    "type": "total",
+    "magnitude": 2.2818
+  },
+  {
+    "julian_day_tt": 2422625.091412,
+    "date": "1920-10-27T14:11:38",
+    "type": "total",
+    "magnitude": 2.3992
+  },
+  {
+    "julian_day_tt": 2422801.822674,
+    "date": "1921-04-22T07:44:39",
+    "type": "total",
+    "magnitude": 2.0816
+  },
+  {
+    "julian_day_tt": 2422979.454155,
+    "date": "1921-10-16T22:53:59",
+    "type": "partial",
+    "magnitude": 1.9858
+  },
+  {
+    "julian_day_tt": 2423126.978333,
+    "date": "1922-03-13T11:28:48",
+    "type": "penumbral",
+    "magnitude": 0.132
+  },
+  {
+    "julian_day_tt": 2423156.355694,
+    "date": "1922-04-11T20:32:12",
+    "type": "penumbral",
+    "magnitude": 0.7812
+  },
+  {
+    "julian_day_tt": 2423333.53044,
+    "date": "1922-10-06T00:43:50",
+    "type": "penumbral",
+    "magnitude": 0.6358
+  },
+  {
+    "julian_day_tt": 2423481.647326,
+    "date": "1923-03-03T03:32:09",
+    "type": "partial",
+    "magnitude": 1.3453
+  },
+  {
+    "julian_day_tt": 2423657.944352,
+    "date": "1923-08-26T10:39:52",
+    "type": "partial",
+    "magnitude": 1.2013
+  },
+  {
+    "julian_day_tt": 2423836.172859,
+    "date": "1924-02-20T16:08:55",
+    "type": "total",
+    "magnitude": 2.6256
+  },
+  {
+    "julian_day_tt": 2424012.347569,
+    "date": "1924-08-14T20:20:30",
+    "type": "total",
+    "magnitude": 2.6326
+  },
+  {
+    "julian_day_tt": 2424190.404421,
+    "date": "1925-02-08T21:42:22",
+    "type": "partial",
+    "magnitude": 1.8134
+  },
+  {
+    "julian_day_tt": 2424366.995104,
+    "date": "1925-08-04T11:52:57",
+    "type": "partial",
+    "magnitude": 1.6909
+  },
+  {
+    "julian_day_tt": 2424544.389167,
+    "date": "1926-01-28T21:20:24",
+    "type": "penumbral",
+    "magnitude": 0.5551
+  },
+  {
+    "julian_day_tt": 2424692.392442,
+    "date": "1926-06-25T21:25:07",
+    "type": "penumbral",
+    "magnitude": 0.6749
+  },
+  {
+    "julian_day_tt": 2424721.708472,
+    "date": "1926-07-25T05:00:12",
+    "type": "penumbral",
+    "magnitude": 0.3542
+  },
+  {
+    "julian_day_tt": 2424868.76397,
+    "date": "1926-12-19T06:20:07",
+    "type": "penumbral",
+    "magnitude": 1.0257
+  },
+  {
+    "julian_day_tt": 2425046.850475,
+    "date": "1927-06-15T08:24:41",
+    "type": "total",
+    "magnitude": 2.0365
+  },
+  {
+    "julian_day_tt": 2425223.232755,
+    "date": "1927-12-08T17:35:10",
+    "type": "total",
+    "magnitude": 2.3389
+  },
+  {
+    "julian_day_tt": 2425401.00691,
+    "date": "1928-06-03T12:09:57",
+    "type": "total",
+    "magnitude": 2.3092
+  },
+  {
+    "julian_day_tt": 2425577.876238,
+    "date": "1928-11-27T09:01:47",
+    "type": "total",
+    "magnitude": 2.1166
+  },
+  {
+    "julian_day_tt": 2425755.026215,
+    "date": "1929-05-23T12:37:45",
+    "type": "penumbral",
+    "magnitude": 0.9367
+  },
+  {
+    "julian_day_tt": 2425932.502234,
+    "date": "1929-11-17T00:03:13",
+    "type": "penumbral",
+    "magnitude": 0.846
+  },
+  {
+    "julian_day_tt": 2426079.749236,
+    "date": "1930-04-13T05:58:54",
+    "type": "partial",
+    "magnitude": 1.1066
+  },
+  {
+    "julian_day_tt": 2426257.296644,
+    "date": "1930-10-07T19:07:10",
+    "type": "partial",
+    "magnitude": 1.0906
+  },
+  {
+    "julian_day_tt": 2426434.338831,
+    "date": "1931-04-02T20:07:55",
+    "type": "total",
+    "magnitude": 2.4637
+  },
+  {
+    "julian_day_tt": 2426611.325336,
+    "date": "1931-09-26T19:48:29",
+    "type": "total",
+    "magnitude": 2.4058
+  },
+  {
+    "julian_day_tt": 2426789.022674,
+    "date": "1932-03-22T12:32:39",
+    "type": "partial",
+    "magnitude": 1.9303
+  },
+  {
+    "julian_day_tt": 2426965.375694,
+    "date": "1932-09-14T21:01:00",
+    "type": "partial",
+    "magnitude": 2.0296
+  },
+  {
+    "julian_day_tt": 2427114.053854,
+    "date": "1933-02-10T13:17:33",
+    "type": "penumbral",
+    "magnitude": 0.0182
+  },
+  {
+    "julian_day_tt": 2427143.606285,
+    "date": "1933-03-12T02:33:03",
+    "type": "penumbral",
+    "magnitude": 0.5923
+  },
+  {
+    "julian_day_tt": 2427290.323669,
+    "date": "1933-08-05T19:46:05",
+    "type": "penumbral",
+    "magnitude": 0.2322
+  },
+  {
+    "julian_day_tt": 2427319.703009,
+    "date": "1933-09-04T04:52:20",
+    "type": "penumbral",
+    "magnitude": 0.6955
+  },
+  {
+    "julian_day_tt": 2427468.196319,
+    "date": "1934-01-30T16:42:42",
+    "type": "partial",
+    "magnitude": 1.2073
+  },
+  {
+    "julian_day_tt": 2427645.010856,
+    "date": "1934-07-26T12:15:38",
+    "type": "partial",
+    "magnitude": 1.6025
+  },
+  {
+    "julian_day_tt": 2427822.158044,
+    "date": "1935-01-19T15:47:35",
+    "type": "total",
+    "magnitude": 2.4502
+  },
+  {
+    "julian_day_tt": 2427999.708391,
+    "date": "1935-07-16T05:00:05",
+    "type": "total",
+    "magnitude": 2.7146
+  },
+  {
+    "julian_day_tt": 2428176.256921,
+    "date": "1936-01-08T18:09:58",
+    "type": "total",
+    "magnitude": 2.074
+  },
+  {
+    "julian_day_tt": 2428354.225961,
+    "date": "1936-07-04T17:25:23",
+    "type": "partial",
+    "magnitude": 1.2778
+  },
+  {
+    "julian_day_tt": 2428530.659132,
+    "date": "1936-12-28T03:49:09",
+    "type": "penumbral",
+    "magnitude": 0.8451
+  },
+  {
+    "julian_day_tt": 2428678.827477,
+    "date": "1937-05-25T07:51:34",
+    "type": "penumbral",
+    "magnitude": 0.7697
+  },
+  {
+    "julian_day_tt": 2428855.846829,
+    "date": "1937-11-18T08:19:26",
+    "type": "partial",
+    "magnitude": 1.1141
+  },
+  {
+    "julian_day_tt": 2429032.863889,
+    "date": "1938-05-14T08:44:00",
+    "type": "total",
+    "magnitude": 2.154
+  },
+  {
+    "julian_day_tt": 2429210.435208,
+    "date": "1938-11-07T22:26:42",
+    "type": "total",
+    "magnitude": 2.3585
+  },
+  {
+    "julian_day_tt": 2429387.133137,
+    "date": "1939-05-03T15:11:43",
+    "type": "total",
+    "magnitude": 2.1842
+  },
+  {
+    "julian_day_tt": 2429564.775498,
+    "date": "1939-10-28T06:36:43",
+    "type": "partial",
+    "magnitude": 2.0477
+  },
+  {
+    "julian_day_tt": 2429712.32522,
+    "date": "1940-03-23T19:48:19",
+    "type": "penumbral",
+    "magnitude": 0.0788
+  },
+  {
+    "julian_day_tt": 2429741.685012,
+    "date": "1940-04-22T04:26:25",
+    "type": "penumbral",
+    "magnitude": 0.8683
+  },
+  {
+    "julian_day_tt": 2429918.834225,
+    "date": "1940-10-16T08:01:17",
+    "type": "penumbral",
+    "magnitude": 0.7156
+  },
+  {
+    "julian_day_tt": 2430066.997072,
+    "date": "1941-03-13T11:55:47",
+    "type": "partial",
+    "magnitude": 1.297
+  },
+  {
+    "julian_day_tt": 2430243.241146,
+    "date": "1941-09-05T17:47:15",
+    "type": "partial",
+    "magnitude": 1.0884
+  },
+  {
+    "julian_day_tt": 2430421.515208,
+    "date": "1942-03-03T00:21:54",
+    "type": "total",
+    "magnitude": 2.5879
+  },
+  {
+    "julian_day_tt": 2430597.658623,
+    "date": "1942-08-26T03:48:25",
+    "type": "total",
+    "magnitude": 2.5142
+  },
+  {
+    "julian_day_tt": 2430775.734988,
+    "date": "1943-02-20T05:38:23",
+    "type": "partial",
+    "magnitude": 1.8444
+  },
+  {
+    "julian_day_tt": 2430952.311644,
+    "date": "1943-08-15T19:28:46",
+    "type": "partial",
+    "magnitude": 1.8152
+  },
+  {
+    "julian_day_tt": 2431129.718715,
+    "date": "1944-02-09T05:14:57",
+    "type": "penumbral",
+    "magnitude": 0.5792
+  },
+  {
+    "julian_day_tt": 2431277.694456,
+    "date": "1944-07-06T04:40:01",
+    "type": "penumbral",
+    "magnitude": 0.5328
+  },
+  {
+    "julian_day_tt": 2431307.018646,
+    "date": "1944-08-04T12:26:51",
+    "type": "penumbral",
+    "magnitude": 0.4785
+  },
+  {
+    "julian_day_tt": 2431454.117766,
+    "date": "1944-12-29T14:49:35",
+    "type": "penumbral",
+    "magnitude": 1.022
+  },
+  {
+    "julian_day_tt": 2431632.134977,
+    "date": "1945-06-25T15:14:22",
+    "type": "partial",
+    "magnitude": 1.8862
+  },
+  {
+    "julian_day_tt": 2431808.597766,
+    "date": "1945-12-19T02:20:47",
+    "type": "total",
+    "magnitude": 2.3293
+  },
+  {
+    "julian_day_tt": 2431986.27728,
+    "date": "1946-06-14T18:39:17",
+    "type": "total",
+    "magnitude": 2.4654
+  },
+  {
+    "julian_day_tt": 2432163.241991,
+    "date": "1946-12-08T17:48:28",
+    "type": "total",
+    "magnitude": 2.1337
+  },
+  {
+    "julian_day_tt": 2432340.302593,
+    "date": "1947-06-03T19:15:44",
+    "type": "partial",
+    "magnitude": 1.0818
+  },
+  {
+    "julian_day_tt": 2432517.85728,
+    "date": "1947-11-28T08:34:29",
+    "type": "penumbral",
+    "magnitude": 0.8683
+  },
+  {
+    "julian_day_tt": 2432665.068958,
+    "date": "1948-04-23T13:39:18",
+    "type": "partial",
+    "magnitude": 1.0171
+  },
+  {
+    "julian_day_tt": 2432842.608113,
+    "date": "1948-10-18T02:35:41",
+    "type": "penumbral",
+    "magnitude": 1.014
+  },
+  {
+    "julian_day_tt": 2433019.674595,
+    "date": "1949-04-13T04:11:25",
+    "type": "total",
+    "magnitude": 2.3825
+  },
+  {
+    "julian_day_tt": 2433196.622859,
+    "date": "1949-10-07T02:56:55",
+    "type": "total",
+    "magnitude": 2.3118
+  },
+  {
+    "julian_day_tt": 2433374.364282,
+    "date": "1950-04-02T20:44:34",
+    "type": "total",
+    "magnitude": 1.9951
+  },
+  {
+    "julian_day_tt": 2433550.6786,
+    "date": "1950-09-26T04:17:11",
+    "type": "total",
+    "magnitude": 2.1331
+  },
+  {
+    "julian_day_tt": 2433728.942743,
+    "date": "1951-03-23T10:37:33",
+    "type": "penumbral",
+    "magnitude": 0.6418
+  },
+  {
+    "julian_day_tt": 2433875.635174,
+    "date": "1951-08-17T03:14:39",
+    "type": "penumbral",
+    "magnitude": 0.1195
+  },
+  {
+    "julian_day_tt": 2433905.018819,
+    "date": "1951-09-15T12:27:06",
+    "type": "penumbral",
+    "magnitude": 0.8034
+  },
+  {
+    "julian_day_tt": 2434053.527639,
+    "date": "1952-02-11T00:39:48",
+    "type": "partial",
+    "magnitude": 1.1781
+  },
+  {
+    "julian_day_tt": 2434230.324942,
+    "date": "1952-08-05T19:47:55",
+    "type": "partial",
+    "magnitude": 1.4741
+  },
+  {
+    "julian_day_tt": 2434407.491539,
+    "date": "1953-01-29T23:47:49",
+    "type": "total",
+    "magnitude": 2.4291
+  },
+  {
+    "julian_day_tt": 2434585.014699,
+    "date": "1953-07-26T12:21:10",
+    "type": "total",
+    "magnitude": 2.8265
+  },
+  {
+    "julian_day_tt": 2434761.605799,
+    "date": "1954-01-19T02:32:21",
+    "type": "total",
+    "magnitude": 2.0853
+  },
+  {
+    "julian_day_tt": 2434939.514479,
+    "date": "1954-07-16T00:20:51",
+    "type": "partial",
+    "magnitude": 1.4202
+  },
+  {
+    "julian_day_tt": 2435116.023148,
+    "date": "1955-01-08T12:33:20",
+    "type": "penumbral",
+    "magnitude": 0.8555
+  },
+  {
+    "julian_day_tt": 2435264.099572,
+    "date": "1955-06-05T14:23:23",
+    "type": "penumbral",
+    "magnitude": 0.6218
+  },
+  {
+    "julian_day_tt": 2435441.208333,
+    "date": "1955-11-29T17:00:00",
+    "type": "partial",
+    "magnitude": 1.0917
+  },
+  {
+    "julian_day_tt": 2435618.14713,
+    "date": "1956-05-24T15:31:52",
+    "type": "partial",
+    "magnitude": 2.0174
+  },
+  {
+    "julian_day_tt": 2435795.783519,
+    "date": "1956-11-18T06:48:16",
+    "type": "total",
+    "magnitude": 2.3285
+  },
+  {
+    "julian_day_tt": 2435972.438519,
+    "date": "1957-05-13T22:31:28",
+    "type": "total",
+    "magnitude": 2.3001
+  },
+  {
+    "julian_day_tt": 2436150.102431,
+    "date": "1957-11-07T14:27:30",
+    "type": "total",
+    "magnitude": 2.0963
+  },
+  {
+    "julian_day_tt": 2436297.66684,
+    "date": "1958-04-04T04:00:15",
+    "type": "penumbral",
+    "magnitude": 0.0135
+  },
+  {
+    "julian_day_tt": 2436327.009363,
+    "date": "1958-05-03T12:13:29",
+    "type": "partial",
+    "magnitude": 0.9676
+  },
+  {
+    "julian_day_tt": 2436504.144329,
+    "date": "1958-10-27T15:27:50",
+    "type": "penumbral",
+    "magnitude": 0.7825
+  },
+  {
+    "julian_day_tt": 2436652.341632,
+    "date": "1959-03-24T20:11:57",
+    "type": "partial",
+    "magnitude": 1.2379
+  },
+  {
+    "julian_day_tt": 2436828.544178,
+    "date": "1959-09-17T01:03:37",
+    "type": "penumbral",
+    "magnitude": 0.9874
+  },
+  {
+    "julian_day_tt": 2437006.853021,
+    "date": "1960-03-13T08:28:21",
+    "type": "total",
+    "magnitude": 2.5415
+  },
+  {
+    "julian_day_tt": 2437182.973507,
+    "date": "1960-09-05T11:21:51",
+    "type": "total",
+    "magnitude": 2.4031
+  },
+  {
+    "julian_day_tt": 2437361.061574,
+    "date": "1961-03-02T13:28:40",
+    "type": "partial",
+    "magnitude": 1.8828
+  },
+  {
+    "julian_day_tt": 2437537.631146,
+    "date": "1961-08-26T03:08:51",
+    "type": "partial",
+    "magnitude": 1.933
+  },
+  {
+    "julian_day_tt": 2437715.044236,
+    "date": "1962-02-19T13:03:42",
+    "type": "penumbral",
+    "magnitude": 0.612
+  },
+  {
+    "julian_day_tt": 2437862.9964,
+    "date": "1962-07-17T11:54:49",
+    "type": "penumbral",
+    "magnitude": 0.3924
+  },
+  {
+    "julian_day_tt": 2437892.331597,
+    "date": "1962-08-15T19:57:30",
+    "type": "penumbral",
+    "magnitude": 0.5963
+  },
+  {
+    "julian_day_tt": 2438039.472014,
+    "date": "1963-01-09T23:19:42",
+    "type": "penumbral",
+    "magnitude": 1.018
+  },
+  {
+    "julian_day_tt": 2438217.418738,
+    "date": "1963-07-06T22:02:59",
+    "type": "partial",
+    "magnitude": 1.736
+  },
+  {
+    "julian_day_tt": 2438393.963484,
+    "date": "1963-12-30T11:07:25",
+    "type": "total",
+    "magnitude": 2.3206
+  },
+  {
+    "julian_day_tt": 2438571.546412,
+    "date": "1964-06-25T01:06:50",
+    "type": "total",
+    "magnitude": 2.6238
+  },
+  {
+    "julian_day_tt": 2438748.609653,
+    "date": "1964-12-19T02:37:54",
+    "type": "total",
+    "magnitude": 2.1461
+  },
+  {
+    "julian_day_tt": 2438925.575995,
+    "date": "1965-06-14T01:49:26",
+    "type": "partial",
+    "magnitude": 1.2351
+  },
+  {
+    "julian_day_tt": 2439103.215648,
+    "date": "1965-12-08T17:10:32",
+    "type": "penumbral",
+    "magnitude": 0.882
+  },
+  {
+    "julian_day_tt": 2439250.383403,
+    "date": "1966-05-04T21:12:06",
+    "type": "penumbral",
+    "magnitude": 0.9157
+  },
+  {
+    "julian_day_tt": 2439427.925613,
+    "date": "1966-10-29T10:12:53",
+    "type": "penumbral",
+    "magnitude": 0.9517
+  },
+  {
+    "julian_day_tt": 2439605.004907,
+    "date": "1967-04-24T12:07:04",
+    "type": "total",
+    "magnitude": 2.2892
+  },
+  {
+    "julian_day_tt": 2439781.927639,
+    "date": "1967-10-18T10:15:48",
+    "type": "total",
+    "magnitude": 2.2337
+  },
+  {
+    "julian_day_tt": 2439959.700012,
+    "date": "1968-04-13T04:48:01",
+    "type": "total",
+    "magnitude": 2.0725
+  },
+  {
+    "julian_day_tt": 2440135.987905,
+    "date": "1968-10-06T11:42:35",
+    "type": "total",
+    "magnitude": 2.2242
+  },
+  {
+    "julian_day_tt": 2440314.272986,
+    "date": "1969-04-02T18:33:06",
+    "type": "penumbral",
+    "magnitude": 0.7033
+  },
+  {
+    "julian_day_tt": 2440460.950174,
+    "date": "1969-08-27T10:48:15",
+    "type": "penumbral",
+    "magnitude": 0.0131
+  },
+  {
+    "julian_day_tt": 2440490.340498,
+    "date": "1969-09-25T20:10:19",
+    "type": "penumbral",
+    "magnitude": 0.9007
+  },
+  {
+    "julian_day_tt": 2440638.854664,
+    "date": "1970-02-21T08:30:43",
+    "type": "partial",
+    "magnitude": 1.1402
+  },
+  {
+    "julian_day_tt": 2440815.641736,
+    "date": "1970-08-17T03:24:06",
+    "type": "partial",
+    "magnitude": 1.3521
+  },
+  {
+    "julian_day_tt": 2440992.82316,
+    "date": "1971-02-10T07:45:21",
+    "type": "total",
+    "magnitude": 2.4026
+  },
+  {
+    "julian_day_tt": 2441170.32213,
+    "date": "1971-08-06T19:43:52",
+    "type": "total",
+    "magnitude": 2.6958
+  },
+  {
+    "julian_day_tt": 2441346.954225,
+    "date": "1972-01-30T10:54:05",
+    "type": "total",
+    "magnitude": 2.0987
+  },
+  {
+    "julian_day_tt": 2441524.803032,
+    "date": "1972-07-26T07:16:22",
+    "type": "partial",
+    "magnitude": 1.5618
+  },
+  {
+    "julian_day_tt": 2441701.387477,
+    "date": "1973-01-18T21:17:58",
+    "type": "penumbral",
+    "magnitude": 0.8655
+  },
+  {
+    "julian_day_tt": 2441849.36853,
+    "date": "1973-06-15T20:50:41",
+    "type": "penumbral",
+    "magnitude": 0.4685
+  },
+  {
+    "julian_day_tt": 2441878.985637,
+    "date": "1973-07-15T11:39:19",
+    "type": "penumbral",
+    "magnitude": 0.1046
+  },
+  {
+    "julian_day_tt": 2442026.572986,
+    "date": "1973-12-10T01:45:06",
+    "type": "partial",
+    "magnitude": 1.076
+  },
+  {
+    "julian_day_tt": 2442203.428287,
+    "date": "1974-06-04T22:16:44",
+    "type": "partial",
+    "magnitude": 1.8752
+  },
+  {
+    "julian_day_tt": 2442381.134803,
+    "date": "1974-11-29T15:14:07",
+    "type": "total",
+    "magnitude": 2.3057
+  },
+  {
+    "julian_day_tt": 2442557.742211,
+    "date": "1975-05-25T05:48:47",
+    "type": "total",
+    "magnitude": 2.4218
+  },
+  {
+    "julian_day_tt": 2442735.433472,
+    "date": "1975-11-18T22:24:12",
+    "type": "total",
+    "magnitude": 2.1352
+  },
+  {
+    "julian_day_tt": 2442912.329954,
+    "date": "1976-05-13T19:55:08",
+    "type": "partial",
+    "magnitude": 1.0761
+  },
+  {
+    "julian_day_tt": 2443089.459711,
+    "date": "1976-11-06T23:01:59",
+    "type": "penumbral",
+    "magnitude": 0.8383
+  },
+  {
+    "julian_day_tt": 2443237.679907,
+    "date": "1977-04-04T04:19:04",
+    "type": "partial",
+    "magnitude": 1.1657
+  },
+  {
+    "julian_day_tt": 2443413.854259,
+    "date": "1977-09-27T08:30:08",
+    "type": "penumbral",
+    "magnitude": 0.9007
+  },
+  {
+    "julian_day_tt": 2443592.182766,
+    "date": "1978-03-24T16:23:11",
+    "type": "total",
+    "magnitude": 2.479
+  },
+  {
+    "julian_day_tt": 2443768.29515,
+    "date": "1978-09-16T19:05:01",
+    "type": "total",
+    "magnitude": 2.306
+  },
+  {
+    "julian_day_tt": 2443946.381157,
+    "date": "1979-03-13T21:08:52",
+    "type": "partial",
+    "magnitude": 1.935
+  },
+  {
+    "julian_day_tt": 2444122.954884,
+    "date": "1979-09-06T10:55:02",
+    "type": "total",
+    "magnitude": 2.0421
+  },
+  {
+    "julian_day_tt": 2444300.365312,
+    "date": "1980-03-01T20:46:03",
+    "type": "penumbral",
+    "magnitude": 0.6545
+  },
+  {
+    "julian_day_tt": 2444448.297905,
+    "date": "1980-07-27T19:08:59",
+    "type": "penumbral",
+    "magnitude": 0.2535
+  },
+  {
+    "julian_day_tt": 2444477.646759,
+    "date": "1980-08-26T03:31:20",
+    "type": "penumbral",
+    "magnitude": 0.7089
+  },
+  {
+    "julian_day_tt": 2444624.826944,
+    "date": "1981-01-20T07:50:48",
+    "type": "penumbral",
+    "magnitude": 1.0136
+  },
+  {
+    "julian_day_tt": 2444802.699769,
+    "date": "1981-07-17T04:47:40",
+    "type": "partial",
+    "magnitude": 1.5822
+  },
+  {
+    "julian_day_tt": 2444979.331065,
+    "date": "1982-01-09T19:56:44",
+    "type": "total",
+    "magnitude": 2.3147
+  },
+  {
+    "julian_day_tt": 2445156.813738,
+    "date": "1982-07-06T07:31:47",
+    "type": "total",
+    "magnitude": 2.786
+  },
+  {
+    "julian_day_tt": 2445333.9789,
+    "date": "1982-12-30T11:29:37",
+    "type": "total",
+    "magnitude": 2.1545
+  },
+  {
+    "julian_day_tt": 2445510.849433,
+    "date": "1983-06-25T08:23:11",
+    "type": "partial",
+    "magnitude": 1.3901
+  },
+  {
+    "julian_day_tt": 2445688.576354,
+    "date": "1983-12-20T01:49:57",
+    "type": "penumbral",
+    "magnitude": 0.889
+  },
+  {
+    "julian_day_tt": 2445835.695174,
+    "date": "1984-05-15T04:41:03",
+    "type": "penumbral",
+    "magnitude": 0.8071
+  },
+  {
+    "julian_day_tt": 2445865.10184,
+    "date": "1984-06-13T14:26:39",
+    "type": "penumbral",
+    "magnitude": 0.0647
+  },
+  {
+    "julian_day_tt": 2446013.247315,
+    "date": "1984-11-08T17:56:08",
+    "type": "penumbral",
+    "magnitude": 0.8992
+  },
+  {
+    "julian_day_tt": 2446190.33147,
+    "date": "1985-05-04T19:57:19",
+    "type": "total",
+    "magnitude": 2.187
+  },
+  {
+    "julian_day_tt": 2446367.238391,
+    "date": "1985-10-28T17:43:17",
+    "type": "total",
+    "magnitude": 2.1673
+  },
+  {
+    "julian_day_tt": 2446545.030208,
+    "date": "1986-04-24T12:43:30",
+    "type": "total",
+    "magnitude": 2.162
+  },
+  {
+    "julian_day_tt": 2446721.304792,
+    "date": "1986-10-17T19:18:54",
+    "type": "total",
+    "magnitude": 2.3008
+  },
+  {
+    "julian_day_tt": 2446899.597106,
+    "date": "1987-04-14T02:19:50",
+    "type": "penumbral",
+    "magnitude": 0.7769
+  },
+  {
+    "julian_day_tt": 2447075.668403,
+    "date": "1987-10-07T04:02:30",
+    "type": "penumbral",
+    "magnitude": 0.9863
+  },
+  {
+    "julian_day_tt": 2447224.176169,
+    "date": "1988-03-03T16:13:41",
+    "type": "penumbral",
+    "magnitude": 1.0907
+  },
+  {
+    "julian_day_tt": 2447400.962141,
+    "date": "1988-08-27T11:05:29",
+    "type": "partial",
+    "magnitude": 1.238
+  },
+  {
+    "julian_day_tt": 2447578.150208,
+    "date": "1989-02-20T15:36:18",
+    "type": "total",
+    "magnitude": 2.3651
+  },
+  {
+    "julian_day_tt": 2447755.631331,
+    "date": "1989-08-17T03:09:07",
+    "type": "total",
+    "magnitude": 2.5703
+  },
+  {
+    "julian_day_tt": 2447932.300023,
+    "date": "1990-02-09T19:12:02",
+    "type": "total",
+    "magnitude": 2.1191
+  },
+  {
+    "julian_day_tt": 2448110.092546,
+    "date": "1990-08-06T14:13:16",
+    "type": "partial",
+    "magnitude": 1.7005
+  },
+  {
+    "julian_day_tt": 2448286.749745,
+    "date": "1991-01-30T05:59:38",
+    "type": "penumbral",
+    "magnitude": 0.8807
+  },
+  {
+    "julian_day_tt": 2448434.635891,
+    "date": "1991-06-27T03:15:41",
+    "type": "penumbral",
+    "magnitude": 0.3126
+  },
+  {
+    "julian_day_tt": 2448464.256134,
+    "date": "1991-07-26T18:08:50",
+    "type": "penumbral",
+    "magnitude": 0.2542
+  },
+  {
+    "julian_day_tt": 2448611.940278,
+    "date": "1991-12-21T10:34:00",
+    "type": "partial",
+    "magnitude": 1.0651
+  },
+  {
+    "julian_day_tt": 2448788.70691,
+    "date": "1992-06-15T04:57:57",
+    "type": "partial",
+    "magnitude": 1.7264
+  },
+  {
+    "julian_day_tt": 2448966.489641,
+    "date": "1992-12-09T23:45:05",
+    "type": "total",
+    "magnitude": 2.2915
+  },
+  {
+    "julian_day_tt": 2449143.042662,
+    "date": "1993-06-04T13:01:26",
+    "type": "total",
+    "magnitude": 2.5532
+  },
+  {
+    "julian_day_tt": 2449320.768819,
+    "date": "1993-11-29T06:27:06",
+    "type": "total",
+    "magnitude": 2.1633
+  },
+  {
+    "julian_day_tt": 2449497.646759,
+    "date": "1994-05-25T03:31:20",
+    "type": "partial",
+    "magnitude": 1.1941
+  },
+  {
+    "julian_day_tt": 2449674.781181,
+    "date": "1994-11-18T06:44:54",
+    "type": "penumbral",
+    "magnitude": 0.8815
+  },
+  {
+    "julian_day_tt": 2449823.013241,
+    "date": "1995-04-15T12:19:04",
+    "type": "partial",
+    "magnitude": 1.0836
+  },
+  {
+    "julian_day_tt": 2449999.170278,
+    "date": "1995-10-08T16:05:12",
+    "type": "penumbral",
+    "magnitude": 0.8252
+  },
+  {
+    "julian_day_tt": 2450177.507488,
+    "date": "1996-04-04T00:10:47",
+    "type": "total",
+    "magnitude": 2.4068
+  },
+  {
+    "julian_day_tt": 2450353.621806,
+    "date": "1996-09-27T02:55:24",
+    "type": "total",
+    "magnitude": 2.2188
+  },
+  {
+    "julian_day_tt": 2450531.694769,
+    "date": "1997-03-24T04:40:28",
+    "type": "partial",
+    "magnitude": 1.9994
+  },
+  {
+    "julian_day_tt": 2450708.283125,
+    "date": "1997-09-16T18:47:42",
+    "type": "total",
+    "magnitude": 2.1417
+  },
+  {
+    "julian_day_tt": 2450885.681343,
+    "date": "1998-03-13T04:21:08",
+    "type": "penumbral",
+    "magnitude": 0.7086
+  },
+  {
+    "julian_day_tt": 2451033.601354,
+    "date": "1998-08-08T02:25:57",
+    "type": "penumbral",
+    "magnitude": 0.1206
+  },
+  {
+    "julian_day_tt": 2451062.9661,
+    "date": "1998-09-06T11:11:11",
+    "type": "penumbral",
+    "magnitude": 0.8121
+  },
+  {
+    "julian_day_tt": 2451210.179572,
+    "date": "1999-01-31T16:18:35",
+    "type": "penumbral",
+    "magnitude": 1.0027
+  },
+  {
+    "julian_day_tt": 2451387.982477,
+    "date": "1999-07-28T11:34:46",
+    "type": "partial",
+    "magnitude": 1.4342
+  },
+  {
+    "julian_day_tt": 2451564.697616,
+    "date": "2000-01-21T04:44:34",
+    "type": "total",
+    "magnitude": 2.306
+  },
+  {
+    "julian_day_tt": 2451742.081007,
+    "date": "2000-07-16T13:56:39",
+    "type": "total",
+    "magnitude": 2.8375
+  },
+  {
+    "julian_day_tt": 2451919.34838,
+    "date": "2001-01-09T20:21:40",
+    "type": "total",
+    "magnitude": 2.1618
+  },
+  {
+    "julian_day_tt": 2452096.122488,
+    "date": "2001-07-05T14:56:23",
+    "type": "partial",
+    "magnitude": 1.5475
+  },
+  {
+    "julian_day_tt": 2452273.937755,
+    "date": "2001-12-30T10:30:22",
+    "type": "penumbral",
+    "magnitude": 0.8933
+  },
+  {
+    "julian_day_tt": 2452421.003079,
+    "date": "2002-05-26T12:04:26",
+    "type": "penumbral",
+    "magnitude": 0.6893
+  },
+  {
+    "julian_day_tt": 2452450.394595,
+    "date": "2002-06-24T21:28:13",
+    "type": "penumbral",
+    "magnitude": 0.2095
+  },
+  {
+    "julian_day_tt": 2452598.574769,
+    "date": "2002-11-20T01:47:40",
+    "type": "penumbral",
+    "magnitude": 0.86
+  },
+  {
+    "julian_day_tt": 2452775.653623,
+    "date": "2003-05-16T03:41:13",
+    "type": "total",
+    "magnitude": 2.0747
+  },
+  {
+    "julian_day_tt": 2452952.555301,
+    "date": "2003-11-09T01:19:38",
+    "type": "total",
+    "magnitude": 2.1139
+  },
+  {
+    "julian_day_tt": 2453130.355058,
+    "date": "2004-05-04T20:31:17",
+    "type": "total",
+    "magnitude": 2.2627
+  },
+  {
+    "julian_day_tt": 2453306.6286,
+    "date": "2004-10-28T03:05:11",
+    "type": "total",
+    "magnitude": 2.3637
+  },
+  {
+    "julian_day_tt": 2453484.913831,
+    "date": "2005-04-24T09:55:55",
+    "type": "penumbral",
+    "magnitude": 0.865
+  },
+  {
+    "julian_day_tt": 2453661.00309,
+    "date": "2005-10-17T12:04:27",
+    "type": "partial",
+    "magnitude": 1.0585
+  },
+  {
+    "julian_day_tt": 2453809.49206,
+    "date": "2006-03-14T23:48:34",
+    "type": "penumbral",
+    "magnitude": 1.03
+  },
+  {
+    "julian_day_tt": 2453986.2864,
+    "date": "2006-09-07T18:52:25",
+    "type": "partial",
+    "magnitude": 1.1329
+  },
+  {
+    "julian_day_tt": 2454163.4736,
+    "date": "2007-03-03T23:21:59",
+    "type": "total",
+    "magnitude": 2.3188
+  },
+  {
+    "julian_day_tt": 2454340.943368,
+    "date": "2007-08-28T10:38:27",
+    "type": "total",
+    "magnitude": 2.4526
+  },
+  {
+    "julian_day_tt": 2454517.643854,
+    "date": "2008-02-21T03:27:09",
+    "type": "total",
+    "magnitude": 2.1451
+  },
+  {
+    "julian_day_tt": 2454695.382778,
+    "date": "2008-08-16T21:11:12",
+    "type": "partial",
+    "magnitude": 1.8366
+  },
+  {
+    "julian_day_tt": 2454872.110671,
+    "date": "2009-02-09T14:39:22",
+    "type": "penumbral",
+    "magnitude": 0.8994
+  },
+  {
+    "julian_day_tt": 2455019.902581,
+    "date": "2009-07-07T09:39:43",
+    "type": "penumbral",
+    "magnitude": 0.1562
+  },
+  {
+    "julian_day_tt": 2455049.527986,
+    "date": "2009-08-06T00:40:18",
+    "type": "penumbral",
+    "magnitude": 0.4019
+  },
+  {
+    "julian_day_tt": 2455197.308171,
+    "date": "2009-12-31T19:23:46",
+    "type": "partial",
+    "magnitude": 1.0556
+  },
+  {
+    "julian_day_tt": 2455373.98581,
+    "date": "2010-06-26T11:39:34",
+    "type": "partial",
+    "magnitude": 1.5773
+  },
+  {
+    "julian_day_tt": 2455551.84588,
+    "date": "2010-12-21T08:18:04",
+    "type": "total",
+    "magnitude": 2.2807
+  },
+  {
+    "julian_day_tt": 2455728.342859,
+    "date": "2011-06-15T20:13:43",
+    "type": "total",
+    "magnitude": 2.6868
+  },
+  {
+    "julian_day_tt": 2455906.106204,
+    "date": "2011-12-10T14:32:56",
+    "type": "total",
+    "magnitude": 2.186
+  },
+  {
+    "julian_day_tt": 2456082.961343,
+    "date": "2012-06-04T11:04:20",
+    "type": "partial",
+    "magnitude": 1.3183
+  },
+  {
+    "julian_day_tt": 2456260.107025,
+    "date": "2012-11-28T14:34:07",
+    "type": "penumbral",
+    "magnitude": 0.9155
+  },
+  {
+    "julian_day_tt": 2456408.339329,
+    "date": "2013-04-25T20:08:38",
+    "type": "partial",
+    "magnitude": 0.9866
+  },
+  {
+    "julian_day_tt": 2456437.674375,
+    "date": "2013-05-25T04:11:06",
+    "type": "penumbral",
+    "magnitude": 0.0157
+  },
+  {
+    "julian_day_tt": 2456584.494039,
+    "date": "2013-10-18T23:51:25",
+    "type": "penumbral",
+    "magnitude": 0.7649
+  },
+  {
+    "julian_day_tt": 2456762.824167,
+    "date": "2014-04-15T07:46:48",
+    "type": "total",
+    "magnitude": 2.3182
+  },
+  {
+    "julian_day_tt": 2456938.95537,
+    "date": "2014-10-08T10:55:44",
+    "type": "total",
+    "magnitude": 2.1456
+  },
+  {
+    "julian_day_tt": 2457117.000972,
+    "date": "2015-04-04T12:01:24",
+    "type": "total",
+    "magnitude": 2.0792
+  },
+  {
+    "julian_day_tt": 2457293.616863,
+    "date": "2015-09-28T02:48:17",
+    "type": "total",
+    "magnitude": 2.2296
+  },
+  {
+    "julian_day_tt": 2457470.99191,
+    "date": "2016-03-23T11:48:21",
+    "type": "penumbral",
+    "magnitude": 0.7747
+  },
+  {
+    "julian_day_tt": 2457648.288507,
+    "date": "2016-09-16T18:55:27",
+    "type": "penumbral",
+    "magnitude": 0.908
+  },
+  {
+    "julian_day_tt": 2457795.531285,
+    "date": "2017-02-11T00:45:03",
+    "type": "penumbral",
+    "magnitude": 0.9884
+  },
+  {
+    "julian_day_tt": 2457973.265023,
+    "date": "2017-08-07T18:21:38",
+    "type": "partial",
+    "magnitude": 1.2886
+  },
+  {
+    "julian_day_tt": 2458150.063194,
+    "date": "2018-01-31T13:31:00",
+    "type": "total",
+    "magnitude": 2.2941
+  },
+  {
+    "julian_day_tt": 2458327.349236,
+    "date": "2018-07-27T20:22:54",
+    "type": "total",
+    "magnitude": 2.6792
+  },
+  {
+    "julian_day_tt": 2458504.717674,
+    "date": "2019-01-21T05:13:27",
+    "type": "total",
+    "magnitude": 2.1684
+  },
+  {
+    "julian_day_tt": 2458681.397164,
+    "date": "2019-07-16T21:31:55",
+    "type": "partial",
+    "magnitude": 1.7037
+  },
+  {
+    "julian_day_tt": 2458859.299433,
+    "date": "2020-01-10T19:11:11",
+    "type": "penumbral",
+    "magnitude": 0.8956
+  },
+  {
+    "julian_day_tt": 2459006.309884,
+    "date": "2020-06-05T19:26:14",
+    "type": "penumbral",
+    "magnitude": 0.5683
+  },
+  {
+    "julian_day_tt": 2459035.688333,
+    "date": "2020-07-05T04:31:12",
+    "type": "penumbral",
+    "magnitude": 0.3546
+  },
+  {
+    "julian_day_tt": 2459183.905567,
+    "date": "2020-11-30T09:44:01",
+    "type": "penumbral",
+    "magnitude": 0.8285
+  },
+  {
+    "julian_day_tt": 2459360.972141,
+    "date": "2021-05-26T11:19:53",
+    "type": "total",
+    "magnitude": 1.954
+  },
+  {
+    "julian_day_tt": 2459537.877847,
+    "date": "2021-11-19T09:04:06",
+    "type": "partial",
+    "magnitude": 2.072
+  },
+  {
+    "julian_day_tt": 2459715.675486,
+    "date": "2022-05-16T04:12:42",
+    "type": "total",
+    "magnitude": 2.3726
+  },
+  {
+    "julian_day_tt": 2459891.958588,
+    "date": "2022-11-08T11:00:22",
+    "type": "total",
+    "magnitude": 2.4143
+  },
+  {
+    "julian_day_tt": 2460070.225058,
+    "date": "2023-05-05T17:24:05",
+    "type": "penumbral",
+    "magnitude": 0.9636
+  },
+  {
+    "julian_day_tt": 2460246.343958,
+    "date": "2023-10-28T20:15:18",
+    "type": "partial",
+    "magnitude": 1.1181
+  },
+  {
+    "julian_day_tt": 2460394.801377,
+    "date": "2024-03-25T07:13:59",
+    "type": "penumbral",
+    "magnitude": 0.9557
+  },
+  {
+    "julian_day_tt": 2460571.614873,
+    "date": "2024-09-18T02:45:25",
+    "type": "partial",
+    "magnitude": 1.0372
+  },
+  {
+    "julian_day_tt": 2460748.79162,
+    "date": "2025-03-14T06:59:56",
+    "type": "total",
+    "magnitude": 2.2595
+  },
+  {
+    "julian_day_tt": 2460926.259005,
+    "date": "2025-09-07T18:12:58",
+    "type": "total",
+    "magnitude": 2.344
+  },
+  {
+    "julian_day_tt": 2461102.982546,
+    "date": "2026-03-03T11:34:52",
+    "type": "total",
+    "magnitude": 2.1838
+  },
+  {
+    "julian_day_tt": 2461280.676435,
+    "date": "2026-08-28T04:14:04",
+    "type": "partial",
+    "magnitude": 1.9645
+  },
+  {
+    "julian_day_tt": 2461457.468125,
+    "date": "2027-02-20T23:14:06",
+    "type": "penumbral",
+    "magnitude": 0.9266
+  },
+  {
+    "julian_day_tt": 2461605.169549,
+    "date": "2027-07-18T16:04:09",
+    "type": "penumbral",
+    "magnitude": 0.0014
+  },
+  {
+    "julian_day_tt": 2461634.802072,
+    "date": "2027-08-17T07:14:59",
+    "type": "penumbral",
+    "magnitude": 0.5456
+  },
+  {
+    "julian_day_tt": 2461782.676539,
+    "date": "2028-01-12T04:14:13",
+    "type": "partial",
+    "magnitude": 1.0468
+  },
+  {
+    "julian_day_tt": 2461959.264549,
+    "date": "2028-07-06T18:20:57",
+    "type": "partial",
+    "magnitude": 1.4266
+  },
+  {
+    "julian_day_tt": 2462137.203646,
+    "date": "2028-12-31T16:53:15",
+    "type": "total",
+    "magnitude": 2.2742
+  },
+  {
+    "julian_day_tt": 2462313.641227,
+    "date": "2029-06-26T03:23:22",
+    "type": "total",
+    "magnitude": 2.8266
+  },
+  {
+    "julian_day_tt": 2462491.446667,
+    "date": "2029-12-20T22:43:12",
+    "type": "total",
+    "magnitude": 2.2008
+  },
+  {
+    "julian_day_tt": 2462668.274005,
+    "date": "2030-06-15T18:34:34",
+    "type": "partial",
+    "magnitude": 1.448
+  },
+  {
+    "julian_day_tt": 2462845.436701,
+    "date": "2030-12-09T22:28:51",
+    "type": "penumbral",
+    "magnitude": 0.9416
+  },
+  {
+    "julian_day_tt": 2462993.661134,
+    "date": "2031-05-07T03:52:02",
+    "type": "penumbral",
+    "magnitude": 0.8814
+  },
+  {
+    "julian_day_tt": 2463022.98978,
+    "date": "2031-06-05T11:45:17",
+    "type": "penumbral",
+    "magnitude": 0.1292
+  },
+  {
+    "julian_day_tt": 2463169.824132,
+    "date": "2031-10-30T07:46:45",
+    "type": "penumbral",
+    "magnitude": 0.7161
+  },
+  {
+    "julian_day_tt": 2463348.135312,
+    "date": "2032-04-25T15:14:51",
+    "type": "total",
+    "magnitude": 2.2192
+  },
+  {
+    "julian_day_tt": 2463524.294213,
+    "date": "2032-10-18T19:03:40",
+    "type": "total",
+    "magnitude": 2.083
+  },
+  {
+    "julian_day_tt": 2463702.301285,
+    "date": "2033-04-14T19:13:51",
+    "type": "total",
+    "magnitude": 2.1711
+  },
+  {
+    "julian_day_tt": 2463878.955822,
+    "date": "2033-10-08T10:56:23",
+    "type": "total",
+    "magnitude": 2.3057
+  },
+  {
+    "julian_day_tt": 2464056.296516,
+    "date": "2034-04-03T19:06:59",
+    "type": "penumbral",
+    "magnitude": 0.8545
+  },
+  {
+    "julian_day_tt": 2464233.6164,
+    "date": "2034-09-28T02:47:37",
+    "type": "partial",
+    "magnitude": 0.9911
+  },
+  {
+    "julian_day_tt": 2464380.879306,
+    "date": "2035-02-22T09:06:12",
+    "type": "penumbral",
+    "magnitude": 0.9652
+  },
+  {
+    "julian_day_tt": 2464558.550174,
+    "date": "2035-08-19T01:12:15",
+    "type": "partial",
+    "magnitude": 1.1507
+  },
+  {
+    "julian_day_tt": 2464735.425764,
+    "date": "2036-02-11T22:13:06",
+    "type": "total",
+    "magnitude": 2.2751
+  },
+  {
+    "julian_day_tt": 2464912.619815,
+    "date": "2036-08-07T02:52:32",
+    "type": "total",
+    "magnitude": 2.5266
+  },
+  {
+    "julian_day_tt": 2465090.084468,
+    "date": "2037-01-31T14:01:38",
+    "type": "total",
+    "magnitude": 2.1803
+  },
+  {
+    "julian_day_tt": 2465266.67353,
+    "date": "2037-07-27T04:09:53",
+    "type": "partial",
+    "magnitude": 1.8584
+  },
+  {
+    "julian_day_tt": 2465444.65963,
+    "date": "2038-01-21T03:49:52",
+    "type": "penumbral",
+    "magnitude": 0.8996
+  },
+  {
+    "julian_day_tt": 2465591.614606,
+    "date": "2038-06-17T02:45:02",
+    "type": "penumbral",
+    "magnitude": 0.4422
+  },
+  {
+    "julian_day_tt": 2465620.983287,
+    "date": "2038-07-16T11:35:56",
+    "type": "penumbral",
+    "magnitude": 0.4999
+  },
+  {
+    "julian_day_tt": 2465769.239583,
+    "date": "2038-12-11T17:45:00",
+    "type": "penumbral",
+    "magnitude": 0.8046
+  },
+  {
+    "julian_day_tt": 2465946.287789,
+    "date": "2039-06-06T18:54:25",
+    "type": "partial",
+    "magnitude": 1.8272
+  },
+  {
+    "julian_day_tt": 2466123.20588,
+    "date": "2039-11-30T16:56:28",
+    "type": "partial",
+    "magnitude": 2.0418
+  },
+  {
+    "julian_day_tt": 2466300.990532,
+    "date": "2040-05-26T11:46:22",
+    "type": "total",
+    "magnitude": 2.4938
+  },
+  {
+    "julian_day_tt": 2466477.294907,
+    "date": "2040-11-18T19:04:40",
+    "type": "total",
+    "magnitude": 2.4525
+  },
+  {
+    "julian_day_tt": 2466655.529896,
+    "date": "2041-05-16T00:43:03",
+    "type": "partial",
+    "magnitude": 1.0747
+  },
+  {
+    "julian_day_tt": 2466831.69103,
+    "date": "2041-11-08T04:35:05",
+    "type": "partial",
+    "magnitude": 1.1656
+  },
+  {
+    "julian_day_tt": 2466980.104294,
+    "date": "2042-04-05T14:30:11",
+    "type": "penumbral",
+    "magnitude": 0.868
+  },
+  {
+    "julian_day_tt": 2467156.948461,
+    "date": "2042-09-29T10:45:47",
+    "type": "penumbral",
+    "magnitude": 0.9528
+  },
+  {
+    "julian_day_tt": 2467334.105602,
+    "date": "2043-03-25T14:32:04",
+    "type": "total",
+    "magnitude": 2.19
+  },
+  {
+    "julian_day_tt": 2467511.577662,
+    "date": "2043-09-19T01:51:50",
+    "type": "total",
+    "magnitude": 2.2433
+  },
+  {
+    "julian_day_tt": 2467688.318437,
+    "date": "2044-03-13T19:38:33",
+    "type": "total",
+    "magnitude": 2.2303
+  },
+  {
+    "julian_day_tt": 2467865.972731,
+    "date": "2044-09-07T11:20:44",
+    "type": "total",
+    "magnitude": 2.086
+  },
+  {
+    "julian_day_tt": 2468042.821829,
+    "date": "2045-03-03T07:43:26",
+    "type": "penumbral",
+    "magnitude": 0.9623
+  },
+  {
+    "julian_day_tt": 2468220.079745,
+    "date": "2045-08-27T13:54:50",
+    "type": "penumbral",
+    "magnitude": 0.6825
+  },
+  {
+    "julian_day_tt": 2468368.043484,
+    "date": "2046-01-22T13:02:37",
+    "type": "partial",
+    "magnitude": 1.0347
+  },
+  {
+    "julian_day_tt": 2468544.545891,
+    "date": "2046-07-18T01:06:05",
+    "type": "partial",
+    "magnitude": 1.2807
+  },
+  {
+    "julian_day_tt": 2468722.559884,
+    "date": "2047-01-12T01:26:14",
+    "type": "total",
+    "magnitude": 2.2649
+  },
+  {
+    "julian_day_tt": 2468898.941493,
+    "date": "2047-07-07T10:35:45",
+    "type": "total",
+    "magnitude": 2.731
+  },
+  {
+    "julian_day_tt": 2469076.787442,
+    "date": "2048-01-01T06:53:55",
+    "type": "total",
+    "magnitude": 2.2141
+  },
+  {
+    "julian_day_tt": 2469253.585046,
+    "date": "2048-06-26T02:02:28",
+    "type": "partial",
+    "magnitude": 1.5825
+  },
+  {
+    "julian_day_tt": 2469430.769306,
+    "date": "2048-12-20T06:27:48",
+    "type": "penumbral",
+    "magnitude": 0.9617
+  },
+  {
+    "julian_day_tt": 2469578.97684,
+    "date": "2049-05-17T11:26:39",
+    "type": "penumbral",
+    "magnitude": 0.7638
+  },
+  {
+    "julian_day_tt": 2469608.301528,
+    "date": "2049-06-15T19:14:12",
+    "type": "penumbral",
+    "magnitude": 0.2511
+  },
+  {
+    "julian_day_tt": 2469755.161238,
+    "date": "2049-11-09T15:52:11",
+    "type": "penumbral",
+    "magnitude": 0.6808
+  },
+  {
+    "julian_day_tt": 2469933.438912,
+    "date": "2050-05-06T22:32:02",
+    "type": "total",
+    "magnitude": 2.1052
+  },
+  {
+    "julian_day_tt": 2470109.640127,
+    "date": "2050-10-30T03:21:47",
+    "type": "total",
+    "magnitude": 2.0345
+  },
+  {
+    "julian_day_tt": 2470287.594769,
+    "date": "2051-04-26T02:16:28",
+    "type": "total",
+    "magnitude": 2.2773
+  },
+  {
+    "julian_day_tt": 2470464.299884,
+    "date": "2051-10-19T19:11:50",
+    "type": "total",
+    "magnitude": 2.3708
+  },
+  {
+    "julian_day_tt": 2470641.595903,
+    "date": "2052-04-14T02:18:06",
+    "type": "penumbral",
+    "magnitude": 0.9466
+  },
+  {
+    "julian_day_tt": 2470818.948588,
+    "date": "2052-10-08T10:45:58",
+    "type": "partial",
+    "magnitude": 1.0642
+  },
+  {
+    "julian_day_tt": 2470966.223727,
+    "date": "2053-03-04T17:22:10",
+    "type": "penumbral",
+    "magnitude": 0.9323
+  },
+  {
+    "julian_day_tt": 2471143.837384,
+    "date": "2053-08-29T08:05:50",
+    "type": "penumbral",
+    "magnitude": 1.0191
+  },
+  {
+    "julian_day_tt": 2471320.785729,
+    "date": "2054-02-22T06:51:27",
+    "type": "total",
+    "magnitude": 2.2491
+  },
+  {
+    "julian_day_tt": 2471497.893403,
+    "date": "2054-08-18T09:26:30",
+    "type": "total",
+    "magnitude": 2.3805
+  },
+  {
+    "julian_day_tt": 2471675.448808,
+    "date": "2055-02-11T22:46:17",
+    "type": "total",
+    "magnitude": 2.197
+  },
+  {
+    "julian_day_tt": 2471851.953681,
+    "date": "2055-08-07T10:53:18",
+    "type": "partial",
+    "magnitude": 2.0069
+  },
+  {
+    "julian_day_tt": 2472030.018125,
+    "date": "2056-02-01T12:26:06",
+    "type": "penumbral",
+    "magnitude": 0.9056
+  },
+  {
+    "julian_day_tt": 2472176.918854,
+    "date": "2056-06-27T10:03:09",
+    "type": "penumbral",
+    "magnitude": 0.3143
+  },
+  {
+    "julian_day_tt": 2472206.280139,
+    "date": "2056-07-26T18:43:24",
+    "type": "penumbral",
+    "magnitude": 0.6435
+  },
+  {
+    "julian_day_tt": 2472354.575648,
+    "date": "2056-12-22T01:48:56",
+    "type": "penumbral",
+    "magnitude": 0.7857
+  },
+  {
+    "julian_day_tt": 2472531.60162,
+    "date": "2057-06-17T02:26:20",
+    "type": "partial",
+    "magnitude": 1.6967
+  },
+  {
+    "julian_day_tt": 2472708.537245,
+    "date": "2057-12-11T00:53:38",
+    "type": "partial",
+    "magnitude": 2.0178
+  },
+  {
+    "julian_day_tt": 2472886.302639,
+    "date": "2058-06-06T19:15:48",
+    "type": "total",
+    "magnitude": 2.621
+  },
+  {
+    "julian_day_tt": 2473062.636319,
+    "date": "2058-11-30T03:16:18",
+    "type": "total",
+    "magnitude": 2.4802
+  },
+  {
+    "julian_day_tt": 2473240.830266,
+    "date": "2059-05-27T07:55:35",
+    "type": "partial",
+    "magnitude": 1.1946
+  },
+  {
+    "julian_day_tt": 2473417.042778,
+    "date": "2059-11-19T13:01:36",
+    "type": "partial",
+    "magnitude": 1.2037
+  },
+  {
+    "julian_day_tt": 2473565.400741,
+    "date": "2060-04-15T21:37:04",
+    "type": "penumbral",
+    "magnitude": 0.7674
+  },
+  {
+    "julian_day_tt": 2473742.287176,
+    "date": "2060-10-09T18:53:32",
+    "type": "penumbral",
+    "magnitude": 0.8796
+  },
+  {
+    "julian_day_tt": 2473771.669618,
+    "date": "2060-11-08T04:04:15",
+    "type": "penumbral",
+    "magnitude": 0.0266
+  },
+  {
+    "julian_day_tt": 2473919.412558,
+    "date": "2061-04-04T21:54:05",
+    "type": "total",
+    "magnitude": 2.1044
+  },
+  {
+    "julian_day_tt": 2474096.901539,
+    "date": "2061-09-29T09:38:13",
+    "type": "total",
+    "magnitude": 2.1556
+  },
+  {
+    "julian_day_tt": 2474273.648495,
+    "date": "2062-03-25T03:33:50",
+    "type": "total",
+    "magnitude": 2.2905
+  },
+  {
+    "julian_day_tt": 2474451.273634,
+    "date": "2062-09-18T18:34:02",
+    "type": "total",
+    "magnitude": 2.1959
+  },
+  {
+    "julian_day_tt": 2474628.170706,
+    "date": "2063-03-14T16:05:49",
+    "type": "partial",
+    "magnitude": 1.0088
+  },
+  {
+    "julian_day_tt": 2474805.361944,
+    "date": "2063-09-07T20:41:12",
+    "type": "penumbral",
+    "magnitude": 0.8101
+  },
+  {
+    "julian_day_tt": 2474953.408993,
+    "date": "2064-02-02T21:48:57",
+    "type": "partial",
+    "magnitude": 1.0197
+  },
+  {
+    "julian_day_tt": 2475129.828333,
+    "date": "2064-07-28T07:52:48",
+    "type": "partial",
+    "magnitude": 1.1361
+  },
+  {
+    "julian_day_tt": 2475307.915949,
+    "date": "2065-01-22T09:58:58",
+    "type": "total",
+    "magnitude": 2.2561
+  },
+  {
+    "julian_day_tt": 2475484.24213,
+    "date": "2065-07-17T17:48:40",
+    "type": "total",
+    "magnitude": 2.589
+  },
+  {
+    "julian_day_tt": 2475662.128322,
+    "date": "2066-01-11T15:04:47",
+    "type": "total",
+    "magnitude": 2.2259
+  },
+  {
+    "julian_day_tt": 2475838.896169,
+    "date": "2066-07-07T09:30:29",
+    "type": "partial",
+    "magnitude": 1.7179
+  },
+  {
+    "julian_day_tt": 2476016.104282,
+    "date": "2066-12-31T14:30:10",
+    "type": "penumbral",
+    "magnitude": 0.9773
+  },
+  {
+    "julian_day_tt": 2476164.288981,
+    "date": "2067-05-28T18:56:08",
+    "type": "penumbral",
+    "magnitude": 0.6403
+  },
+  {
+    "julian_day_tt": 2476193.611875,
+    "date": "2067-06-27T02:41:06",
+    "type": "penumbral",
+    "magnitude": 0.3754
+  },
+  {
+    "julian_day_tt": 2476340.503264,
+    "date": "2067-11-21T00:04:42",
+    "type": "penumbral",
+    "magnitude": 0.6544
+  },
+  {
+    "julian_day_tt": 2476518.737697,
+    "date": "2068-05-17T05:42:17",
+    "type": "partial",
+    "magnitude": 1.9826
+  },
+  {
+    "julian_day_tt": 2476694.990972,
+    "date": "2068-11-09T11:47:00",
+    "type": "total",
+    "magnitude": 1.9962
+  },
+  {
+    "julian_day_tt": 2476872.88191,
+    "date": "2069-05-06T09:09:57",
+    "type": "total",
+    "magnitude": 2.3965
+  },
+  {
+    "julian_day_tt": 2477049.649375,
+    "date": "2069-10-30T03:35:06",
+    "type": "total",
+    "magnitude": 2.4235
+  },
+  {
+    "julian_day_tt": 2477226.889861,
+    "date": "2070-04-25T09:21:24",
+    "type": "penumbral",
+    "magnitude": 1.0515
+  },
+  {
+    "julian_day_tt": 2477404.285556,
+    "date": "2070-10-19T18:51:12",
+    "type": "partial",
+    "magnitude": 1.1258
+  },
+  {
+    "julian_day_tt": 2477551.563299,
+    "date": "2071-03-16T01:31:09",
+    "type": "penumbral",
+    "magnitude": 0.8879
+  },
+  {
+    "julian_day_tt": 2477729.128947,
+    "date": "2071-09-09T15:05:41",
+    "type": "penumbral",
+    "magnitude": 0.8989
+  },
+  {
+    "julian_day_tt": 2477906.141053,
+    "date": "2072-03-04T15:23:07",
+    "type": "total",
+    "magnitude": 2.2127
+  },
+  {
+    "julian_day_tt": 2478083.170625,
+    "date": "2072-08-28T16:05:42",
+    "type": "total",
+    "magnitude": 2.2428
+  },
+  {
+    "julian_day_tt": 2478260.808947,
+    "date": "2073-02-22T07:24:53",
+    "type": "total",
+    "magnitude": 2.2218
+  },
+  {
+    "julian_day_tt": 2478437.237975,
+    "date": "2073-08-17T17:42:41",
+    "type": "total",
+    "magnitude": 2.1479
+  },
+  {
+    "julian_day_tt": 2478615.372199,
+    "date": "2074-02-11T20:55:58",
+    "type": "penumbral",
+    "magnitude": 0.9191
+  },
+  {
+    "julian_day_tt": 2478762.223356,
+    "date": "2074-07-08T17:21:38",
+    "type": "penumbral",
+    "magnitude": 0.187
+  },
+  {
+    "julian_day_tt": 2478791.58059,
+    "date": "2074-08-07T01:56:03",
+    "type": "penumbral",
+    "magnitude": 0.7813
+  },
+  {
+    "julian_day_tt": 2478939.913229,
+    "date": "2075-01-02T09:55:03",
+    "type": "penumbral",
+    "magnitude": 0.7714
+  },
+  {
+    "julian_day_tt": 2479116.9136,
+    "date": "2075-06-28T09:55:35",
+    "type": "partial",
+    "magnitude": 1.5624
+  },
+  {
+    "julian_day_tt": 2479293.872164,
+    "date": "2075-12-22T08:55:55",
+    "type": "partial",
+    "magnitude": 2.0008
+  },
+  {
+    "julian_day_tt": 2479471.610961,
+    "date": "2076-06-17T02:39:47",
+    "type": "total",
+    "magnitude": 2.7554
+  },
+  {
+    "julian_day_tt": 2479647.982535,
+    "date": "2076-12-10T11:34:51",
+    "type": "total",
+    "magnitude": 2.499
+  },
+  {
+    "julian_day_tt": 2479826.124907,
+    "date": "2077-06-06T14:59:52",
+    "type": "partial",
+    "magnitude": 1.3257
+  },
+  {
+    "julian_day_tt": 2480002.399919,
+    "date": "2077-11-29T21:35:53",
+    "type": "partial",
+    "magnitude": 1.2309
+  },
+  {
+    "julian_day_tt": 2480150.691481,
+    "date": "2078-04-27T04:35:44",
+    "type": "penumbral",
+    "magnitude": 0.6558
+  },
+  {
+    "julian_day_tt": 2480327.63059,
+    "date": "2078-10-21T03:08:03",
+    "type": "penumbral",
+    "magnitude": 0.8171
+  },
+  {
+    "julian_day_tt": 2480357.027824,
+    "date": "2078-11-19T12:40:04",
+    "type": "penumbral",
+    "magnitude": 0.0615
+  },
+  {
+    "julian_day_tt": 2480504.715799,
+    "date": "2079-04-16T05:10:45",
+    "type": "partial",
+    "magnitude": 2.01
+  },
+  {
+    "julian_day_tt": 2480682.229514,
+    "date": "2079-10-10T17:30:30",
+    "type": "total",
+    "magnitude": 2.0786
+  },
+  {
+    "julian_day_tt": 2480858.974745,
+    "date": "2080-04-04T11:23:38",
+    "type": "total",
+    "magnitude": 2.3607
+  },
+  {
+    "julian_day_tt": 2481036.578264,
+    "date": "2080-09-29T01:52:42",
+    "type": "total",
+    "magnitude": 2.2967
+  },
+  {
+    "julian_day_tt": 2481213.515289,
+    "date": "2081-03-25T00:22:01",
+    "type": "partial",
+    "magnitude": 1.0652
+  },
+  {
+    "julian_day_tt": 2481390.649606,
+    "date": "2081-09-18T03:35:26",
+    "type": "penumbral",
+    "magnitude": 0.927
+  },
+  {
+    "julian_day_tt": 2481538.770359,
+    "date": "2082-02-13T06:29:19",
+    "type": "partial",
+    "magnitude": 0.9955
+  },
+  {
+    "julian_day_tt": 2481715.115764,
+    "date": "2082-08-08T14:46:42",
+    "type": "penumbral",
+    "magnitude": 1.0011
+  },
+  {
+    "julian_day_tt": 2481893.268588,
+    "date": "2083-02-02T18:26:46",
+    "type": "total",
+    "magnitude": 2.24
+  },
+  {
+    "julian_day_tt": 2482069.545532,
+    "date": "2083-07-29T01:05:34",
+    "type": "total",
+    "magnitude": 2.452
+  },
+  {
+    "julian_day_tt": 2482247.467361,
+    "date": "2084-01-22T23:13:00",
+    "type": "total",
+    "magnitude": 2.2407
+  },
+  {
+    "julian_day_tt": 2482424.207535,
+    "date": "2084-07-17T16:58:51",
+    "type": "partial",
+    "magnitude": 1.854
+  },
+  {
+    "julian_day_tt": 2482601.439225,
+    "date": "2085-01-10T22:32:29",
+    "type": "penumbral",
+    "magnitude": 0.9927
+  },
+  {
+    "julian_day_tt": 2482749.595556,
+    "date": "2085-06-08T02:17:36",
+    "type": "penumbral",
+    "magnitude": 0.5065
+  },
+  {
+    "julian_day_tt": 2482778.919907,
+    "date": "2085-07-07T10:04:40",
+    "type": "penumbral",
+    "magnitude": 0.5047
+  },
+  {
+    "julian_day_tt": 2482925.8511,
+    "date": "2085-12-01T08:25:35",
+    "type": "penumbral",
+    "magnitude": 0.6387
+  },
+  {
+    "julian_day_tt": 2483104.030405,
+    "date": "2086-05-28T12:43:47",
+    "type": "partial",
+    "magnitude": 1.8486
+  },
+  {
+    "julian_day_tt": 2483280.347014,
+    "date": "2086-11-20T20:19:42",
+    "type": "partial",
+    "magnitude": 1.9679
+  },
+  {
+    "julian_day_tt": 2483458.163426,
+    "date": "2087-05-17T15:55:20",
+    "type": "total",
+    "magnitude": 2.5276
+  },
+  {
+    "julian_day_tt": 2483635.003854,
+    "date": "2087-11-10T12:05:33",
+    "type": "total",
+    "magnitude": 2.4654
+  },
+  {
+    "julian_day_tt": 2483812.178356,
+    "date": "2088-05-05T16:16:50",
+    "type": "partial",
+    "magnitude": 1.1695
+  },
+  {
+    "julian_day_tt": 2483989.627315,
+    "date": "2088-10-30T03:03:20",
+    "type": "partial",
+    "magnitude": 1.1761
+  },
+  {
+    "julian_day_tt": 2484136.898773,
+    "date": "2089-03-26T09:34:14",
+    "type": "penumbral",
+    "magnitude": 0.8332
+  },
+  {
+    "julian_day_tt": 2484314.424502,
+    "date": "2089-09-19T22:11:17",
+    "type": "penumbral",
+    "magnitude": 0.7893
+  },
+  {
+    "julian_day_tt": 2484491.492025,
+    "date": "2090-03-15T23:48:31",
+    "type": "total",
+    "magnitude": 2.1659
+  },
+  {
+    "julian_day_tt": 2484668.453113,
+    "date": "2090-09-08T22:52:29",
+    "type": "total",
+    "magnitude": 2.1167
+  },
+  {
+    "julian_day_tt": 2484846.165532,
+    "date": "2091-03-05T15:58:22",
+    "type": "total",
+    "magnitude": 2.2537
+  },
+  {
+    "julian_day_tt": 2485022.526678,
+    "date": "2091-08-29T00:38:25",
+    "type": "total",
+    "magnitude": 2.281
+  },
+  {
+    "julian_day_tt": 2485200.722905,
+    "date": "2092-02-23T05:20:59",
+    "type": "penumbral",
+    "magnitude": 0.9383
+  },
+  {
+    "julian_day_tt": 2485347.529144,
+    "date": "2092-07-19T00:41:58",
+    "type": "penumbral",
+    "magnitude": 0.062
+  },
+  {
+    "julian_day_tt": 2485376.884711,
+    "date": "2092-08-17T09:13:59",
+    "type": "penumbral",
+    "magnitude": 0.9131
+  },
+  {
+    "julian_day_tt": 2485525.250035,
+    "date": "2093-01-12T18:00:03",
+    "type": "penumbral",
+    "magnitude": 0.7553
+  },
+  {
+    "julian_day_tt": 2485702.225208,
+    "date": "2093-07-08T17:24:18",
+    "type": "partial",
+    "magnitude": 1.4275
+  },
+  {
+    "julian_day_tt": 2485879.208403,
+    "date": "2094-01-01T17:00:06",
+    "type": "partial",
+    "magnitude": 1.9858
+  },
+  {
+    "julian_day_tt": 2486056.918021,
+    "date": "2094-06-28T10:01:57",
+    "type": "total",
+    "magnitude": 2.7865
+  },
+  {
+    "julian_day_tt": 2486233.330926,
+    "date": "2094-12-21T19:56:32",
+    "type": "total",
+    "magnitude": 2.5138
+  },
+  {
+    "julian_day_tt": 2486411.416794,
+    "date": "2095-06-17T22:00:11",
+    "type": "partial",
+    "magnitude": 1.4617
+  },
+  {
+    "julian_day_tt": 2486587.76044,
+    "date": "2095-12-11T06:15:02",
+    "type": "partial",
+    "magnitude": 1.251
+  },
+  {
+    "julian_day_tt": 2486735.975486,
+    "date": "2096-05-07T11:24:42",
+    "type": "penumbral",
+    "magnitude": 0.5309
+  },
+  {
+    "julian_day_tt": 2486765.613669,
+    "date": "2096-06-06T02:43:41",
+    "type": "penumbral",
+    "magnitude": 0.0047
+  },
+  {
+    "julian_day_tt": 2486912.979433,
+    "date": "2096-10-31T11:30:23",
+    "type": "penumbral",
+    "magnitude": 0.7666
+  },
+  {
+    "julian_day_tt": 2486942.390532,
+    "date": "2096-11-29T21:22:22",
+    "type": "penumbral",
+    "magnitude": 0.0862
+  },
+  {
+    "julian_day_tt": 2487090.012697,
+    "date": "2097-04-26T12:18:17",
+    "type": "partial",
+    "magnitude": 1.9013
+  },
+  {
+    "julian_day_tt": 2487267.563137,
+    "date": "2097-10-21T01:30:55",
+    "type": "total",
+    "magnitude": 2.0152
+  },
+  {
+    "julian_day_tt": 2487444.295,
+    "date": "2098-04-15T19:04:48",
+    "type": "total",
+    "magnitude": 2.4454
+  },
+  {
+    "julian_day_tt": 2487621.888866,
+    "date": "2098-10-10T09:19:58",
+    "type": "total",
+    "magnitude": 2.3831
+  },
+  {
+    "julian_day_tt": 2487798.854815,
+    "date": "2099-04-05T08:30:56",
+    "type": "partial",
+    "magnitude": 1.1333
+  },
+  {
+    "julian_day_tt": 2487975.942106,
+    "date": "2099-09-29T10:36:38",
+    "type": "penumbral",
+    "magnitude": 1.034
+  },
+  {
+    "julian_day_tt": 2488124.1286,
+    "date": "2100-02-24T15:05:11",
+    "type": "penumbral",
+    "magnitude": 0.9649
+  },
+  {
+    "julian_day_tt": 2488300.406227,
+    "date": "2100-08-19T21:44:58",
+    "type": "penumbral",
+    "magnitude": 0.8716
+  }
+]
