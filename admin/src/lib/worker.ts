@@ -40,10 +40,11 @@ async function poll() {
     writeFileSync(paramsFile, run.paramSet.paramsJson, "utf-8");
 
     const scriptPath = join(REPO_ROOT, "tests", "run_eclipses.py");
+    const venvPython = join(REPO_ROOT, "tychos_skyfield", ".venv", "bin", "python3");
 
     await new Promise<void>((resolve) => {
       const child = spawn(
-        "python3",
+        venvPython,
         [
           scriptPath,
           paramsFile,
