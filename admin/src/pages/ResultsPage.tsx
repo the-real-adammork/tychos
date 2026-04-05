@@ -1,47 +1,47 @@
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { useState, useEffect } from "react";
+import { useParams, Navigate } from "react-router-dom";
 import { ResultsTable } from "@/components/results/results-table";
 
-export const dynamic = "force-dynamic";
+interface RunInfo {
+  id: number;
+  testType: string;
+  status: string;
+  totalEclipses: number | null;
+  detected: number | null;
+  paramSet: { id: number; name: string };
+}
 
-export default async function ResultsPage({
-  params,
-}: {
-  params: Promise<{ runId: string }>;
-}) {
-  const user = await getSessionUser();
-  if (!user) {
-    redirect("/login");
-  }
+export default function ResultsPage() {
+  const { runId } = useParams();
+  const [run, setRun] = useState<RunInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-  const { runId } = await params;
-  const runIdNum = parseInt(runId, 10);
+  useEffect(() => {
+    fetch(`/api/runs/${runId}`)
+      .then((r) => {
+        if (!r.ok) {
+          setNotFound(true);
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data) setRun(data);
+      })
+      .finally(() => setLoading(false));
+  }, [runId]);
 
-  if (isNaN(runIdNum)) {
-    redirect("/");
-  }
-
-  const run = await prisma.run.findUnique({
-    where: { id: runIdNum },
-    include: {
-      paramSet: {
-        select: { id: true, name: true },
-      },
-    },
-  });
-
-  if (!run) {
-    redirect("/");
-  }
+  if (loading) return null;
+  if (notFound || !run) return <Navigate to="/" />;
 
   const detectionRate =
     run.detected !== null && run.totalEclipses
       ? ((run.detected / run.totalEclipses) * 100).toFixed(1) + "%"
-      : "—";
+      : "\u2014";
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">
           Results: {run.paramSet.name}
@@ -74,7 +74,7 @@ export default async function ResultsPage({
         </div>
       </div>
 
-      <ResultsTable runId={runId} />
+      <ResultsTable runId={runId!} />
     </div>
   );
 }
