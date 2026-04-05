@@ -205,7 +205,9 @@ export default function ParamDetailPage() {
 
       {/* Latest Runs */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Latest Runs</h2>
+        <h2 className="text-lg font-semibold mb-3">
+          Latest Runs{data.versions.length > 0 && ` — v${data.versions[0].version_number}`}
+        </h2>
         {data.latest_version_runs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No runs yet</p>
         ) : (
