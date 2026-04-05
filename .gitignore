@@ -1,0 +1,8 @@
+results/*.db
+results/*.md5
+*.pyc
+__pycache__/
+.venv/
+.pytest_cache/
+*.bsp
+.superpowers/

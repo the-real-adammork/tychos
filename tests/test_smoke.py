@@ -51,13 +51,13 @@ class TestTychosSystemSanity:
 
     def test_scan_runs(self):
         system = T.TychosSystem()
-        min_sep, best_jd = scan_min_separation(system, 2451717.0, half_window_hours=0.5)
+        min_sep, best_jd, *_ = scan_min_separation(system, 2451717.0, half_window_hours=0.5)
         assert min_sep > 0
         assert not np.isnan(min_sep)
 
     def test_lunar_scan_runs(self):
         system = T.TychosSystem()
-        min_sep, best_jd = scan_lunar_eclipse(system, 2451717.0, half_window_hours=0.5)
+        min_sep, best_jd, *_ = scan_lunar_eclipse(system, 2451717.0, half_window_hours=0.5)
         assert min_sep > 0
         assert not np.isnan(min_sep)
 
@@ -87,7 +87,7 @@ class TestFalsePositives:
     def test_no_solar_eclipse(self, jd):
         from helpers import SOLAR_DETECTION_THRESHOLD
         system = T.TychosSystem()
-        min_sep, _ = scan_min_separation(system, jd, half_window_hours=1)
+        min_sep, *_ = scan_min_separation(system, jd, half_window_hours=1)
         assert min_sep > SOLAR_DETECTION_THRESHOLD, (
             f"False positive solar eclipse at JD {jd}: sep={np.degrees(min_sep):.2f} deg")
 
@@ -96,6 +96,6 @@ class TestFalsePositives:
         from helpers import LUNAR_PENUMBRAL_RADIUS, MOON_MEAN_ANGULAR_RADIUS
         threshold = LUNAR_PENUMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
         system = T.TychosSystem()
-        min_sep, _ = scan_lunar_eclipse(system, jd, half_window_hours=1)
+        min_sep, *_ = scan_lunar_eclipse(system, jd, half_window_hours=1)
         assert min_sep > threshold, (
             f"False positive lunar eclipse at JD {jd}: sep={np.degrees(min_sep):.2f} deg")
