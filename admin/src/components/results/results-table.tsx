@@ -33,6 +33,8 @@ interface EclipseResult {
   sunDecRad: number | null
   moonRaRad: number | null
   moonDecRad: number | null
+  moonErrorArcmin: number | null
+  accuracy: "pass" | "close" | "fail" | "unknown"
 }
 
 interface ApiResponse {
@@ -40,6 +42,7 @@ interface ApiResponse {
   total: number
   page: number
   pageSize: number
+  stats: { pass: number; close: number; fail: number }
 }
 
 interface ResultsTableProps {
@@ -56,11 +59,85 @@ function formatSeparation(val: number | null): string {
   return val.toFixed(2)
 }
 
+function formatMoonError(val: number | null): string {
+  if (val === null) return "—"
+  return val.toFixed(1)
+}
+
+function AccuracyBadge({ accuracy }: { accuracy: EclipseResult["accuracy"] }) {
+  if (accuracy === "pass") {
+    return <Badge className="bg-green-600 text-white hover:bg-green-700">pass</Badge>
+  }
+  if (accuracy === "close") {
+    return <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">close</Badge>
+  }
+  if (accuracy === "fail") {
+    return <Badge variant="destructive">fail</Badge>
+  }
+  return <Badge variant="secondary">unknown</Badge>
+}
+
+interface StatsBarProps {
+  stats: { pass: number; close: number; fail: number }
+}
+
+function StatsBar({ stats }: StatsBarProps) {
+  const total = stats.pass + stats.close + stats.fail
+  if (total === 0) return null
+
+  const passPct = (stats.pass / total) * 100
+  const closePct = (stats.close / total) * 100
+  const failPct = (stats.fail / total) * 100
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+        {passPct > 0 && (
+          <div
+            className="bg-green-600"
+            style={{ width: `${passPct}%` }}
+            title={`Pass: ${stats.pass}`}
+          />
+        )}
+        {closePct > 0 && (
+          <div
+            className="bg-yellow-500"
+            style={{ width: `${closePct}%` }}
+            title={`Close: ${stats.close}`}
+          />
+        )}
+        {failPct > 0 && (
+          <div
+            className="bg-red-600"
+            style={{ width: `${failPct}%` }}
+            title={`Fail: ${stats.fail}`}
+          />
+        )}
+      </div>
+      <div className="flex gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-green-600" />
+          Pass: {stats.pass}
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" />
+          Close: {stats.close}
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-red-600" />
+          Fail: {stats.fail}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function ResultsTable({ runId }: ResultsTableProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [results, setResults] = useState<EclipseResult[]>([])
   const [total, setTotal] = useState(0)
+  const [stats, setStats] = useState<{ pass: number; close: number; fail: number }>({ pass: 0, close: 0, fail: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,7 +145,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   const page = parseInt(searchParams.get("page") || "1")
   const pageSize = 50
   const typeFilter = searchParams.get("type") || "all"
-  const detectedFilter = searchParams.get("detected") || "all"
+  const accuracyFilter = searchParams.get("accuracy") || "all"
 
   function setPage(p: number) {
     setSearchParams(prev => { prev.set("page", String(p)); return prev }, { replace: true })
@@ -76,8 +153,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   function setTypeFilter(v: string) {
     setSearchParams(prev => { prev.set("type", v); prev.set("page", "1"); return prev }, { replace: true })
   }
-  function setDetectedFilter(v: string) {
-    setSearchParams(prev => { prev.set("detected", v); prev.set("page", "1"); return prev }, { replace: true })
+  function setAccuracyFilter(v: string) {
+    setSearchParams(prev => { prev.set("accuracy", v); prev.set("page", "1"); return prev }, { replace: true })
   }
 
   // Expanded rows
@@ -92,8 +169,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
     const params = new URLSearchParams()
     params.set("page", String(page))
     if (typeFilter !== "all") params.set("catalog_type", typeFilter)
-    if (detectedFilter === "detected") params.set("detected", "true")
-    if (detectedFilter === "missed") params.set("detected", "false")
+    if (accuracyFilter !== "all") params.set("accuracy", accuracyFilter)
 
     fetch(`/api/results/${runId}?${params.toString()}`)
       .then((res) => {
@@ -116,15 +192,18 @@ export function ResultsTable({ runId }: ResultsTableProps) {
           sunDecRad: r.sun_dec_rad,
           moonRaRad: r.moon_ra_rad,
           moonDecRad: r.moon_dec_rad,
+          moonErrorArcmin: r.moon_error_arcmin,
+          accuracy: r.accuracy,
         })) as EclipseResult[]
         setResults(mapped)
         setTotal(data.total)
+        setStats(data.stats ?? { pass: 0, close: 0, fail: 0 })
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Unknown error")
       })
       .finally(() => setLoading(false))
-  }, [runId, page, typeFilter, detectedFilter])
+  }, [runId, page, typeFilter, accuracyFilter])
 
   function handleTypeChange(value: string | null) {
     setTypeFilter(value ?? "all")
@@ -132,8 +211,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
     setExpandedRows(new Set())
   }
 
-  function handleDetectedChange(value: string | null) {
-    setDetectedFilter(value ?? "all")
+  function handleAccuracyChange(value: string | null) {
+    setAccuracyFilter(value ?? "all")
     setPage(1)
     setExpandedRows(new Set())
   }
@@ -152,6 +231,11 @@ export function ResultsTable({ runId }: ResultsTableProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Stats bar */}
+      {!loading && !error && (stats.pass + stats.close + stats.fail > 0) && (
+        <StatsBar stats={stats} />
+      )}
+
       {/* Filters */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
@@ -172,15 +256,17 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Detected</span>
-          <Select value={detectedFilter} onValueChange={handleDetectedChange}>
-            <SelectTrigger className="w-32">
+          <span className="text-sm text-muted-foreground">Accuracy</span>
+          <Select value={accuracyFilter} onValueChange={handleAccuracyChange}>
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="detected">Detected</SelectItem>
-              <SelectItem value="missed">Missed</SelectItem>
+              <SelectItem value="pass">Pass</SelectItem>
+              <SelectItem value="close">Close</SelectItem>
+              <SelectItem value="close+fail">Close + Fail</SelectItem>
+              <SelectItem value="fail">Fail</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -204,7 +290,9 @@ export function ResultsTable({ runId }: ResultsTableProps) {
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Magnitude</TableHead>
-              <TableHead>Detected</TableHead>
+              <TableHead>Threshold</TableHead>
+              <TableHead>Moon Error (arcmin)</TableHead>
+              <TableHead>Accuracy</TableHead>
               <TableHead>Min Separation (arcmin)</TableHead>
               <TableHead>Timing Offset (min)</TableHead>
             </TableRow>
@@ -229,12 +317,16 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                       <Badge variant="destructive">No</Badge>
                     )}
                   </TableCell>
+                  <TableCell>{formatMoonError(row.moonErrorArcmin)}</TableCell>
+                  <TableCell>
+                    <AccuracyBadge accuracy={row.accuracy} />
+                  </TableCell>
                   <TableCell>{formatSeparation(row.minSeparationArcmin)}</TableCell>
                   <TableCell>{formatTimingOffset(row.timingOffsetMin)}</TableCell>
                 </TableRow>
                 {expandedRows.has(row.id) && (
                   <TableRow key={`${row.id}-expand`} className="bg-muted/30">
-                    <TableCell colSpan={6} className="text-xs font-mono text-muted-foreground">
+                    <TableCell colSpan={8} className="text-xs font-mono text-muted-foreground">
                       <div className="grid grid-cols-2 gap-x-8 gap-y-1 p-1">
                         <span>
                           Sun RA:{" "}
