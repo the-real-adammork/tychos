@@ -85,11 +85,16 @@ async def get_result(run_id: int, result_id: int):
         cursor = await conn.execute(
             """
             SELECT er.*, r.test_type, pv.version_number,
-                   ps.id AS param_set_id, ps.name AS param_set_name
+                   ps.id AS param_set_id, ps.name AS param_set_name,
+                   jpl.sun_ra_rad AS jpl_sun_ra_rad, jpl.sun_dec_rad AS jpl_sun_dec_rad,
+                   jpl.moon_ra_rad AS jpl_moon_ra_rad, jpl.moon_dec_rad AS jpl_moon_dec_rad,
+                   jpl.separation_arcmin AS jpl_separation_arcmin
             FROM eclipse_results er
             JOIN runs r ON er.run_id = r.id
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
+            LEFT JOIN jpl_reference jpl ON jpl.julian_day_tt = er.julian_day_tt
+                AND jpl.test_type = r.test_type
             WHERE er.id = ? AND er.run_id = ?
             """,
             (result_id, run_id),
