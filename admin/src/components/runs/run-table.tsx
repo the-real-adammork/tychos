@@ -84,8 +84,20 @@ export default function RunTable() {
   useEffect(() => {
     fetch("/api/runs")
       .then((r) => r.json())
-      .then((data) => {
-        setRuns(data)
+      .then((data: any[]) => {
+        setRuns(data.map((r) => ({
+          id: r.id,
+          testType: r.test_type,
+          status: r.status,
+          totalEclipses: r.total_eclipses,
+          detected: r.detected,
+          createdAt: r.created_at,
+          paramSet: {
+            id: r.param_set_id,
+            name: r.param_set_name,
+            owner: { name: r.owner_name },
+          },
+        })))
         setLoading(false)
       })
       .catch(() => setLoading(false))
