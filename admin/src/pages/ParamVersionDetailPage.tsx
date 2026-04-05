@@ -288,6 +288,11 @@ export default function ParamVersionDetailPage() {
                 <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
                   <div className="flex items-center gap-4">
                     <span className="font-medium">v{entry.version.version_number}</span>
+                    {entry.version.notes && (
+                      <span className="text-xs text-muted-foreground italic">
+                        — {entry.version.notes}
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(entry.version.created_at), "MMM d, yyyy HH:mm")}
                     </span>
@@ -299,11 +304,6 @@ export default function ParamVersionDetailPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {entry.version.notes && (
-                      <span className="text-xs text-muted-foreground italic max-w-48 truncate">
-                        {entry.version.notes}
-                      </span>
-                    )}
                     <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/versions/${entry.version.id}`)}>
                       View
                     </Button>
