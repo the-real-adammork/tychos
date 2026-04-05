@@ -513,3 +513,37 @@ async def get_version(param_set_id: int, version_id: int):
         item["ancestors"] = ancestors
 
     return item
+
+
+class UpdateVersionNotesBody(BaseModel):
+    notes: str | None = None
+
+
+@router.patch("/{param_set_id}/versions/{version_id}")
+async def update_version_notes(param_set_id: int, version_id: int, body: UpdateVersionNotesBody, request: Request):
+    """Update only the notes on an existing version. Does not create a new version."""
+    user = await require_user(request)
+
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
+            """
+            SELECT pv.id, ps.owner_id
+            FROM param_versions pv
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            WHERE pv.id = ? AND pv.param_set_id = ?
+            """,
+            (version_id, param_set_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Version not found")
+        if row["owner_id"] != user["id"]:
+            raise HTTPException(status_code=403, detail="Not the owner")
+
+        await conn.execute(
+            "UPDATE param_versions SET notes = ? WHERE id = ?",
+            (body.notes, version_id),
+        )
+        await conn.commit()
+
+    return {"ok": True}
