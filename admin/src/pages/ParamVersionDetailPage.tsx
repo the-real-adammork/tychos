@@ -24,30 +24,14 @@ interface RunRow {
   created_at: string;
 }
 
-interface VersionRow {
+interface VersionDetail {
   id: number;
   version_number: number;
   params_md5: string;
+  params_json: string;
   created_at: string;
-}
-
-interface StatResult {
-  detected: number;
-  total_eclipses: number;
-  status: string;
-}
-
-interface ParamDetail {
-  id: number;
-  name: string;
-  description: string | null;
-  owner_id: number;
-  owner_name: string;
-  created_at: string;
-  solar_stats: StatResult | null;
-  lunar_stats: StatResult | null;
-  latest_version_runs: RunRow[];
-  versions: VersionRow[];
+  param_set_name?: string;
+  runs: RunRow[];
 }
 
 function StatusBadge({ status }: { status: RunStatus }) {
@@ -73,12 +57,20 @@ function detectionLabel(detected: number | null, total: number | null): string {
   return `${detected}/${total} (${pct}%)`;
 }
 
+function computeSolarStats(runs: RunRow[]) {
+  return runs.find((r) => r.test_type === "solar" && r.status === "done") ?? null;
+}
+
+function computeLunarStats(runs: RunRow[]) {
+  return runs.find((r) => r.test_type === "lunar" && r.status === "done") ?? null;
+}
+
 function StatCard({
   title,
-  stats,
+  run,
 }: {
   title: string;
-  stats: StatResult | null;
+  run: RunRow | null;
 }) {
   return (
     <Card>
@@ -88,15 +80,15 @@ function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {stats ? (
+        {run && run.detected !== null && run.total_eclipses !== null ? (
           <>
             <p className="text-3xl font-bold text-teal-400">
-              {stats.total_eclipses === 0
+              {run.total_eclipses === 0
                 ? "0%"
-                : `${Math.round((stats.detected / stats.total_eclipses) * 100)}%`}
+                : `${Math.round((run.detected / run.total_eclipses) * 100)}%`}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              {stats.detected}/{stats.total_eclipses} detected
+              {run.detected}/{run.total_eclipses} detected
             </p>
           </>
         ) : (
@@ -107,105 +99,72 @@ function StatCard({
   );
 }
 
-export default function ParamDetailPage() {
-  const { id } = useParams();
+export default function ParamVersionDetailPage() {
+  const { id, versionId } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState<ParamDetail | null>(null);
+  const [data, setData] = useState<VersionDetail | null>(null);
+  const [paramSetName, setParamSetName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !versionId) return;
     setLoading(true);
     setError(null);
-    fetch(`/api/params/${id}`)
-      .then((r) => {
+
+    Promise.all([
+      fetch(`/api/params/${id}/versions/${versionId}`).then((r) => {
         if (!r.ok) throw new Error(r.status === 404 ? "Not found" : "Failed to load");
-        return r.json();
+        return r.json() as Promise<VersionDetail>;
+      }),
+      fetch(`/api/params/${id}`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([versionData, paramSetData]) => {
+        setData(versionData);
+        if (paramSetData?.name) setParamSetName(paramSetData.name);
       })
-      .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
-
-  async function handleDelete() {
-    if (!id || !data) return;
-    if (!confirm(`Delete "${data.name}"? This cannot be undone.`)) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/params/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        navigate("/parameters");
-      } else {
-        const body = await res.json();
-        alert(body.detail ?? "Delete failed");
-      }
-    } catch {
-      alert("Network error");
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  async function handleFork() {
-    if (!id || !data) return;
-    try {
-      const res = await fetch(`/api/params/${id}/fork`, { method: "POST" });
-      if (res.ok) {
-        const forked = await res.json();
-        navigate(`/parameters/${forked.id}`);
-      } else {
-        const body = await res.json();
-        alert(body.detail ?? "Fork failed");
-      }
-    } catch {
-      alert("Network error");
-    }
-  }
+  }, [id, versionId]);
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) return null;
+
+  const solarRun = computeSolarStats(data.runs);
+  const lunarRun = computeLunarStats(data.runs);
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{data.name}</h1>
-          {data.description && (
-            <p className="text-sm text-muted-foreground mt-1">{data.description}</p>
-          )}
+          <h1 className="text-2xl font-bold">
+            {paramSetName ? `${paramSetName} — ` : ""}Version {data.version_number}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1 font-mono">
+            MD5: {data.params_md5}
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Owner: {data.owner_name} &middot; Created{" "}
-            {new Date(data.created_at).toLocaleDateString()}
+            Created {format(new Date(data.created_at), "MMM d, yyyy HH:mm")}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" onClick={handleFork}>
-            Fork
-          </Button>
-          <Button onClick={() => navigate(`/parameters/${id}/edit`)}>
-            Edit
-          </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-            {deleting ? "Deleting…" : "Delete"}
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
+          Back to Param Set
+        </Button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <StatCard title="Solar Detection" stats={data.solar_stats} />
-        <StatCard title="Lunar Detection" stats={data.lunar_stats} />
+        <StatCard title="Solar Detection" run={solarRun} />
+        <StatCard title="Lunar Detection" run={lunarRun} />
       </div>
 
-      {/* Latest Runs */}
+      {/* Runs */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Latest Runs</h2>
-        {data.latest_version_runs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No runs yet</p>
+        <h2 className="text-lg font-semibold mb-3">Runs</h2>
+        {data.runs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No runs for this version</p>
         ) : (
           <Table>
             <TableHeader>
@@ -217,7 +176,7 @@ export default function ParamDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.latest_version_runs.map((run) => (
+              {data.runs.map((run) => (
                 <TableRow
                   key={run.id}
                   className={run.status === "done" ? "cursor-pointer" : undefined}
@@ -236,41 +195,6 @@ export default function ParamDetailPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </section>
-
-      {/* Version History */}
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Version History</h2>
-        {data.versions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No versions</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Version</TableHead>
-                <TableHead>MD5</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.versions.map((v) => (
-                <TableRow
-                  key={v.id}
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/parameters/${id}/versions/${v.id}`)}
-                >
-                  <TableCell className="font-medium">v{v.version_number}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {v.params_md5.slice(0, 12)}…
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {format(new Date(v.created_at), "MMM d, yyyy HH:mm")}
                   </TableCell>
                 </TableRow>
               ))}

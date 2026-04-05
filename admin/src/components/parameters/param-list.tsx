@@ -1,6 +1,5 @@
 import * as React from "react";
-import { Link } from "react-router-dom";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -11,33 +10,34 @@ import {
 } from "@/components/ui/table";
 import { ParamForm } from "./param-form";
 
-interface RunSummary {
-  testType: string;
-  totalEclipses: number | null;
+interface LatestRun {
+  test_type: string;
+  status: string;
+  total_eclipses: number | null;
   detected: number | null;
 }
 
-interface ParamSet {
+interface ParamSetRow {
   id: number;
   name: string;
-  description: string | null;
-  createdAt: string;
-  owner: { id: number; name: string };
-  forkedFrom: { id: number; name: string } | null;
-  runs: RunSummary[];
+  owner_name: string;
+  created_at: string;
+  latest_runs: LatestRun[];
 }
 
-function detectionSummary(runs: RunSummary[], type: "solar" | "lunar"): string {
-  const doneRuns = runs.filter(
-    (r) => r.testType === type && r.detected !== null && r.totalEclipses !== null
-  );
-  if (doneRuns.length === 0) return "—";
-  const last = doneRuns[doneRuns.length - 1];
-  return `${last.detected}/${last.totalEclipses}`;
+function detectionCell(runs: LatestRun[], testType: "solar" | "lunar"): string {
+  const run = runs.find((r) => r.test_type === testType && r.status === "done");
+  if (!run || run.detected === null || run.total_eclipses === null) return "—";
+  const pct =
+    run.total_eclipses === 0
+      ? 0
+      : Math.round((run.detected / run.total_eclipses) * 100);
+  return `${run.detected}/${run.total_eclipses} (${pct}%)`;
 }
 
 export function ParamList() {
-  const [paramSets, setParamSets] = React.useState<ParamSet[]>([]);
+  const navigate = useNavigate();
+  const [paramSets, setParamSets] = React.useState<ParamSetRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -47,20 +47,8 @@ export function ParamList() {
     try {
       const res = await fetch("/api/params");
       if (!res.ok) throw new Error("Failed to load");
-      const data: any[] = await res.json();
-      setParamSets(data.map((ps) => ({
-        id: ps.id,
-        name: ps.name,
-        description: ps.description,
-        createdAt: ps.created_at,
-        owner: { id: ps.owner_id, name: ps.owner_name },
-        forkedFrom: ps.forked_from_name ? { id: ps.forked_from_id, name: ps.forked_from_name } : null,
-        runs: (ps.latest_runs || []).map((r: any) => ({
-          testType: r.test_type,
-          totalEclipses: r.total_eclipses,
-          detected: r.detected,
-        })),
-      })));
+      const data: ParamSetRow[] = await res.json();
+      setParamSets(data);
     } catch {
       setError("Failed to load parameter sets");
     } finally {
@@ -72,30 +60,10 @@ export function ParamList() {
     load();
   }, []);
 
-  async function handleFork(id: number) {
-    const res = await fetch(`/api/params/${id}/fork`, { method: "POST" });
-    if (res.ok) load();
-  }
-
-  async function handleDelete(id: number) {
-    if (!confirm("Delete this parameter set?")) return;
-    const res = await fetch(`/api/params/${id}`, { method: "DELETE" });
-    if (res.ok) load();
-  }
-
-  async function handleRun(paramSetId: number, testType: "solar" | "lunar") {
-    const res = await fetch("/api/runs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ param_set_id: paramSetId, test_type: testType }),
-    });
-    if (res.ok) load();
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
-        <ParamForm onCreated={load} />
+        <ParamForm onCreated={(id) => navigate(`/parameters/${id}`)} />
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -107,72 +75,35 @@ export function ParamList() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Owner</TableHead>
-              <TableHead>Forked From</TableHead>
               <TableHead>Solar Detection</TableHead>
               <TableHead>Lunar Detection</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paramSets.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   No parameter sets yet
                 </TableCell>
               </TableRow>
             )}
             {paramSets.map((ps) => (
-              <TableRow key={ps.id}>
+              <TableRow
+                key={ps.id}
+                className="cursor-pointer"
+                onClick={() => navigate(`/parameters/${ps.id}`)}
+              >
                 <TableCell className="font-medium">{ps.name}</TableCell>
-                <TableCell>{ps.owner.name}</TableCell>
-                <TableCell>{ps.forkedFrom?.name ?? "—"}</TableCell>
+                <TableCell>{ps.owner_name}</TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionSummary(ps.runs, "solar")}
+                  {detectionCell(ps.latest_runs, "solar")}
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionSummary(ps.runs, "lunar")}
+                  {detectionCell(ps.latest_runs, "lunar")}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
-                  {new Date(ps.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFork(ps.id)}
-                    >
-                      Fork
-                    </Button>
-                    <Link
-                      to={`/parameters/${ps.id}`}
-                      className={buttonVariants({ size: "sm", variant: "outline" })}
-                    >
-                      Edit
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRun(ps.id, "solar")}
-                    >
-                      Run Solar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRun(ps.id, "lunar")}
-                    >
-                      Run Lunar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(ps.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                  {new Date(ps.created_at).toLocaleDateString()}
                 </TableCell>
               </TableRow>
             ))}

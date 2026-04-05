@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface ParamFormProps {
-  onCreated: () => void;
+  onCreated: (id: number) => void;
 }
 
 export function ParamForm({ onCreated }: ParamFormProps) {
@@ -38,11 +38,12 @@ export function ParamForm({ onCreated }: ParamFormProps) {
         setError(data.error ?? "Failed to create param set");
         return;
       }
+      const created = await res.json();
       setName("");
       setDescription("");
       setParamsJson("");
       setOpen(false);
-      onCreated();
+      onCreated(created.id);
     } catch {
       setError("Network error");
     } finally {

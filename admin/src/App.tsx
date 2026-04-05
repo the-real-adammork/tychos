@@ -7,6 +7,8 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ParametersPage from "@/pages/ParametersPage";
 import ParamDetailPage from "@/pages/ParamDetailPage";
+import ParamEditPage from "@/pages/ParamEditPage";
+import ParamVersionDetailPage from "@/pages/ParamVersionDetailPage";
 import RunsPage from "@/pages/RunsPage";
 import ResultsPage from "@/pages/ResultsPage";
 import ComparePage from "@/pages/ComparePage";
@@ -51,6 +53,8 @@ export default function App() {
                     <Route path="/" element={<DashboardPage />} />
                     <Route path="/parameters" element={<ParametersPage />} />
                     <Route path="/parameters/:id" element={<ParamDetailPage />} />
+                    <Route path="/parameters/:id/edit" element={<ParamEditPage />} />
+                    <Route path="/parameters/:id/versions/:versionId" element={<ParamVersionDetailPage />} />
                     <Route path="/runs" element={<RunsPage />} />
                     <Route path="/results/:runId" element={<ResultsPage />} />
                     <Route path="/compare" element={<ComparePage />} />
