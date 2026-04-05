@@ -34,7 +34,7 @@ interface VersionRow {
 }
 
 interface StatResult {
-  detected: number;
+  overall_pass: number;
   total_eclipses: number;
   version_number: number;
 }
@@ -95,10 +95,10 @@ function StatCard({
             <p className="text-3xl font-bold text-teal-400">
               {stats.total_eclipses === 0
                 ? "0%"
-                : `${Math.round((stats.detected / stats.total_eclipses) * 100)}%`}
+                : `${Math.round((stats.overall_pass / stats.total_eclipses) * 100)}%`}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              {stats.detected}/{stats.total_eclipses} detected
+              {stats.overall_pass}/{stats.total_eclipses} pass
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <span className="font-medium">Version:</span> v{stats.version_number}

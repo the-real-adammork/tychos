@@ -21,6 +21,7 @@ interface RunRow {
   status: RunStatus;
   total_eclipses: number | null;
   detected: number | null;
+  overall_pass: number | null;
   created_at: string;
 }
 
@@ -72,12 +73,12 @@ function StatCard({ title, run, notes }: { title: string; run: RunRow | null; no
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {run && run.detected !== null && run.total_eclipses !== null ? (
+        {run && run.total_eclipses !== null && run.total_eclipses > 0 ? (
           <>
             <p className="text-3xl font-bold text-teal-400">
-              {run.total_eclipses === 0 ? "0%" : `${Math.round((run.detected / run.total_eclipses) * 100)}%`}
+              {run.total_eclipses === 0 ? "0%" : `${Math.round(((run.overall_pass ?? run.detected ?? 0) / run.total_eclipses) * 100)}%`}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">{run.detected}/{run.total_eclipses} detected</p>
+            <p className="text-sm text-muted-foreground mt-1">{run.overall_pass ?? run.detected}/{run.total_eclipses} pass</p>
           </>
         ) : (
           <p className="text-muted-foreground text-sm">No runs yet</p>
@@ -266,7 +267,7 @@ export default function ParamVersionDetailPage() {
                 >
                   <TableCell className="capitalize">{run.test_type}</TableCell>
                   <TableCell><StatusBadge status={run.status} /></TableCell>
-                  <TableCell className="tabular-nums">{detectionLabel(run.detected, run.total_eclipses)}</TableCell>
+                  <TableCell className="tabular-nums">{detectionLabel(run.overall_pass ?? run.detected, run.total_eclipses)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}
                   </TableCell>
