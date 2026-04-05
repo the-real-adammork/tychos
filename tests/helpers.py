@@ -26,6 +26,13 @@ def angular_separation(ra1, dec1, ra2, dec2):
     )
 
 
+def lunar_threshold(catalog_type):
+    """Get detection threshold for a lunar eclipse based on catalog type."""
+    if catalog_type == "penumbral":
+        return LUNAR_PENUMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
+    return LUNAR_UMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
+
+
 def _get_sun_moon_radec(system):
     """Get Sun and Moon RA/Dec (radians) from a moved TychosSystem."""
     sun_ra, sun_dec, _ = system['sun'].radec_direct(
@@ -38,7 +45,8 @@ def _get_sun_moon_radec(system):
 def scan_min_separation(system, center_jd, half_window_hours=2):
     """Two-pass scan for minimum Sun-Moon angular separation.
 
-    Returns (min_separation_rad, best_jd).
+    Returns (min_separation_rad, best_jd, sun_ra, sun_dec, moon_ra, moon_dec)
+    where the positions are at the moment of minimum separation.
     """
     half_window = half_window_hours / 24.0
     coarse_step = 5 * MINUTE_IN_DAYS
@@ -47,14 +55,16 @@ def scan_min_separation(system, center_jd, half_window_hours=2):
     jds = np.arange(center_jd - half_window, center_jd + half_window + coarse_step, coarse_step)
     best_sep = np.inf
     best_jd = center_jd
+    best_pos = (0.0, 0.0, 0.0, 0.0)
 
     for jd in jds:
         system.move_system(jd)
-        sun_ra, sun_dec, moon_ra, moon_dec = _get_sun_moon_radec(system)
-        sep = angular_separation(sun_ra, sun_dec, moon_ra, moon_dec)
+        pos = _get_sun_moon_radec(system)
+        sep = angular_separation(pos[0], pos[1], pos[2], pos[3])
         if sep < best_sep:
             best_sep = sep
             best_jd = jd
+            best_pos = pos
 
     # Fine pass: +/-10 minutes around coarse minimum
     fine_step = MINUTE_IN_DAYS
@@ -63,19 +73,21 @@ def scan_min_separation(system, center_jd, half_window_hours=2):
 
     for jd in jds:
         system.move_system(jd)
-        sun_ra, sun_dec, moon_ra, moon_dec = _get_sun_moon_radec(system)
-        sep = angular_separation(sun_ra, sun_dec, moon_ra, moon_dec)
+        pos = _get_sun_moon_radec(system)
+        sep = angular_separation(pos[0], pos[1], pos[2], pos[3])
         if sep < best_sep:
             best_sep = sep
             best_jd = jd
+            best_pos = pos
 
-    return best_sep, best_jd
+    return best_sep, best_jd, best_pos[0], best_pos[1], best_pos[2], best_pos[3]
 
 
 def scan_lunar_eclipse(system, center_jd, half_window_hours=2):
     """Two-pass scan for minimum Moon-to-antisolar-point separation.
 
-    Returns (min_separation_rad, best_jd).
+    Returns (min_separation_rad, best_jd, sun_ra, sun_dec, moon_ra, moon_dec)
+    where the positions are at the moment of minimum separation.
     """
     half_window = half_window_hours / 24.0
     coarse_step = 5 * MINUTE_IN_DAYS
@@ -84,16 +96,18 @@ def scan_lunar_eclipse(system, center_jd, half_window_hours=2):
     jds = np.arange(center_jd - half_window, center_jd + half_window + coarse_step, coarse_step)
     best_sep = np.inf
     best_jd = center_jd
+    best_pos = (0.0, 0.0, 0.0, 0.0)
 
     for jd in jds:
         system.move_system(jd)
-        sun_ra, sun_dec, moon_ra, moon_dec = _get_sun_moon_radec(system)
-        anti_ra = (sun_ra + np.pi) % (2 * np.pi)
-        anti_dec = -sun_dec
-        sep = angular_separation(moon_ra, moon_dec, anti_ra, anti_dec)
+        pos = _get_sun_moon_radec(system)
+        anti_ra = (pos[0] + np.pi) % (2 * np.pi)
+        anti_dec = -pos[1]
+        sep = angular_separation(pos[2], pos[3], anti_ra, anti_dec)
         if sep < best_sep:
             best_sep = sep
             best_jd = jd
+            best_pos = pos
 
     # Fine pass
     fine_step = MINUTE_IN_DAYS
@@ -102,12 +116,13 @@ def scan_lunar_eclipse(system, center_jd, half_window_hours=2):
 
     for jd in jds:
         system.move_system(jd)
-        sun_ra, sun_dec, moon_ra, moon_dec = _get_sun_moon_radec(system)
-        anti_ra = (sun_ra + np.pi) % (2 * np.pi)
-        anti_dec = -sun_dec
-        sep = angular_separation(moon_ra, moon_dec, anti_ra, anti_dec)
+        pos = _get_sun_moon_radec(system)
+        anti_ra = (pos[0] + np.pi) % (2 * np.pi)
+        anti_dec = -pos[1]
+        sep = angular_separation(pos[2], pos[3], anti_ra, anti_dec)
         if sep < best_sep:
             best_sep = sep
             best_jd = jd
+            best_pos = pos
 
-    return best_sep, best_jd
+    return best_sep, best_jd, best_pos[0], best_pos[1], best_pos[2], best_pos[3]
