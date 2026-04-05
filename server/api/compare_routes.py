@@ -1,7 +1,7 @@
 """Compare routes: diff two param sets' eclipse results."""
 from fastapi import APIRouter, HTTPException, Query
 
-from server.db import get_db
+from server.db import get_async_db
 
 router = APIRouter(prefix="/api/compare")
 
@@ -10,9 +10,9 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-def _get_latest_done_run(conn, param_set_id: int, test_type: str):
+async def _get_latest_done_run(conn, param_set_id: int, test_type: str):
     """Return the latest done run for a param_set + test_type, or None."""
-    return conn.execute(
+    cursor = await conn.execute(
         """
         SELECT r.id, r.total_eclipses, r.detected, p.name AS param_set_name, u.name AS owner_name,
                p.params_json
@@ -24,25 +24,26 @@ def _get_latest_done_run(conn, param_set_id: int, test_type: str):
         LIMIT 1
         """,
         (param_set_id, test_type),
-    ).fetchone()
+    )
+    return await cursor.fetchone()
 
 
 @router.get("")
-def compare(
+async def compare(
     a: int = Query(..., description="Param set id A"),
     b: int = Query(..., description="Param set id B"),
     type: str = Query(default="solar", description="Test type (solar or lunar)"),
 ):
     """Compare latest done runs for two param sets."""
-    with get_db() as conn:
-        run_a = _get_latest_done_run(conn, a, type)
+    async with get_async_db() as conn:
+        run_a = await _get_latest_done_run(conn, a, type)
         if run_a is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"No completed '{type}' run found for param_set {a}",
             )
 
-        run_b = _get_latest_done_run(conn, b, type)
+        run_b = await _get_latest_done_run(conn, b, type)
         if run_b is None:
             raise HTTPException(
                 status_code=404,
@@ -50,21 +51,23 @@ def compare(
             )
 
         # Fetch all eclipse results for both runs indexed by julian_day_tt + catalog_type
-        results_a = conn.execute(
+        cursor_a = await conn.execute(
             """
             SELECT julian_day_tt, date, catalog_type, detected, min_separation_arcmin
             FROM eclipse_results WHERE run_id = ?
             """,
             (run_a["id"],),
-        ).fetchall()
+        )
+        results_a = await cursor_a.fetchall()
 
-        results_b = conn.execute(
+        cursor_b = await conn.execute(
             """
             SELECT julian_day_tt, date, catalog_type, detected, min_separation_arcmin
             FROM eclipse_results WHERE run_id = ?
             """,
             (run_b["id"],),
-        ).fetchall()
+        )
+        results_b = await cursor_b.fetchall()
 
     # Build lookup maps keyed by (julian_day_tt, catalog_type)
     map_a = {

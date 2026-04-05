@@ -1,7 +1,7 @@
 """Eclipse results routes: paginated list per run."""
 from fastapi import APIRouter, HTTPException, Query
 
-from server.db import get_db
+from server.db import get_async_db
 
 router = APIRouter(prefix="/api/results")
 
@@ -13,7 +13,7 @@ def _row_to_dict(row) -> dict:
 
 
 @router.get("/{run_id}")
-def list_results(
+async def list_results(
     run_id: int,
     page: int = Query(default=1, ge=1),
     catalog_type: str | None = Query(default=None),
@@ -26,9 +26,10 @@ def list_results(
     - catalog_type: filter by catalog_type
     - detected: "true" or "false"
     """
-    with get_db() as conn:
+    async with get_async_db() as conn:
         # Verify run exists
-        run_row = conn.execute("SELECT id FROM runs WHERE id = ?", (run_id,)).fetchone()
+        run_cursor = await conn.execute("SELECT id FROM runs WHERE id = ?", (run_id,))
+        run_row = await run_cursor.fetchone()
         if run_row is None:
             raise HTTPException(status_code=404, detail="Run not found")
 
@@ -51,12 +52,14 @@ def list_results(
 
         where_clause = "WHERE " + " AND ".join(conditions)
 
-        total = conn.execute(
+        total_cursor = await conn.execute(
             f"SELECT COUNT(*) FROM eclipse_results {where_clause}", values
-        ).fetchone()[0]
+        )
+        total_row = await total_cursor.fetchone()
+        total = total_row[0]
 
         offset = (page - 1) * PAGE_SIZE
-        rows = conn.execute(
+        rows_cursor = await conn.execute(
             f"""
             SELECT * FROM eclipse_results
             {where_clause}
@@ -64,7 +67,8 @@ def list_results(
             LIMIT ? OFFSET ?
             """,
             values + [PAGE_SIZE, offset],
-        ).fetchall()
+        )
+        rows = await rows_cursor.fetchall()
 
     return {
         "results": [_row_to_dict(r) for r in rows],

@@ -1,7 +1,7 @@
 """Dashboard routes: summary stats and leaderboard."""
 from fastapi import APIRouter
 
-from server.db import get_db
+from server.db import get_async_db
 
 router = APIRouter(prefix="/api/dashboard")
 
@@ -11,15 +11,17 @@ def _row_to_dict(row) -> dict:
 
 
 @router.get("")
-def dashboard():
+async def dashboard():
     """Return aggregate stats, best runs, recent runs, and a leaderboard."""
-    with get_db() as conn:
-        total_param_sets = conn.execute(
+    async with get_async_db() as conn:
+        total_cursor = await conn.execute(
             "SELECT COUNT(*) FROM param_sets"
-        ).fetchone()[0]
+        )
+        total_row = await total_cursor.fetchone()
+        total_param_sets = total_row[0]
 
         # Best solar: highest detected/total_eclipses rate among done runs
-        best_solar_row = conn.execute(
+        best_solar_cursor = await conn.execute(
             """
             SELECT p.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
             FROM runs r
@@ -29,7 +31,8 @@ def dashboard():
             ORDER BY rate DESC
             LIMIT 1
             """
-        ).fetchone()
+        )
+        best_solar_row = await best_solar_cursor.fetchone()
         best_solar = (
             {"name": best_solar_row["name"], "rate": best_solar_row["rate"]}
             if best_solar_row
@@ -37,7 +40,7 @@ def dashboard():
         )
 
         # Best lunar
-        best_lunar_row = conn.execute(
+        best_lunar_cursor = await conn.execute(
             """
             SELECT p.name, CAST(r.detected AS REAL) / r.total_eclipses AS rate
             FROM runs r
@@ -47,7 +50,8 @@ def dashboard():
             ORDER BY rate DESC
             LIMIT 1
             """
-        ).fetchone()
+        )
+        best_lunar_row = await best_lunar_cursor.fetchone()
         best_lunar = (
             {"name": best_lunar_row["name"], "rate": best_lunar_row["rate"]}
             if best_lunar_row
@@ -55,7 +59,7 @@ def dashboard():
         )
 
         # Recent runs (last 10)
-        recent_rows = conn.execute(
+        recent_cursor = await conn.execute(
             """
             SELECT r.id, p.name AS param_set_name, u.name AS owner_name,
                    r.test_type, r.status, r.total_eclipses, r.detected, r.created_at
@@ -65,11 +69,12 @@ def dashboard():
             ORDER BY r.created_at DESC
             LIMIT 10
             """
-        ).fetchall()
+        )
+        recent_rows = await recent_cursor.fetchall()
         recent_runs = [_row_to_dict(r) for r in recent_rows]
 
         # Leaderboard: param sets ordered by avg detection rate across done runs
-        leader_rows = conn.execute(
+        leader_cursor = await conn.execute(
             """
             SELECT p.name AS param_set_name, u.name AS owner_name,
                    AVG(CAST(r.detected AS REAL) / r.total_eclipses) AS avg_rate
@@ -81,7 +86,8 @@ def dashboard():
             ORDER BY avg_rate DESC
             LIMIT 20
             """
-        ).fetchall()
+        )
+        leader_rows = await leader_cursor.fetchall()
         leaderboard = [_row_to_dict(r) for r in leader_rows]
 
     return {
