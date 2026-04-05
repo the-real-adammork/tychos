@@ -14,13 +14,18 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def init_db():
-    """Apply any unapplied migrations. Creates the db file if needed."""
+    """Apply any unapplied migrations, then run seed. Creates the db file if needed."""
+    _run_migrations()
+    _run_seed()
+
+
+def _run_migrations():
+    """Apply any unapplied SQL migrations."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
 
-    # Create migrations tracking table
     conn.execute("""
         CREATE TABLE IF NOT EXISTS _migrations (
             id INTEGER PRIMARY KEY,
@@ -30,10 +35,8 @@ def init_db():
     """)
     conn.commit()
 
-    # Get already applied migrations
     applied = {row[0] for row in conn.execute("SELECT name FROM _migrations").fetchall()}
 
-    # Find and apply new migrations in order
     migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
     for migration_file in migration_files:
         name = migration_file.name
@@ -46,6 +49,12 @@ def init_db():
         conn.commit()
 
     conn.close()
+
+
+def _run_seed():
+    """Run the seed script (idempotent)."""
+    from server.seed import seed
+    seed()
 
 
 # --- Sync access (used by worker process) ---
