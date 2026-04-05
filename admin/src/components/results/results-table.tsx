@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Table,
   TableBody,
@@ -58,16 +58,27 @@ function formatSeparation(val: number | null): string {
 
 export function ResultsTable({ runId }: ResultsTableProps) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [results, setResults] = useState<EclipseResult[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(50)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filters
-  const [typeFilter, setTypeFilter] = useState("all")
-  const [detectedFilter, setDetectedFilter] = useState("all")
+  // Read state from URL
+  const page = parseInt(searchParams.get("page") || "1")
+  const pageSize = 50
+  const typeFilter = searchParams.get("type") || "all"
+  const detectedFilter = searchParams.get("detected") || "all"
+
+  function setPage(p: number) {
+    setSearchParams(prev => { prev.set("page", String(p)); return prev }, { replace: true })
+  }
+  function setTypeFilter(v: string) {
+    setSearchParams(prev => { prev.set("type", v); prev.set("page", "1"); return prev }, { replace: true })
+  }
+  function setDetectedFilter(v: string) {
+    setSearchParams(prev => { prev.set("detected", v); prev.set("page", "1"); return prev }, { replace: true })
+  }
 
   // Expanded rows
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
@@ -108,7 +119,6 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         })) as EclipseResult[]
         setResults(mapped)
         setTotal(data.total)
-        setPageSize(data.page_size ?? data.pageSize)
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Unknown error")
