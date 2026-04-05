@@ -26,6 +26,7 @@ interface Run {
   status: RunStatus
   totalEclipses: number | null
   detected: number | null
+  overallPass: number | null
   createdAt: string
   versionNumber: number | null
   paramSet: {
@@ -66,12 +67,13 @@ function StatusBadge({ status }: { status: RunStatus }) {
 
 function detectionRate(run: Run): string {
   if (run.status !== "done") return "—"
-  if (run.detected === null || run.totalEclipses === null) return "—"
+  const pass = run.overallPass ?? run.detected
+  if (pass === null || run.totalEclipses === null) return "—"
   const pct =
     run.totalEclipses === 0
       ? 0
-      : Math.round((run.detected / run.totalEclipses) * 100)
-  return `${run.detected}/${run.totalEclipses} (${pct}%)`
+      : Math.round((pass / run.totalEclipses) * 100)
+  return `${pass}/${run.totalEclipses} (${pct}%)`
 }
 
 type FilterStatus = "all" | RunStatus
@@ -92,6 +94,7 @@ export default function RunTable() {
           status: r.status,
           totalEclipses: r.total_eclipses,
           detected: r.detected,
+          overallPass: r.overall_pass ?? null,
           createdAt: r.created_at,
           versionNumber: r.version_number ?? null,
           paramSet: {

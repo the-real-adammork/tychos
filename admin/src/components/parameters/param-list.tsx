@@ -15,6 +15,7 @@ interface LatestRun {
   status: string;
   total_eclipses: number | null;
   detected: number | null;
+  overall_pass: number | null;
 }
 
 interface ParamSetRow {
@@ -27,12 +28,13 @@ interface ParamSetRow {
 
 function detectionCell(runs: LatestRun[], testType: "solar" | "lunar"): string {
   const run = runs.find((r) => r.test_type === testType && r.status === "done");
-  if (!run || run.detected === null || run.total_eclipses === null) return "—";
+  if (!run || run.total_eclipses === null) return "—";
+  const pass = run.overall_pass ?? run.detected ?? 0;
   const pct =
     run.total_eclipses === 0
       ? 0
-      : Math.round((run.detected / run.total_eclipses) * 100);
-  return `${run.detected}/${run.total_eclipses} (${pct}%)`;
+      : Math.round((pass / run.total_eclipses) * 100);
+  return `${pass}/${run.total_eclipses} (${pct}%)`;
 }
 
 export function ParamList() {
