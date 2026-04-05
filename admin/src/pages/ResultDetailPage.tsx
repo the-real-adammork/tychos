@@ -25,6 +25,8 @@ interface ResultDetail {
   jpl_moon_ra_rad: number | null;
   jpl_moon_dec_rad: number | null;
   jpl_separation_arcmin: number | null;
+  moon_error_arcmin: number | null;
+  accuracy: "pass" | "close" | "fail" | "unknown";
   test_type: string;
   version_number: number;
   param_set_id: number;
@@ -291,7 +293,13 @@ export default function ResultDetailPage() {
   if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (!result) return <p className="text-sm text-destructive">Result not found</p>;
 
-  const detected = result.detected === true || result.detected === 1;
+  const accuracy = result.accuracy ?? "unknown";
+  const accuracyColors = {
+    pass: "bg-green-600 text-white",
+    close: "bg-yellow-500 text-white",
+    fail: "bg-red-600 text-white",
+    unknown: "bg-muted text-muted-foreground",
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -302,11 +310,8 @@ export default function ResultDetailPage() {
             Eclipse: {result.date.split("T")[0]}
           </h1>
           <div className="flex items-center gap-3 mt-1">
-            <Badge className={`capitalize ${detected
-              ? "bg-green-500/15 text-green-600 border-transparent"
-              : "bg-red-500/15 text-red-600 border-transparent"
-            }`}>
-              {detected ? "Detected" : "Missed"}
+            <Badge className={accuracyColors[accuracy]}>
+              {accuracy}
             </Badge>
             <span className="text-sm text-muted-foreground capitalize">{result.catalog_type}</span>
             <span className="text-sm text-muted-foreground">Magnitude: {result.magnitude}</span>
@@ -420,7 +425,17 @@ export default function ResultDetailPage() {
               )}
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t space-y-1 text-sm">
+          <div className="mt-4 pt-3 border-t space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Moon Position Error (Tychos vs JPL)</span>
+              <span className={`font-mono font-medium ${
+                accuracy === "pass" ? "text-green-600" :
+                accuracy === "close" ? "text-yellow-600" :
+                accuracy === "fail" ? "text-red-600" : ""
+              }`}>
+                {result.moon_error_arcmin?.toFixed(1) ?? "—"} arcmin
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Catalog Date</span>
               <span className="font-mono">{result.date}</span>
