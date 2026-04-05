@@ -29,16 +29,23 @@ CREATE TABLE IF NOT EXISTS param_sets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
-    params_md5 TEXT NOT NULL,
-    params_json TEXT NOT NULL,
     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     forked_from_id INTEGER REFERENCES param_sets(id) ON DELETE SET NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS runs (
+CREATE TABLE IF NOT EXISTS param_versions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     param_set_id INTEGER NOT NULL REFERENCES param_sets(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL DEFAULT 1,
+    params_md5 TEXT NOT NULL,
+    params_json TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    param_version_id INTEGER NOT NULL REFERENCES param_versions(id) ON DELETE CASCADE,
     test_type TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'queued',
     code_version TEXT NOT NULL DEFAULT '1.0',
