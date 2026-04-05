@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tychos.server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__TYCHOS_DIR__/tychos_skyfield/.venv/bin/uvicorn</string>
+        <string>server.app:app</string>
+        <string>--host</string>
+        <string>127.0.0.1</string>
+        <string>--port</string>
+        <string>__TYCHOS_PORT__</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__TYCHOS_DIR__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>tychos_skyfield:tests:.</string>
+        <key>PATH</key>
+        <string>__TYCHOS_DIR__/tychos_skyfield/.venv/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__TYCHOS_DIR__/logs/server.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__TYCHOS_DIR__/logs/server.err.log</string>
+</dict>
+</plist>
