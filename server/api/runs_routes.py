@@ -35,7 +35,7 @@ async def list_runs(
     async with get_async_db() as conn:
         cursor = await conn.execute(
             f"""
-            SELECT r.*, pv.version_number, ps.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name, u.name AS owner_name
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
@@ -95,7 +95,7 @@ async def create_run(body: CreateRunBody, request: Request):
 
         row_cursor = await conn.execute(
             """
-            SELECT r.*, pv.version_number, ps.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name, u.name AS owner_name
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
@@ -115,7 +115,7 @@ async def get_run(run_id: int):
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT r.*, pv.version_number, ps.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name, u.name AS owner_name
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
