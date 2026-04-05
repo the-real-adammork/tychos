@@ -186,7 +186,7 @@ export default function ParamVersionDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header + Notes */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <h1 className="text-2xl font-bold">
@@ -196,42 +196,43 @@ export default function ParamVersionDetailPage() {
           <p className="text-xs text-muted-foreground mt-0.5">
             Created {format(new Date(data.created_at), "MMM d, yyyy HH:mm")}
           </p>
-        </div>
-        <div className="flex flex-col items-end gap-2 max-w-sm">
-          {editingNotes ? (
-            <div className="w-full flex flex-col gap-1">
-              <textarea
-                className="w-full rounded border border-input bg-background px-3 py-2 text-sm"
-                rows={2}
-                value={notesValue}
-                onChange={(e) => setNotesValue(e.target.value)}
-              />
-              <div className="flex gap-1 justify-end">
-                <Button size="sm" variant="outline" onClick={() => { setEditingNotes(false); setNotesValue(data.notes || ""); }}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
-                  {savingNotes ? "Saving..." : "Save"}
-                </Button>
+          {/* Notes */}
+          <div className="mt-3">
+            {editingNotes ? (
+              <div className="max-w-lg flex flex-col gap-1">
+                <textarea
+                  className="w-full rounded border border-input bg-background px-3 py-2 text-sm"
+                  rows={2}
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                />
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" onClick={() => { setEditingNotes(false); setNotesValue(data.notes || ""); }}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
+                    {savingNotes ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div
-              className="bg-muted/50 rounded-md px-3 py-2 text-sm text-muted-foreground cursor-pointer hover:bg-muted/80 w-full min-h-[2.5rem]"
-              onClick={() => setEditingNotes(true)}
-              title="Click to edit notes"
-            >
-              {data.notes || "Add notes..."}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Button onClick={() => navigate(`/parameters/${id}/edit?from=${versionId}`)}>
-              New Version Based On v{data.version_number}
-            </Button>
-            <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
-              Back to Param Set
-            </Button>
+            ) : (
+              <div
+                className="bg-muted/50 rounded-md px-3 py-2 text-sm text-muted-foreground cursor-pointer hover:bg-muted/80 max-w-lg"
+                onClick={() => setEditingNotes(true)}
+                title="Click to edit notes"
+              >
+                {data.notes || "Add notes..."}
+              </div>
+            )}
           </div>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button onClick={() => navigate(`/parameters/${id}/edit?from=${versionId}`)}>
+            New Version Based On v{data.version_number}
+          </Button>
+          <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
+            Back to Param Set
+          </Button>
         </div>
       </div>
 
