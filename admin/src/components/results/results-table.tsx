@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Table,
   TableBody,
@@ -56,6 +57,7 @@ function formatSeparation(val: number | null): string {
 }
 
 export function ResultsTable({ runId }: ResultsTableProps) {
+  const navigate = useNavigate()
   const [results, setResults] = useState<EclipseResult[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -203,7 +205,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
-                  onClick={() => toggleRow(row.id)}
+                  onClick={() => navigate(`/results/${runId}/${row.id}`)}
                 >
                   <TableCell>{row.date}</TableCell>
                   <TableCell className="capitalize">{row.catalogType}</TableCell>

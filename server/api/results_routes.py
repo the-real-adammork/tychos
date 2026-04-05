@@ -76,3 +76,25 @@ async def list_results(
         "page": page,
         "page_size": PAGE_SIZE,
     }
+
+
+@router.get("/{run_id}/{result_id}")
+async def get_result(run_id: int, result_id: int):
+    """Get a single eclipse result with run context."""
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
+            """
+            SELECT er.*, r.test_type, pv.version_number,
+                   ps.id AS param_set_id, ps.name AS param_set_name
+            FROM eclipse_results er
+            JOIN runs r ON er.run_id = r.id
+            JOIN param_versions pv ON r.param_version_id = pv.id
+            JOIN param_sets ps ON pv.param_set_id = ps.id
+            WHERE er.id = ? AND er.run_id = ?
+            """,
+            (result_id, run_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Result not found")
+    return _row_to_dict(row)
