@@ -84,11 +84,12 @@ export function ParamList() {
   }
 
   async function handleRun(paramSetId: number, testType: "solar" | "lunar") {
-    await fetch("/api/runs", {
+    const res = await fetch("/api/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paramSetId, testType }),
+      body: JSON.stringify({ param_set_id: paramSetId, test_type: testType }),
     });
+    if (res.ok) load();
   }
 
   return (
