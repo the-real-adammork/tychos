@@ -35,7 +35,7 @@ interface VersionRow {
 interface StatResult {
   detected: number;
   total_eclipses: number;
-  status: string;
+  version_number: number;
 }
 
 interface ParamDetail {
@@ -98,6 +98,9 @@ function StatCard({
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               {stats.detected}/{stats.total_eclipses} detected
+            </p>
+            <p className="text-xs text-muted-foreground">
+              v{stats.version_number}
             </p>
           </>
         ) : (
