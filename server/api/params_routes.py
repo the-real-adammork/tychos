@@ -85,7 +85,17 @@ async def list_param_sets():
                     (latest_version_id,),
                 )
                 run_rows = await run_cursor.fetchall()
-                item["latest_runs"] = [_row_to_dict(r) for r in run_rows]
+                latest_runs = []
+                for rr in run_rows:
+                    rd = _row_to_dict(rr)
+                    op_cursor = await conn.execute(
+                        "SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass FROM eclipse_results WHERE run_id = ?",
+                        (rd["id"],),
+                    )
+                    op_row = await op_cursor.fetchone()
+                    rd["overall_pass"] = op_row["overall_pass"] or 0
+                    latest_runs.append(rd)
+                item["latest_runs"] = latest_runs
             else:
                 item["latest_runs"] = []
 

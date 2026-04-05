@@ -48,7 +48,24 @@ async def list_runs(
         )
         rows = await cursor.fetchall()
 
-    return [_row_to_dict(r) for r in rows]
+        result = []
+        for row in rows:
+            d = _row_to_dict(row)
+            if d["status"] == "done":
+                op_cursor = await conn.execute(
+                    """
+                    SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
+                    FROM eclipse_results WHERE run_id = ?
+                    """,
+                    (d["id"],),
+                )
+                op_row = await op_cursor.fetchone()
+                d["overall_pass"] = op_row["overall_pass"] or 0
+            else:
+                d["overall_pass"] = None
+            result.append(d)
+
+    return result
 
 
 class CreateRunBody(BaseModel):
