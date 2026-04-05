@@ -1,6 +1,5 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -58,8 +57,11 @@ export function ParamEditor({ id }: ParamEditorProps) {
         }
         const raw = await res.json();
         const data: ParamSetMeta = {
-          ...raw,
+          id: raw.id,
+          name: raw.name,
+          description: raw.description,
           paramsJson: raw.params_json,
+          owner: { id: raw.owner_id, name: raw.owner_name },
         };
         setMeta(data);
         try {
@@ -188,8 +190,8 @@ export function ParamEditor({ id }: ParamEditorProps) {
                 </TableCell>
                 {PARAM_FIELDS.map((field) => (
                   <TableCell key={field} className="p-1">
-                    <Input
-                      className="h-7 w-24 text-xs font-mono"
+                    <input
+                      className="h-7 w-24 rounded border border-input bg-background px-2 text-xs font-mono"
                       value={values[body]?.[field] ?? ""}
                       onChange={(e) => handleChange(body, field, e.target.value)}
                     />
