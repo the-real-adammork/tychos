@@ -120,6 +120,27 @@ export default function ParamVersionDetailPage() {
   const solarRun = data.runs.find((r) => r.test_type === "solar" && r.status === "done") ?? null;
   const lunarRun = data.runs.find((r) => r.test_type === "lunar" && r.status === "done") ?? null;
 
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState(data.notes || "");
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  async function handleSaveNotes() {
+    setSavingNotes(true);
+    try {
+      const res = await fetch(`/api/params/${id}/versions/${versionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: notesValue || null }),
+      });
+      if (res.ok) {
+        setData({ ...data, notes: notesValue || null });
+        setEditingNotes(false);
+      }
+    } finally {
+      setSavingNotes(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header + Notes */}
@@ -133,10 +154,31 @@ export default function ParamVersionDetailPage() {
             Created {format(new Date(data.created_at), "MMM d, yyyy HH:mm")}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          {data.notes && (
-            <div className="bg-muted/50 rounded-md px-3 py-2 max-w-sm text-sm text-muted-foreground">
-              {data.notes}
+        <div className="flex flex-col items-end gap-2 max-w-sm">
+          {editingNotes ? (
+            <div className="w-full flex flex-col gap-1">
+              <textarea
+                className="w-full rounded border border-input bg-background px-3 py-2 text-sm"
+                rows={2}
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+              />
+              <div className="flex gap-1 justify-end">
+                <Button size="sm" variant="outline" onClick={() => { setEditingNotes(false); setNotesValue(data.notes || ""); }}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
+                  {savingNotes ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="bg-muted/50 rounded-md px-3 py-2 text-sm text-muted-foreground cursor-pointer hover:bg-muted/80 w-full min-h-[2.5rem]"
+              onClick={() => setEditingNotes(true)}
+              title="Click to edit notes"
+            >
+              {data.notes || "Add notes..."}
             </div>
           )}
           <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
