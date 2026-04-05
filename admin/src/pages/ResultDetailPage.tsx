@@ -20,6 +20,11 @@ interface ResultDetail {
   sun_dec_rad: number | null;
   moon_ra_rad: number | null;
   moon_dec_rad: number | null;
+  jpl_sun_ra_rad: number | null;
+  jpl_sun_dec_rad: number | null;
+  jpl_moon_ra_rad: number | null;
+  jpl_moon_dec_rad: number | null;
+  jpl_separation_arcmin: number | null;
   test_type: string;
   version_number: number;
   param_set_id: number;
@@ -153,12 +158,18 @@ function SkyPositionDiagram({ result }: { result: ResultDetail }) {
   );
 }
 
-function EclipseDiagram({ result }: { result: ResultDetail }) {
-  const isLunar = result.test_type === "lunar";
-  const sunRa = result.sun_ra_rad;
-  const sunDec = result.sun_dec_rad;
-  const moonRa = result.moon_ra_rad;
-  const moonDec = result.moon_dec_rad;
+interface DiagramProps {
+  testType: string;
+  sunRa: number | null;
+  sunDec: number | null;
+  moonRa: number | null;
+  moonDec: number | null;
+  thresholdArcmin: number;
+  separationArcmin: number | null;
+}
+
+function EclipseDiagram({ testType, sunRa, sunDec, moonRa, moonDec, thresholdArcmin, separationArcmin }: DiagramProps) {
+  const isLunar = testType === "lunar";
 
   if (sunRa == null || sunDec == null || moonRa == null || moonDec == null) {
     return <p className="text-sm text-muted-foreground">No position data available</p>;
@@ -189,7 +200,7 @@ function EclipseDiagram({ result }: { result: ResultDetail }) {
   const moonX = cx + dx * scale;
   const moonY = cy - dy * scale; // flip Y for screen coords
 
-  const thresholdR = result.threshold_arcmin * scale;
+  const thresholdR = thresholdArcmin * scale;
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -236,7 +247,7 @@ function EclipseDiagram({ result }: { result: ResultDetail }) {
         <line x1={cx} y1={cy} x2={moonX} y2={moonY} stroke="rgba(255,100,100,0.5)" strokeWidth={1} strokeDasharray="3 3" />
 
         {/* Separation label */}
-        {result.min_separation_arcmin != null && (
+        {separationArcmin != null && (
           <text
             x={(cx + moonX) / 2 + 8}
             y={(cy + moonY) / 2 - 8}
@@ -244,7 +255,7 @@ function EclipseDiagram({ result }: { result: ResultDetail }) {
             fontSize={11}
             fontFamily="monospace"
           >
-            {result.min_separation_arcmin.toFixed(1)}'
+            {separationArcmin.toFixed(1)}'
           </text>
         )}
 
@@ -254,7 +265,7 @@ function EclipseDiagram({ result }: { result: ResultDetail }) {
 
         {/* Legend */}
         <text x={svgSize - 5} y={15} textAnchor="end" fill="rgba(255,255,100,0.5)" fontSize={9}>
-          - - - threshold ({result.threshold_arcmin.toFixed(0)}')
+          - - - threshold ({thresholdArcmin.toFixed(0)}')
         </text>
       </svg>
       <p className="text-xs text-muted-foreground">
@@ -314,65 +325,113 @@ export default function ResultDetailPage() {
         </div>
       </div>
 
+      {/* Two diagrams side by side */}
       <div className="grid grid-cols-2 gap-6">
-        {/* Diagram */}
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {result.test_type === "lunar" ? "Lunar Eclipse Geometry" : "Solar Eclipse Geometry"}
+              Tychos {result.test_type === "lunar" ? "Lunar" : "Solar"} Eclipse Geometry
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <EclipseDiagram result={result} />
+            <EclipseDiagram
+              testType={result.test_type}
+              sunRa={result.sun_ra_rad}
+              sunDec={result.sun_dec_rad}
+              moonRa={result.moon_ra_rad}
+              moonDec={result.moon_dec_rad}
+              thresholdArcmin={result.threshold_arcmin}
+              separationArcmin={result.min_separation_arcmin}
+            />
           </CardContent>
         </Card>
 
-        {/* Data */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Measurements</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              JPL {result.test_type === "lunar" ? "Lunar" : "Solar"} Eclipse Geometry
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EclipseDiagram
+              testType={result.test_type}
+              sunRa={result.jpl_sun_ra_rad}
+              sunDec={result.jpl_sun_dec_rad}
+              moonRa={result.jpl_moon_ra_rad}
+              moonDec={result.jpl_moon_dec_rad}
+              thresholdArcmin={result.threshold_arcmin}
+              separationArcmin={result.jpl_separation_arcmin}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Measurements */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Measurements</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-6 text-sm">
+            <div className="space-y-2">
+              <h4 className="font-medium text-xs text-muted-foreground uppercase">Tychos</h4>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Min Separation</span>
+                <span className="text-muted-foreground">Separation</span>
                 <span className="font-mono">{result.min_separation_arcmin?.toFixed(2) ?? "—"} arcmin</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Detection Threshold</span>
-                <span className="font-mono">{result.threshold_arcmin.toFixed(2)} arcmin</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Timing Offset</span>
                 <span className="font-mono">{result.timing_offset_min != null ? `${result.timing_offset_min > 0 ? "+" : ""}${result.timing_offset_min.toFixed(1)} min` : "—"}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Catalog Date</span>
-                <span className="font-mono">{result.date}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Julian Day (TT)</span>
-                <span className="font-mono">{result.julian_day_tt}</span>
-              </div>
-              {result.best_jd != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Predicted Best JD</span>
-                  <span className="font-mono">{result.best_jd.toFixed(6)}</span>
-                </div>
+              {result.sun_ra_rad != null && (
+                <>
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-muted-foreground">Sun</span>
+                    <span>{radToHMS(result.sun_ra_rad)} {radToDMS(result.sun_dec_rad!)}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-muted-foreground">Moon</span>
+                    <span>{radToHMS(result.moon_ra_rad!)} {radToDMS(result.moon_dec_rad!)}</span>
+                  </div>
+                </>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Predicted Positions (J2000)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SkyPositionDiagram result={result} />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-medium text-xs text-muted-foreground uppercase">JPL (DE421)</h4>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Separation</span>
+                <span className="font-mono">{result.jpl_separation_arcmin?.toFixed(2) ?? "—"} arcmin</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Threshold</span>
+                <span className="font-mono">{result.threshold_arcmin.toFixed(2)} arcmin</span>
+              </div>
+              {result.jpl_sun_ra_rad != null && (
+                <>
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-muted-foreground">Sun</span>
+                    <span>{radToHMS(result.jpl_sun_ra_rad)} {radToDMS(result.jpl_sun_dec_rad!)}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-muted-foreground">Moon</span>
+                    <span>{radToHMS(result.jpl_moon_ra_rad!)} {radToDMS(result.jpl_moon_dec_rad!)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Catalog Date</span>
+              <span className="font-mono">{result.date}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Julian Day (TT)</span>
+              <span className="font-mono">{result.julian_day_tt}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
