@@ -301,9 +301,6 @@ export default function ParamVersionDetailPage() {
                     <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/versions/${entry.version.id}`)}>
                       View
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/edit?from=${entry.version.id}`)}>
-                      Edit
-                    </Button>
                   </div>
                 </div>
                 {/* Diff */}
