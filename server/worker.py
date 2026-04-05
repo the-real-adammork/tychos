@@ -1,5 +1,6 @@
 """Background worker thread that processes queued eclipse runs."""
 import json
+import math
 import time
 import threading
 import traceback
@@ -13,6 +14,17 @@ from server.services.scanner import (
 )
 
 _POLL_INTERVAL = 5  # seconds between polls when idle
+
+
+def _angular_sep_arcmin(ra1, dec1, ra2, dec2):
+    """Vincenty angular separation in arcminutes."""
+    dra = ra2 - ra1
+    num = math.sqrt(
+        (math.cos(dec2) * math.sin(dra)) ** 2
+        + (math.cos(dec1) * math.sin(dec2) - math.sin(dec1) * math.cos(dec2) * math.cos(dra)) ** 2
+    )
+    den = math.sin(dec1) * math.sin(dec2) + math.cos(dec1) * math.cos(dec2) * math.cos(dra)
+    return math.degrees(math.atan2(num, den)) * 60
 
 
 def start_worker() -> threading.Thread:
@@ -72,6 +84,25 @@ def _process_one() -> None:
 
         detected = sum(1 for r in results if r["detected"])
 
+        # Load JPL reference for moon error computation
+        with get_db() as conn:
+            jpl_rows = conn.execute(
+                "SELECT julian_day_tt, moon_ra_rad, moon_dec_rad FROM jpl_reference WHERE test_type = ?",
+                (test_type,),
+            ).fetchall()
+        jpl_by_jd = {row["julian_day_tt"]: row for row in jpl_rows}
+
+        # Compute moon_error_arcmin for each result
+        for r in results:
+            jpl = jpl_by_jd.get(r["julian_day_tt"])
+            if jpl and r["moon_ra_rad"] is not None and r["moon_dec_rad"] is not None:
+                r["moon_error_arcmin"] = round(_angular_sep_arcmin(
+                    r["moon_ra_rad"], r["moon_dec_rad"],
+                    jpl["moon_ra_rad"], jpl["moon_dec_rad"],
+                ), 2)
+            else:
+                r["moon_error_arcmin"] = None
+
         # Write results in small chunks to avoid holding the write lock
         CHUNK_SIZE = 50
         insert_sql = """
@@ -79,8 +110,9 @@ def _process_one() -> None:
                 run_id, julian_day_tt, date, catalog_type, magnitude,
                 detected, threshold_arcmin, min_separation_arcmin,
                 timing_offset_min, best_jd,
-                sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
+                moon_error_arcmin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         rows = [
             (
@@ -89,6 +121,7 @@ def _process_one() -> None:
                 r["detected"], r["threshold_arcmin"], r["min_separation_arcmin"],
                 r["timing_offset_min"], r["best_jd"],
                 r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
+                r["moon_error_arcmin"],
             )
             for r in results
         ]
