@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  paramSets    ParamSet[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+}
+
+model ParamSet {
+  id           Int        @id @default(autoincrement())
+  name         String
+  description  String?
+  paramsMd5    String
+  paramsJson   String
+  ownerId      Int
+  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  forkedFromId Int?
+  forkedFrom   ParamSet?  @relation("Forks", fields: [forkedFromId], references: [id])
+  forks        ParamSet[] @relation("Forks")
+  createdAt    DateTime   @default(now())
+  runs         Run[]
+}
+
+model Run {
+  id             Int             @id @default(autoincrement())
+  paramSetId     Int
+  paramSet       ParamSet        @relation(fields: [paramSetId], references: [id], onDelete: Cascade)
+  testType       String
+  status         String          @default("queued")
+  codeVersion    String          @default("1.0")
+  tsnCommit      String?
+  skyfieldCommit String?
+  totalEclipses  Int?
+  detected       Int?
+  createdAt      DateTime        @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  results        EclipseResult[]
+}
+
+model EclipseResult {
+  id                  Int     @id @default(autoincrement())
+  runId               Int
+  run                 Run     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  julianDayTt         Float
+  date                String
+  catalogType         String
+  magnitude           Float
+  detected            Boolean
+  thresholdArcmin     Float
+  minSeparationArcmin Float?
+  timingOffsetMin     Float?
+  bestJd              Float?
+  sunRaRad            Float?
+  sunDecRad           Float?
+  moonRaRad           Float?
+  moonDecRad          Float?
+}
