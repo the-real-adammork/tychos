@@ -251,7 +251,7 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
           if (groupBodies.length === 0) return null;
           return (
             <section key={group.label}>
-              <h2 className="text-lg font-semibold mb-3 sticky top-0 bg-background py-2 z-10 border-b">
+              <h2 className="text-lg font-semibold mb-3 sticky -top-6 bg-background py-2 z-10 border-b">
                 {group.label}
               </h2>
               <div className="space-y-3">
