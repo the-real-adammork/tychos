@@ -15,6 +15,16 @@ from helpers import (
 )
 
 DATA_DIR = Path(__file__).parent.parent.parent / "tests" / "data"
+HOUR_IN_DAYS = 1.0 / 24.0
+
+
+def _tychos_moon_velocity(system, jd):
+    """Compute Moon RA/Dec velocity (radians per hour) at the given JD."""
+    system.move_system(jd + HOUR_IN_DAYS)
+    m_ra2, m_dec2, _ = system['moon'].radec_direct(system['earth'], epoch='j2000', formatted=False)
+    system.move_system(jd)
+    m_ra1, m_dec1, _ = system['moon'].radec_direct(system['earth'], epoch='j2000', formatted=False)
+    return float(m_ra2 - m_ra1), float(m_dec2 - m_dec1)
 
 
 def load_eclipse_catalog(test_type: str) -> list[dict]:
@@ -37,6 +47,7 @@ def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
         jd = ecl["julian_day_tt"]
         min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_min_separation(system, jd)
         det = min_sep < SOLAR_DETECTION_THRESHOLD
+        m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd)
 
         rows.append({
             "julian_day_tt": jd,
@@ -52,6 +63,8 @@ def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
             "sun_dec_rad": float(s_dec),
             "moon_ra_rad": float(m_ra),
             "moon_dec_rad": float(m_dec),
+            "moon_ra_vel": m_ra_vel,
+            "moon_dec_vel": m_dec_vel,
         })
 
     return rows
@@ -71,6 +84,7 @@ def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
         threshold = lunar_threshold(ecl["type"])
         threshold_arcmin = np.degrees(threshold) * 60
         det = min_sep < threshold
+        m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd)
 
         rows.append({
             "julian_day_tt": jd,
@@ -86,6 +100,8 @@ def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
             "sun_dec_rad": float(s_dec),
             "moon_ra_rad": float(m_ra),
             "moon_dec_rad": float(m_dec),
+            "moon_ra_vel": m_ra_vel,
+            "moon_dec_vel": m_dec_vel,
         })
 
     return rows

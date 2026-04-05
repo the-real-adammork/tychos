@@ -142,7 +142,8 @@ async def get_result(run_id: int, result_id: int):
                    ps.id AS param_set_id, ps.name AS param_set_name,
                    jpl.sun_ra_rad AS jpl_sun_ra_rad, jpl.sun_dec_rad AS jpl_sun_dec_rad,
                    jpl.moon_ra_rad AS jpl_moon_ra_rad, jpl.moon_dec_rad AS jpl_moon_dec_rad,
-                   jpl.separation_arcmin AS jpl_separation_arcmin
+                   jpl.separation_arcmin AS jpl_separation_arcmin,
+                   jpl.moon_ra_vel AS jpl_moon_ra_vel, jpl.moon_dec_vel AS jpl_moon_dec_vel
             FROM eclipse_results er
             JOIN runs r ON er.run_id = r.id
             JOIN param_versions pv ON r.param_version_id = pv.id

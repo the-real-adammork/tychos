@@ -96,21 +96,25 @@ def _seed_jpl_reference():
         for ecl in eclipses:
             jd = ecl["julian_day_tt"]
             t = ts.tt_jd(jd)
+            t2 = ts.tt_jd(jd + 1.0 / 24.0)  # 1 hour later
 
             sun_ra, sun_dec, _ = earth.at(t).observe(eph["sun"]).radec()
             moon_ra, moon_dec, _ = earth.at(t).observe(eph["moon"]).radec()
+            moon_ra2, moon_dec2, _ = earth.at(t2).observe(eph["moon"]).radec()
 
             s_ra, s_dec = sun_ra.radians, sun_dec.radians
             m_ra, m_dec = moon_ra.radians, moon_dec.radians
+            m_ra_vel = float(moon_ra2.radians - m_ra)  # radians per hour
+            m_dec_vel = float(moon_dec2.radians - m_dec)
             sep = float(np.degrees(angular_separation(s_ra, s_dec, m_ra, m_dec)) * 60)
 
-            rows.append((jd, test_type, float(s_ra), float(s_dec), float(m_ra), float(m_dec), round(sep, 2)))
+            rows.append((jd, test_type, float(s_ra), float(s_dec), float(m_ra), float(m_dec), round(sep, 2), m_ra_vel, m_dec_vel))
 
     with get_db() as conn:
         conn.executemany(
             """INSERT OR IGNORE INTO jpl_reference
-               (julian_day_tt, test_type, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad, separation_arcmin)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               (julian_day_tt, test_type, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad, separation_arcmin, moon_ra_vel, moon_dec_vel)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
         conn.commit()
