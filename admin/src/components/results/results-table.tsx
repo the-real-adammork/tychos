@@ -24,7 +24,7 @@ interface EclipseResult {
   date: string
   catalogType: string
   magnitude: number
-  detected: boolean
+  detected: number
   thresholdArcmin: number
   minSeparationArcmin: number | null
   timingOffsetMin: number | null
@@ -34,7 +34,18 @@ interface EclipseResult {
   moonRaRad: number | null
   moonDecRad: number | null
   moonErrorArcmin: number | null
-  accuracy: "pass" | "close" | "fail" | "unknown"
+  status: "pass" | "fail"
+  thresholdPass: boolean
+  jplRescued: boolean
+}
+
+interface ApiStats {
+  threshold_pass: number
+  threshold_fail: number
+  jpl_rescued: number
+  overall_pass: number
+  overall_fail: number
+  total: number
 }
 
 interface ApiResponse {
@@ -42,7 +53,7 @@ interface ApiResponse {
   total: number
   page: number
   pageSize: number
-  stats: { pass: number; close: number; fail: number }
+  stats: ApiStats
 }
 
 interface ResultsTableProps {
@@ -64,72 +75,68 @@ function formatMoonError(val: number | null): string {
   return val.toFixed(1)
 }
 
-function AccuracyBadge({ accuracy }: { accuracy: EclipseResult["accuracy"] }) {
-  if (accuracy === "pass") {
-    return <Badge className="bg-green-600 text-white hover:bg-green-700">pass</Badge>
-  }
-  if (accuracy === "close") {
-    return <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">close</Badge>
-  }
-  if (accuracy === "fail") {
-    return <Badge variant="destructive">fail</Badge>
-  }
-  return <Badge variant="secondary">unknown</Badge>
-}
-
 interface StatsBarProps {
-  stats: { pass: number; close: number; fail: number }
+  stats: ApiStats
 }
 
 function StatsBar({ stats }: StatsBarProps) {
-  const total = stats.pass + stats.close + stats.fail
+  const total = stats.total
   if (total === 0) return null
 
-  const passPct = (stats.pass / total) * 100
-  const closePct = (stats.close / total) * 100
-  const failPct = (stats.fail / total) * 100
+  const thresholdPct = (stats.threshold_pass / total) * 100
+  const rescuedPct = (stats.jpl_rescued / total) * 100
+  const failPct = (stats.overall_fail / total) * 100
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
-        {passPct > 0 && (
+        {thresholdPct > 0 && (
           <div
             className="bg-green-600"
-            style={{ width: `${passPct}%` }}
-            title={`Pass: ${stats.pass}`}
+            style={{ width: `${thresholdPct}%` }}
+            title={`Threshold Pass: ${stats.threshold_pass}`}
           />
         )}
-        {closePct > 0 && (
+        {rescuedPct > 0 && (
           <div
-            className="bg-yellow-500"
-            style={{ width: `${closePct}%` }}
-            title={`Close: ${stats.close}`}
+            className="bg-blue-500"
+            style={{ width: `${rescuedPct}%` }}
+            title={`JPL Rescued: ${stats.jpl_rescued}`}
           />
         )}
         {failPct > 0 && (
           <div
             className="bg-red-600"
             style={{ width: `${failPct}%` }}
-            title={`Fail: ${stats.fail}`}
+            title={`Fail: ${stats.overall_fail}`}
           />
         )}
       </div>
       <div className="flex gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-full bg-green-600" />
-          Pass: {stats.pass}
+          Threshold Pass: {stats.threshold_pass}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" />
-          Close: {stats.close}
+          <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+          JPL Rescued: {stats.jpl_rescued}
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-full bg-red-600" />
-          Fail: {stats.fail}
+          Fail: {stats.overall_fail}
         </span>
       </div>
     </div>
   )
+}
+
+const emptyStats: ApiStats = {
+  threshold_pass: 0,
+  threshold_fail: 0,
+  jpl_rescued: 0,
+  overall_pass: 0,
+  overall_fail: 0,
+  total: 0,
 }
 
 export function ResultsTable({ runId }: ResultsTableProps) {
@@ -137,7 +144,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [results, setResults] = useState<EclipseResult[]>([])
   const [total, setTotal] = useState(0)
-  const [stats, setStats] = useState<{ pass: number; close: number; fail: number }>({ pass: 0, close: 0, fail: 0 })
+  const [stats, setStats] = useState<ApiStats>(emptyStats)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -145,7 +152,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   const page = parseInt(searchParams.get("page") || "1")
   const pageSize = 50
   const typeFilter = searchParams.get("type") || "all"
-  const accuracyFilter = searchParams.get("accuracy") || "all"
+  const statusFilter = searchParams.get("status") || "all"
 
   function setPage(p: number) {
     setSearchParams(prev => { prev.set("page", String(p)); return prev }, { replace: true })
@@ -153,8 +160,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   function setTypeFilter(v: string) {
     setSearchParams(prev => { prev.set("type", v); prev.set("page", "1"); return prev }, { replace: true })
   }
-  function setAccuracyFilter(v: string) {
-    setSearchParams(prev => { prev.set("accuracy", v); prev.set("page", "1"); return prev }, { replace: true })
+  function setStatusFilter(v: string) {
+    setSearchParams(prev => { prev.set("status", v); prev.set("page", "1"); return prev }, { replace: true })
   }
 
   // Expanded rows
@@ -169,12 +176,12 @@ export function ResultsTable({ runId }: ResultsTableProps) {
     const params = new URLSearchParams()
     params.set("page", String(page))
     if (typeFilter !== "all") params.set("catalog_type", typeFilter)
-    if (accuracyFilter !== "all") params.set("accuracy", accuracyFilter)
+    if (statusFilter !== "all") params.set("status", statusFilter)
 
     fetch(`/api/results/${runId}?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch results")
-        return res.json() as Promise<ApiResponse>
+        return res.json() as Promise<{ results: Record<string, unknown>[]; total: number; page: number; pageSize: number; stats: ApiStats }>
       })
       .then((data) => {
         const mapped = data.results.map((r: Record<string, unknown>) => ({
@@ -193,17 +200,19 @@ export function ResultsTable({ runId }: ResultsTableProps) {
           moonRaRad: r.moon_ra_rad,
           moonDecRad: r.moon_dec_rad,
           moonErrorArcmin: r.moon_error_arcmin,
-          accuracy: r.accuracy,
+          status: r.status,
+          thresholdPass: r.threshold_pass,
+          jplRescued: r.jpl_rescued,
         })) as EclipseResult[]
         setResults(mapped)
         setTotal(data.total)
-        setStats(data.stats ?? { pass: 0, close: 0, fail: 0 })
+        setStats(data.stats ?? emptyStats)
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Unknown error")
       })
       .finally(() => setLoading(false))
-  }, [runId, page, typeFilter, accuracyFilter])
+  }, [runId, page, typeFilter, statusFilter])
 
   function handleTypeChange(value: string | null) {
     setTypeFilter(value ?? "all")
@@ -211,8 +220,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
     setExpandedRows(new Set())
   }
 
-  function handleAccuracyChange(value: string | null) {
-    setAccuracyFilter(value ?? "all")
+  function handleStatusChange(value: string | null) {
+    setStatusFilter(value ?? "all")
     setPage(1)
     setExpandedRows(new Set())
   }
@@ -232,7 +241,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* Stats bar */}
-      {!loading && !error && (stats.pass + stats.close + stats.fail > 0) && (
+      {!loading && !error && stats.total > 0 && (
         <StatsBar stats={stats} />
       )}
 
@@ -256,17 +265,17 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Accuracy</span>
-          <Select value={accuracyFilter} onValueChange={handleAccuracyChange}>
-            <SelectTrigger className="w-36">
+          <span className="text-sm text-muted-foreground">Status</span>
+          <Select value={statusFilter} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="pass">Pass</SelectItem>
-              <SelectItem value="close">Close</SelectItem>
-              <SelectItem value="close+fail">Close + Fail</SelectItem>
               <SelectItem value="fail">Fail</SelectItem>
+              <SelectItem value="threshold_pass">Threshold Pass</SelectItem>
+              <SelectItem value="threshold_fail">Threshold Fail</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -291,8 +300,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
               <TableHead>Type</TableHead>
               <TableHead>Magnitude</TableHead>
               <TableHead>Threshold</TableHead>
-              <TableHead>Moon Error (arcmin)</TableHead>
-              <TableHead>Accuracy</TableHead>
+              <TableHead>JPL Check</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Min Separation (arcmin)</TableHead>
               <TableHead>Timing Offset (min)</TableHead>
             </TableRow>
@@ -309,17 +318,33 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                   <TableCell className="capitalize">{row.catalogType}</TableCell>
                   <TableCell>{row.magnitude.toFixed(2)}</TableCell>
                   <TableCell>
-                    {row.detected ? (
-                      <Badge className="bg-green-600 text-white hover:bg-green-700">
-                        Yes
-                      </Badge>
+                    {row.detected === 1 ? (
+                      <Badge className="bg-green-600 text-white hover:bg-green-700">pass</Badge>
                     ) : (
-                      <Badge variant="destructive">No</Badge>
+                      <Badge variant="destructive">fail</Badge>
                     )}
                   </TableCell>
-                  <TableCell>{formatMoonError(row.moonErrorArcmin)}</TableCell>
                   <TableCell>
-                    <AccuracyBadge accuracy={row.accuracy} />
+                    {row.detected !== 0 ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : row.moonErrorArcmin !== null && row.moonErrorArcmin < 60 ? (
+                      <span className="flex items-center gap-1">
+                        <Badge className="bg-green-600 text-white hover:bg-green-700">rescued</Badge>
+                        <span className="text-xs text-muted-foreground">{formatMoonError(row.moonErrorArcmin)}</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Badge variant="destructive">fail</Badge>
+                        <span className="text-xs text-muted-foreground">{formatMoonError(row.moonErrorArcmin)}</span>
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {row.status === "pass" ? (
+                      <Badge className="bg-green-600 text-white hover:bg-green-700">pass</Badge>
+                    ) : (
+                      <Badge variant="destructive">fail</Badge>
+                    )}
                   </TableCell>
                   <TableCell>{formatSeparation(row.minSeparationArcmin)}</TableCell>
                   <TableCell>{formatTimingOffset(row.timingOffsetMin)}</TableCell>
