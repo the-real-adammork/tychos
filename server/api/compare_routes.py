@@ -27,7 +27,7 @@ def _get_latest_done_run(conn, param_set_id: int, test_type: str):
     ).fetchone()
 
 
-@router.get("/")
+@router.get("")
 def compare(
     a: int = Query(..., description="Param set id A"),
     b: int = Query(..., description="Param set id B"),
