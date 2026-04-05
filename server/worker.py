@@ -111,8 +111,8 @@ def _process_one() -> None:
                 detected, threshold_arcmin, min_separation_arcmin,
                 timing_offset_min, best_jd,
                 sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
-                moon_error_arcmin
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                moon_error_arcmin, moon_ra_vel, moon_dec_vel
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         rows = [
             (
@@ -121,7 +121,7 @@ def _process_one() -> None:
                 r["detected"], r["threshold_arcmin"], r["min_separation_arcmin"],
                 r["timing_offset_min"], r["best_jd"],
                 r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
-                r["moon_error_arcmin"],
+                r["moon_error_arcmin"], r.get("moon_ra_vel"), r.get("moon_dec_vel"),
             )
             for r in results
         ]

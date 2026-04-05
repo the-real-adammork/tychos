@@ -25,7 +25,11 @@ interface ResultDetail {
   jpl_moon_ra_rad: number | null;
   jpl_moon_dec_rad: number | null;
   jpl_separation_arcmin: number | null;
+  jpl_moon_ra_vel: number | null;
+  jpl_moon_dec_vel: number | null;
   moon_error_arcmin: number | null;
+  moon_ra_vel: number | null;
+  moon_dec_vel: number | null;
   status: "pass" | "fail";
   threshold_pass: boolean;
   jpl_rescued: boolean;
@@ -168,11 +172,13 @@ interface DiagramProps {
   sunDec: number | null;
   moonRa: number | null;
   moonDec: number | null;
+  moonRaVel: number | null;
+  moonDecVel: number | null;
   thresholdArcmin: number;
   separationArcmin: number | null;
 }
 
-function EclipseDiagram({ testType, sunRa, sunDec, moonRa, moonDec, thresholdArcmin, separationArcmin }: DiagramProps) {
+function EclipseDiagram({ testType, sunRa, sunDec, moonRa, moonDec, moonRaVel, moonDecVel, thresholdArcmin, separationArcmin }: DiagramProps) {
   const isLunar = testType === "lunar";
 
   if (sunRa == null || sunDec == null || moonRa == null || moonDec == null) {
@@ -246,6 +252,33 @@ function EclipseDiagram({ testType, sunRa, sunDec, moonRa, moonDec, thresholdArc
         {/* Moon disk */}
         <circle cx={moonX} cy={moonY} r={MOON_RADIUS_ARCMIN * scale} fill="rgba(180,180,180,0.2)" stroke="rgba(180,180,180,0.7)" strokeWidth={1.5} />
         <text x={moonX} y={moonY + 4} textAnchor="middle" fill="rgba(200,200,200,0.6)" fontSize={10}>Moon</text>
+
+        {/* Moon direction arrow */}
+        {moonRaVel != null && moonDecVel != null && (
+          (() => {
+            const avgDec2 = moonDec ?? 0;
+            // Convert velocity (rad/hr) to arcmin displacement, scale by 3 hours for visible arrow
+            const velDx = moonRaVel * Math.cos(avgDec2) * (180 / Math.PI) * 60 * 3;
+            const velDy = moonDecVel * (180 / Math.PI) * 60 * 3;
+            const arrowEndX = moonX + velDx * scale;
+            const arrowEndY = moonY - velDy * scale;
+            const arrowLen = Math.sqrt((arrowEndX - moonX) ** 2 + (arrowEndY - moonY) ** 2);
+            if (arrowLen < 2) return null;
+            // Arrowhead
+            const angle = Math.atan2(arrowEndY - moonY, arrowEndX - moonX);
+            const headLen = 6;
+            const h1x = arrowEndX - headLen * Math.cos(angle - 0.4);
+            const h1y = arrowEndY - headLen * Math.sin(angle - 0.4);
+            const h2x = arrowEndX - headLen * Math.cos(angle + 0.4);
+            const h2y = arrowEndY - headLen * Math.sin(angle + 0.4);
+            return (
+              <g>
+                <line x1={moonX} y1={moonY} x2={arrowEndX} y2={arrowEndY} stroke="rgba(100,200,255,0.7)" strokeWidth={1.5} />
+                <polygon points={`${arrowEndX},${arrowEndY} ${h1x},${h1y} ${h2x},${h2y}`} fill="rgba(100,200,255,0.7)" />
+              </g>
+            );
+          })()
+        )}
 
         {/* Separation line */}
         <line x1={cx} y1={cy} x2={moonX} y2={moonY} stroke="rgba(255,100,100,0.5)" strokeWidth={1} strokeDasharray="3 3" />
@@ -355,6 +388,8 @@ export default function ResultDetailPage() {
               sunDec={result.sun_dec_rad}
               moonRa={result.moon_ra_rad}
               moonDec={result.moon_dec_rad}
+              moonRaVel={result.moon_ra_vel}
+              moonDecVel={result.moon_dec_vel}
               thresholdArcmin={result.threshold_arcmin}
               separationArcmin={result.min_separation_arcmin}
             />
@@ -374,6 +409,8 @@ export default function ResultDetailPage() {
               sunDec={result.jpl_sun_dec_rad}
               moonRa={result.jpl_moon_ra_rad}
               moonDec={result.jpl_moon_dec_rad}
+              moonRaVel={result.jpl_moon_ra_vel}
+              moonDecVel={result.jpl_moon_dec_vel}
               thresholdArcmin={result.threshold_arcmin}
               separationArcmin={result.jpl_separation_arcmin}
             />
