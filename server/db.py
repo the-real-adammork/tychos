@@ -68,8 +68,9 @@ CREATE TABLE IF NOT EXISTS eclipse_results (
 
 
 def init_db():
-    """Create tables if they don't exist."""
+    """Create tables if they don't exist. Enable WAL mode for concurrent reads."""
     conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
     conn.close()
 
@@ -77,7 +78,7 @@ def init_db():
 @contextmanager
 def get_db():
     """Yield a sqlite3 connection with row_factory set to Row."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:
