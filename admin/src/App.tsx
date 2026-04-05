@@ -11,6 +11,7 @@ import ParamEditPage from "@/pages/ParamEditPage";
 import ParamVersionDetailPage from "@/pages/ParamVersionDetailPage";
 import RunsPage from "@/pages/RunsPage";
 import ResultsPage from "@/pages/ResultsPage";
+import ResultDetailPage from "@/pages/ResultDetailPage";
 import ComparePage from "@/pages/ComparePage";
 
 type User = { id: number; email: string; name: string } | null;
@@ -57,6 +58,7 @@ export default function App() {
                     <Route path="/parameters/:id/versions/:versionId" element={<ParamVersionDetailPage />} />
                     <Route path="/runs" element={<RunsPage />} />
                     <Route path="/results/:runId" element={<ResultsPage />} />
+                    <Route path="/results/:runId/:resultId" element={<ResultDetailPage />} />
                     <Route path="/compare" element={<ComparePage />} />
                   </Routes>
                 </main>
