@@ -27,7 +27,19 @@ export default function ResultsPage() {
         return r.json();
       })
       .then((data) => {
-        if (data) setRun(data);
+        if (data) {
+          setRun({
+            id: data.id,
+            testType: data.test_type,
+            status: data.status,
+            totalEclipses: data.total_eclipses,
+            detected: data.detected,
+            paramSet: {
+              id: data.param_set_id,
+              name: data.param_set_name,
+            },
+          });
+        }
       })
       .finally(() => setLoading(false));
   }, [runId]);

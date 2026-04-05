@@ -80,7 +80,15 @@ export default function CompareView() {
   React.useEffect(() => {
     fetch("/api/params")
       .then((r) => r.json())
-      .then((data: ParamSet[]) => setParamSets(data))
+      .then((data: Record<string, unknown>[]) => {
+        const mapped: ParamSet[] = data.map((ps) => ({
+          id: ps.id as number,
+          name: ps.name as string,
+          paramsJson: (ps.params_json ?? ps.paramsJson) as string,
+          owner: ps.owner as { name: string },
+        }));
+        setParamSets(mapped);
+      })
       .catch(() => setError("Failed to load parameter sets"));
   }, []);
 
@@ -105,7 +113,34 @@ export default function CompareView() {
           setError(data.error ?? "Comparison failed");
           setResult(null);
         } else {
-          setResult(data as CompareResult);
+          function mapRun(run: Record<string, unknown>): CompareRun {
+            const ps = run.param_set as Record<string, unknown> | undefined;
+            return {
+              id: run.id as number,
+              paramSet: {
+                name: (ps?.name ?? run.param_set_name) as string,
+                paramsJson: (ps?.params_json ?? ps?.paramsJson ?? run.params_json) as string,
+                owner: (ps?.owner ?? { name: "" }) as { name: string },
+              },
+              totalEclipses: (run.total_eclipses ?? run.totalEclipses) as number,
+              detected: run.detected as number,
+            };
+          }
+          function mapChanged(c: Record<string, unknown>): ChangedEclipse {
+            return {
+              date: c.date as string,
+              catalogType: (c.catalog_type ?? c.catalogType) as string,
+              aDetected: (c.a_detected ?? c.aDetected) as boolean,
+              bDetected: (c.b_detected ?? c.bDetected) as boolean,
+              aSep: (c.a_sep ?? c.aSep ?? null) as number | null,
+              bSep: (c.b_sep ?? c.bSep ?? null) as number | null,
+            };
+          }
+          setResult({
+            runA: mapRun(data.run_a ?? data.runA),
+            runB: mapRun(data.run_b ?? data.runB),
+            changed: ((data.changed ?? []) as Record<string, unknown>[]).map(mapChanged),
+          });
         }
       })
       .catch(() => setError("Network error"))

@@ -56,7 +56,11 @@ export function ParamEditor({ id }: ParamEditorProps) {
           setError(res.status === 404 ? "Parameter set not found" : "Failed to load");
           return;
         }
-        const data: ParamSetMeta = await res.json();
+        const raw = await res.json();
+        const data: ParamSetMeta = {
+          ...raw,
+          paramsJson: raw.params_json,
+        };
         setMeta(data);
         try {
           const parsed = JSON.parse(data.paramsJson) as Record<string, Record<string, unknown>>;
@@ -107,7 +111,7 @@ export function ParamEditor({ id }: ParamEditorProps) {
       const res = await fetch(`/api/params/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paramsJson }),
+        body: JSON.stringify({ params_json: paramsJson }),
       });
       if (!res.ok) {
         const data = await res.json();
