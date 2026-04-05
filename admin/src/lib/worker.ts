@@ -6,13 +6,16 @@ import { PrismaClient } from "@/generated/prisma/client";
 
 const REPO_ROOT = join(process.cwd(), "..");
 const DB_PATH = join(process.cwd(), "..", "results", "tychos_results.db");
+const DB_URL = `file:${DB_PATH}`;
 
 let running = false;
 
 async function poll() {
   if (running) return;
 
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    datasourceUrl: DB_URL,
+  });
   try {
     // Find the oldest queued run
     const run = await prisma.run.findFirst({
