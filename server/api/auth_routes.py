@@ -10,7 +10,7 @@ from server.auth import (
     require_user,
     verify_password,
 )
-from server.db import get_db
+from server.db import get_async_db
 
 router = APIRouter(prefix="/api/auth")
 
@@ -40,55 +40,57 @@ class LoginBody(BaseModel):
 
 
 @router.post("/register")
-def register(body: RegisterBody, response: Response):
+async def register(body: RegisterBody, response: Response):
     """Create a new user account, open a session, set cookie, return user."""
-    with get_db() as conn:
-        existing = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             "SELECT id FROM users WHERE email = ?", (body.email,)
-        ).fetchone()
+        )
+        existing = await cursor.fetchone()
         if existing:
             raise HTTPException(status_code=409, detail="Email already registered")
         password_hash = hash_password(body.password)
-        cursor = conn.execute(
+        cursor = await conn.execute(
             "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
             (body.email, body.name, password_hash),
         )
-        conn.commit()
+        await conn.commit()
         user_id = cursor.lastrowid
 
-    session_id = create_session(user_id)
+    session_id = await create_session(user_id)
     _set_session_cookie(response, session_id)
     return {"id": user_id, "email": body.email, "name": body.name}
 
 
 @router.post("/login")
-def login(body: LoginBody, response: Response):
+async def login(body: LoginBody, response: Response):
     """Authenticate with email + password, open a session, set cookie, return user."""
-    with get_db() as conn:
-        row = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             "SELECT id, email, name, password_hash FROM users WHERE email = ?",
             (body.email,),
-        ).fetchone()
+        )
+        row = await cursor.fetchone()
 
     if row is None or not verify_password(body.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    session_id = create_session(row["id"])
+    session_id = await create_session(row["id"])
     _set_session_cookie(response, session_id)
     return {"id": row["id"], "email": row["email"], "name": row["name"]}
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response):
+async def logout(request: Request, response: Response):
     """Delete the current session and clear the cookie."""
     session_id = request.cookies.get(COOKIE_NAME)
     if session_id:
-        delete_session(session_id)
+        await delete_session(session_id)
     response.delete_cookie(key=COOKIE_NAME)
     return {"ok": True}
 
 
 @router.get("/me")
-def me(user: dict = Depends(require_user)):
+async def me(user: dict = Depends(require_user)):
     """Return the currently authenticated user, or 401."""
     return user

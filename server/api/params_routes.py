@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from server.auth import require_user
-from server.db import get_db
+from server.db import get_async_db
 
 router = APIRouter(prefix="/api/params")
 
@@ -22,17 +22,18 @@ def _row_to_dict(row) -> dict:
 
 
 @router.get("")
-def list_param_sets():
+async def list_param_sets():
     """List all param sets with owner info and latest done runs."""
-    with get_db() as conn:
-        rows = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             """
             SELECT p.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets p
             JOIN users u ON p.owner_id = u.id
             ORDER BY p.created_at DESC
             """
-        ).fetchall()
+        )
+        rows = await cursor.fetchall()
 
         result = []
         for row in rows:
@@ -40,16 +41,17 @@ def list_param_sets():
 
             # Resolve forked_from name
             if item.get("forked_from_id"):
-                fork_row = conn.execute(
+                fork_cursor = await conn.execute(
                     "SELECT name FROM param_sets WHERE id = ?",
                     (item["forked_from_id"],),
-                ).fetchone()
+                )
+                fork_row = await fork_cursor.fetchone()
                 item["forked_from_name"] = fork_row["name"] if fork_row else None
             else:
                 item["forked_from_name"] = None
 
             # Latest done runs (one per test_type)
-            run_rows = conn.execute(
+            run_cursor = await conn.execute(
                 """
                 SELECT id, test_type, status, total_eclipses, detected, completed_at
                 FROM runs
@@ -57,7 +59,8 @@ def list_param_sets():
                 ORDER BY completed_at DESC
                 """,
                 (item["id"],),
-            ).fetchall()
+            )
+            run_rows = await run_cursor.fetchall()
             item["latest_runs"] = [_row_to_dict(r) for r in run_rows]
 
             result.append(item)
@@ -72,9 +75,9 @@ class CreateParamSetBody(BaseModel):
 
 
 @router.post("", status_code=201)
-def create_param_set(body: CreateParamSetBody, request: Request):
+async def create_param_set(body: CreateParamSetBody, request: Request):
     """Create a new param set. Auth required."""
-    user = require_user(request)
+    user = await require_user(request)
 
     if not body.name or not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
@@ -86,16 +89,16 @@ def create_param_set(body: CreateParamSetBody, request: Request):
     except (json.JSONDecodeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=f"params_json is not valid JSON: {exc}")
 
-    with get_db() as conn:
-        cursor = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             """
             INSERT INTO param_sets (name, description, params_md5, params_json, owner_id)
             VALUES (?, ?, ?, ?, ?)
             """,
             (body.name.strip(), body.description, params_md5, body.params_json, user["id"]),
         )
-        conn.commit()
-        row = conn.execute(
+        await conn.commit()
+        row_cursor = await conn.execute(
             """
             SELECT p.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets p
@@ -103,16 +106,17 @@ def create_param_set(body: CreateParamSetBody, request: Request):
             WHERE p.id = ?
             """,
             (cursor.lastrowid,),
-        ).fetchone()
+        )
+        row = await row_cursor.fetchone()
 
     return _row_to_dict(row)
 
 
 @router.get("/{param_set_id}")
-def get_param_set(param_set_id: int):
+async def get_param_set(param_set_id: int):
     """Get a single param set with owner info."""
-    with get_db() as conn:
-        row = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             """
             SELECT p.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets p
@@ -120,7 +124,8 @@ def get_param_set(param_set_id: int):
             WHERE p.id = ?
             """,
             (param_set_id,),
-        ).fetchone()
+        )
+        row = await cursor.fetchone()
 
     if row is None:
         raise HTTPException(status_code=404, detail="Param set not found")
@@ -135,14 +140,15 @@ class UpdateParamSetBody(BaseModel):
 
 
 @router.put("/{param_set_id}")
-def update_param_set(param_set_id: int, body: UpdateParamSetBody, request: Request):
+async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request: Request):
     """Partial update. Auth required; owner only."""
-    user = require_user(request)
+    user = await require_user(request)
 
-    with get_db() as conn:
-        row = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             "SELECT * FROM param_sets WHERE id = ?", (param_set_id,)
-        ).fetchone()
+        )
+        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
         if row["owner_id"] != user["id"]:
@@ -165,12 +171,12 @@ def update_param_set(param_set_id: int, body: UpdateParamSetBody, request: Reque
         if updates:
             set_clause = ", ".join(f"{k} = ?" for k in updates)
             values = list(updates.values()) + [param_set_id]
-            conn.execute(
+            await conn.execute(
                 f"UPDATE param_sets SET {set_clause} WHERE id = ?", values
             )
-            conn.commit()
+            await conn.commit()
 
-        updated = conn.execute(
+        updated_cursor = await conn.execute(
             """
             SELECT p.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets p
@@ -178,27 +184,29 @@ def update_param_set(param_set_id: int, body: UpdateParamSetBody, request: Reque
             WHERE p.id = ?
             """,
             (param_set_id,),
-        ).fetchone()
+        )
+        updated = await updated_cursor.fetchone()
 
     return _row_to_dict(updated)
 
 
 @router.delete("/{param_set_id}", status_code=204)
-def delete_param_set(param_set_id: int, request: Request):
+async def delete_param_set(param_set_id: int, request: Request):
     """Delete a param set. Auth required; owner only."""
-    user = require_user(request)
+    user = await require_user(request)
 
-    with get_db() as conn:
-        row = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             "SELECT owner_id FROM param_sets WHERE id = ?", (param_set_id,)
-        ).fetchone()
+        )
+        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
         if row["owner_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Not the owner")
 
-        conn.execute("DELETE FROM param_sets WHERE id = ?", (param_set_id,))
-        conn.commit()
+        await conn.execute("DELETE FROM param_sets WHERE id = ?", (param_set_id,))
+        await conn.commit()
 
 
 class ForkBody(BaseModel):
@@ -206,20 +214,21 @@ class ForkBody(BaseModel):
 
 
 @router.post("/{param_set_id}/fork", status_code=201)
-def fork_param_set(param_set_id: int, request: Request, body: ForkBody = ForkBody()):
+async def fork_param_set(param_set_id: int, request: Request, body: ForkBody = ForkBody()):
     """Fork a param set for the current user. Auth required."""
-    user = require_user(request)
+    user = await require_user(request)
 
-    with get_db() as conn:
-        source = conn.execute(
+    async with get_async_db() as conn:
+        source_cursor = await conn.execute(
             "SELECT * FROM param_sets WHERE id = ?", (param_set_id,)
-        ).fetchone()
+        )
+        source = await source_cursor.fetchone()
         if source is None:
             raise HTTPException(status_code=404, detail="Param set not found")
 
         fork_name = body.name or f"{source['name']} (fork)"
 
-        cursor = conn.execute(
+        cursor = await conn.execute(
             """
             INSERT INTO param_sets
                 (name, description, params_md5, params_json, owner_id, forked_from_id)
@@ -234,9 +243,9 @@ def fork_param_set(param_set_id: int, request: Request, body: ForkBody = ForkBod
                 param_set_id,
             ),
         )
-        conn.commit()
+        await conn.commit()
 
-        row = conn.execute(
+        row_cursor = await conn.execute(
             """
             SELECT p.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets p
@@ -244,6 +253,7 @@ def fork_param_set(param_set_id: int, request: Request, body: ForkBody = ForkBod
             WHERE p.id = ?
             """,
             (cursor.lastrowid,),
-        ).fetchone()
+        )
+        row = await row_cursor.fetchone()
 
     return _row_to_dict(row)

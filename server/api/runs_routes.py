@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from server.auth import require_user
-from server.db import get_db
+from server.db import get_async_db
 
 router = APIRouter(prefix="/api/runs")
 
@@ -15,7 +15,7 @@ def _row_to_dict(row) -> dict:
 
 
 @router.get("")
-def list_runs(
+async def list_runs(
     param_set_id: int | None = Query(default=None),
     status: str | None = Query(default=None),
 ):
@@ -32,8 +32,8 @@ def list_runs(
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-    with get_db() as conn:
-        rows = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             f"""
             SELECT r.*, p.name AS param_set_name, u.name AS owner_name
             FROM runs r
@@ -44,7 +44,8 @@ def list_runs(
             LIMIT 100
             """,
             values,
-        ).fetchall()
+        )
+        rows = await cursor.fetchall()
 
     return [_row_to_dict(r) for r in rows]
 
@@ -55,9 +56,9 @@ class CreateRunBody(BaseModel):
 
 
 @router.post("", status_code=201)
-def create_run(body: CreateRunBody, request: Request):
+async def create_run(body: CreateRunBody, request: Request):
     """Queue a new run. Auth required."""
-    user = require_user(request)
+    user = await require_user(request)
 
     if body.test_type not in VALID_TEST_TYPES:
         raise HTTPException(
@@ -65,23 +66,24 @@ def create_run(body: CreateRunBody, request: Request):
             detail=f"test_type must be one of: {', '.join(sorted(VALID_TEST_TYPES))}",
         )
 
-    with get_db() as conn:
-        param_set = conn.execute(
+    async with get_async_db() as conn:
+        ps_cursor = await conn.execute(
             "SELECT id FROM param_sets WHERE id = ?", (body.param_set_id,)
-        ).fetchone()
+        )
+        param_set = await ps_cursor.fetchone()
         if param_set is None:
             raise HTTPException(status_code=404, detail="Param set not found")
 
-        cursor = conn.execute(
+        cursor = await conn.execute(
             """
             INSERT INTO runs (param_set_id, test_type, status)
             VALUES (?, ?, 'queued')
             """,
             (body.param_set_id, body.test_type),
         )
-        conn.commit()
+        await conn.commit()
 
-        row = conn.execute(
+        row_cursor = await conn.execute(
             """
             SELECT r.*, p.name AS param_set_name, u.name AS owner_name
             FROM runs r
@@ -90,16 +92,17 @@ def create_run(body: CreateRunBody, request: Request):
             WHERE r.id = ?
             """,
             (cursor.lastrowid,),
-        ).fetchone()
+        )
+        row = await row_cursor.fetchone()
 
     return _row_to_dict(row)
 
 
 @router.get("/{run_id}")
-def get_run(run_id: int):
+async def get_run(run_id: int):
     """Get a single run with param set info."""
-    with get_db() as conn:
-        row = conn.execute(
+    async with get_async_db() as conn:
+        cursor = await conn.execute(
             """
             SELECT r.*, p.name AS param_set_name, u.name AS owner_name
             FROM runs r
@@ -108,7 +111,8 @@ def get_run(run_id: int):
             WHERE r.id = ?
             """,
             (run_id,),
-        ).fetchone()
+        )
+        row = await cursor.fetchone()
 
     if row is None:
         raise HTTPException(status_code=404, detail="Run not found")
