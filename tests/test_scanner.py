@@ -52,7 +52,7 @@ class TestSolarScanner:
         results = scan_solar_eclipses(params, [self._ECLIPSE_2017])
         assert len(results) == 1
         r = results[0]
-        assert r["detected"] is True, (
+        assert r["detected"], (
             f"Expected detection; min_separation_arcmin={r['min_separation_arcmin']}"
         )
         # threshold is 0.8 degrees = 48 arcmin
@@ -81,7 +81,7 @@ class TestLunarScanner:
         results = scan_lunar_eclipses(params, [self._ECLIPSE_2018])
         assert len(results) == 1
         r = results[0]
-        assert r["detected"] is True, (
+        assert r["detected"], (
             f"Expected detection; min_separation_arcmin={r['min_separation_arcmin']}, "
             f"threshold_arcmin={r['threshold_arcmin']}"
         )
