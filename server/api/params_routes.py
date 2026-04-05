@@ -98,6 +98,7 @@ class CreateParamSetBody(BaseModel):
     name: str
     description: str | None = None
     params_json: str
+    notes: str | None = None
 
 
 @router.post("", status_code=201)
@@ -129,10 +130,10 @@ async def create_param_set(body: CreateParamSetBody, request: Request):
         # Create first version
         pv_cursor = await conn.execute(
             """
-            INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json)
-            VALUES (?, 1, ?, ?)
+            INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json, notes)
+            VALUES (?, 1, ?, ?, ?)
             """,
-            (param_set_id, params_md5, body.params_json),
+            (param_set_id, params_md5, body.params_json, body.notes),
         )
         param_version_id = pv_cursor.lastrowid
         await conn.commit()
@@ -177,7 +178,7 @@ async def get_param_set(param_set_id: int):
         # All versions (newest first)
         ver_cursor = await conn.execute(
             """
-            SELECT id, version_number, parent_version_id, created_at, params_md5
+            SELECT id, version_number, parent_version_id, created_at, params_md5, notes
             FROM param_versions
             WHERE param_set_id = ?
             ORDER BY version_number DESC
@@ -243,6 +244,7 @@ class UpdateParamSetBody(BaseModel):
     description: str | None = None
     params_json: str | None = None
     parent_version_id: int | None = None  # which version this edit is based on
+    notes: str | None = None
 
 
 @router.put("/{param_set_id}")
@@ -304,10 +306,10 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
                     parent_id = latest_ver["id"]
                 pv_cursor = await conn.execute(
                     """
-                    INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (param_set_id, next_version, parent_id, new_md5, body.params_json),
+                    (param_set_id, next_version, parent_id, new_md5, body.params_json, body.notes),
                 )
                 param_version_id = pv_cursor.lastrowid
                 await conn.commit()
@@ -445,7 +447,7 @@ async def get_version(param_set_id: int, version_id: int):
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT id, version_number, parent_version_id, params_md5, params_json, created_at
+            SELECT id, version_number, parent_version_id, params_md5, params_json, notes, created_at
             FROM param_versions
             WHERE id = ? AND param_set_id = ?
             """,
@@ -467,5 +469,47 @@ async def get_version(param_set_id: int, version_id: int):
             (version_id,),
         )
         item["runs"] = [_row_to_dict(r) for r in await runs_cursor.fetchall()]
+
+        # Walk ancestor chain
+        ancestors = []
+        current_parent_id = item.get("parent_version_id")
+        seen = set()
+        while current_parent_id and current_parent_id not in seen:
+            seen.add(current_parent_id)
+            anc_cursor = await conn.execute(
+                """
+                SELECT pv.id, pv.version_number, pv.parent_version_id, pv.params_md5, pv.notes, pv.created_at
+                FROM param_versions pv
+                WHERE pv.id = ?
+                """,
+                (current_parent_id,),
+            )
+            anc_row = await anc_cursor.fetchone()
+            if not anc_row:
+                break
+            anc = _row_to_dict(anc_row)
+
+            # Get detection stats for this ancestor
+            for test_type in ("solar", "lunar"):
+                stat_cursor = await conn.execute(
+                    """
+                    SELECT detected, total_eclipses FROM runs
+                    WHERE param_version_id = ? AND test_type = ? AND status = 'done'
+                    ORDER BY completed_at DESC LIMIT 1
+                    """,
+                    (current_parent_id, test_type),
+                )
+                stat_row = await stat_cursor.fetchone()
+                if stat_row:
+                    anc[f"{test_type}_detected"] = stat_row["detected"]
+                    anc[f"{test_type}_total"] = stat_row["total_eclipses"]
+                else:
+                    anc[f"{test_type}_detected"] = None
+                    anc[f"{test_type}_total"] = None
+
+            ancestors.append(anc)
+            current_parent_id = anc_row["parent_version_id"]
+
+        item["ancestors"] = ancestors
 
     return item

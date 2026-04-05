@@ -63,7 +63,7 @@ async def dashboard():
         # Recent runs (last 10)
         recent_cursor = await conn.execute(
             """
-            SELECT r.id, ps.name AS param_set_name, u.name AS owner_name,
+            SELECT r.id, ps.name AS param_set_name, pv.version_number, u.name AS owner_name,
                    r.test_type, r.status, r.total_eclipses, r.detected, r.created_at
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id

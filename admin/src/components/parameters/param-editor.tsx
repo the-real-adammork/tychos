@@ -49,6 +49,7 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
   const [error, setError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
+  const [notes, setNotes] = React.useState("");
 
   React.useEffect(() => {
     async function load() {
@@ -137,7 +138,7 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
       const res = await fetch(`/api/params/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ params_json: paramsJson, parent_version_id: meta?.latestVersionId }),
+        body: JSON.stringify({ params_json: paramsJson, parent_version_id: meta?.latestVersionId, notes: notes || null }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -190,6 +191,17 @@ export function ParamEditor({ id, versionId, onSaved }: ParamEditorProps) {
             {saving ? "Saving…" : "Save"}
           </Button>
         </div>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Version Notes</label>
+        <textarea
+          className="mt-1 w-full rounded border border-input bg-background px-3 py-2 text-sm"
+          rows={2}
+          placeholder="Describe what changed in this version..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </div>
 
       <div className="overflow-x-auto">

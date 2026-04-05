@@ -24,29 +24,36 @@ interface RunRow {
   created_at: string;
 }
 
+interface Ancestor {
+  id: number;
+  version_number: number;
+  parent_version_id: number | null;
+  params_md5: string;
+  notes: string | null;
+  created_at: string;
+  solar_detected: number | null;
+  solar_total: number | null;
+  lunar_detected: number | null;
+  lunar_total: number | null;
+}
+
 interface VersionDetail {
   id: number;
   version_number: number;
+  parent_version_id: number | null;
   params_md5: string;
   params_json: string;
+  notes: string | null;
   created_at: string;
-  param_set_name?: string;
   runs: RunRow[];
+  ancestors: Ancestor[];
 }
 
 function StatusBadge({ status }: { status: RunStatus }) {
   if (status === "done")
-    return (
-      <Badge className="bg-green-500/15 text-green-600 border-transparent dark:text-green-400">
-        done
-      </Badge>
-    );
+    return <Badge className="bg-green-500/15 text-green-600 border-transparent dark:text-green-400">done</Badge>;
   if (status === "running")
-    return (
-      <Badge className="bg-yellow-500/15 text-yellow-600 border-transparent dark:text-yellow-400">
-        running
-      </Badge>
-    );
+    return <Badge className="bg-yellow-500/15 text-yellow-600 border-transparent dark:text-yellow-400">running</Badge>;
   if (status === "queued") return <Badge variant="secondary">queued</Badge>;
   return <Badge variant="destructive">failed</Badge>;
 }
@@ -57,39 +64,19 @@ function detectionLabel(detected: number | null, total: number | null): string {
   return `${detected}/${total} (${pct}%)`;
 }
 
-function computeSolarStats(runs: RunRow[]) {
-  return runs.find((r) => r.test_type === "solar" && r.status === "done") ?? null;
-}
-
-function computeLunarStats(runs: RunRow[]) {
-  return runs.find((r) => r.test_type === "lunar" && r.status === "done") ?? null;
-}
-
-function StatCard({
-  title,
-  run,
-}: {
-  title: string;
-  run: RunRow | null;
-}) {
+function StatCard({ title, run, notes }: { title: string; run: RunRow | null; notes?: string | null }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {run && run.detected !== null && run.total_eclipses !== null ? (
           <>
             <p className="text-3xl font-bold text-teal-400">
-              {run.total_eclipses === 0
-                ? "0%"
-                : `${Math.round((run.detected / run.total_eclipses) * 100)}%`}
+              {run.total_eclipses === 0 ? "0%" : `${Math.round((run.detected / run.total_eclipses) * 100)}%`}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {run.detected}/{run.total_eclipses} detected
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">{run.detected}/{run.total_eclipses} detected</p>
           </>
         ) : (
           <p className="text-muted-foreground text-sm">No runs yet</p>
@@ -103,7 +90,7 @@ export default function ParamVersionDetailPage() {
   const { id, versionId } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState<VersionDetail | null>(null);
-  const [paramSetName, setParamSetName] = useState<string>("");
+  const [paramSetName, setParamSetName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,7 +98,6 @@ export default function ParamVersionDetailPage() {
     if (!id || !versionId) return;
     setLoading(true);
     setError(null);
-
     Promise.all([
       fetch(`/api/params/${id}/versions/${versionId}`).then((r) => {
         if (!r.ok) throw new Error(r.status === 404 ? "Not found" : "Failed to load");
@@ -127,31 +113,36 @@ export default function ParamVersionDetailPage() {
       .finally(() => setLoading(false));
   }, [id, versionId]);
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) return null;
 
-  const solarRun = computeSolarStats(data.runs);
-  const lunarRun = computeLunarStats(data.runs);
+  const solarRun = data.runs.find((r) => r.test_type === "solar" && r.status === "done") ?? null;
+  const lunarRun = data.runs.find((r) => r.test_type === "lunar" && r.status === "done") ?? null;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
+      {/* Header + Notes */}
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">
             {paramSetName ? `${paramSetName} — ` : ""}Version {data.version_number}
           </h1>
-          <p className="text-xs text-muted-foreground mt-1 font-mono">
-            MD5: {data.params_md5}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1 font-mono">MD5: {data.params_md5}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             Created {format(new Date(data.created_at), "MMM d, yyyy HH:mm")}
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
-          Back to Param Set
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          {data.notes && (
+            <div className="bg-muted/50 rounded-md px-3 py-2 max-w-sm text-sm text-muted-foreground">
+              {data.notes}
+            </div>
+          )}
+          <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
+            Back to Param Set
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -180,19 +171,11 @@ export default function ParamVersionDetailPage() {
                 <TableRow
                   key={run.id}
                   className={run.status === "done" ? "cursor-pointer" : undefined}
-                  onClick={
-                    run.status === "done"
-                      ? () => navigate(`/results/${run.id}`)
-                      : undefined
-                  }
+                  onClick={run.status === "done" ? () => navigate(`/results/${run.id}`) : undefined}
                 >
                   <TableCell className="capitalize">{run.test_type}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={run.status} />
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {detectionLabel(run.detected, run.total_eclipses)}
-                  </TableCell>
+                  <TableCell><StatusBadge status={run.status} /></TableCell>
+                  <TableCell className="tabular-nums">{detectionLabel(run.detected, run.total_eclipses)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}
                   </TableCell>
@@ -202,6 +185,60 @@ export default function ParamVersionDetailPage() {
           </Table>
         )}
       </section>
+
+      {/* Ancestors */}
+      {data.ancestors.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">Ancestor Versions</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Version</TableHead>
+                <TableHead>Based On</TableHead>
+                <TableHead>Solar</TableHead>
+                <TableHead>Lunar</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.ancestors.map((anc) => (
+                <TableRow key={anc.id}>
+                  <TableCell className="font-medium">v{anc.version_number}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {anc.parent_version_id
+                      ? `v${data.ancestors.find((a) => a.id === anc.parent_version_id)?.version_number ?? "?"}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-xs">
+                    {detectionLabel(anc.solar_detected, anc.solar_total)}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-xs">
+                    {detectionLabel(anc.lunar_detected, anc.lunar_total)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-48 truncate">
+                    {anc.notes || "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {format(new Date(anc.created_at), "MMM d, yyyy HH:mm")}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/versions/${anc.id}`)}>
+                        View
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/edit?from=${anc.id}`)}>
+                        Edit
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+      )}
     </div>
   );
 }
