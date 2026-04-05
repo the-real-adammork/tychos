@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { ResultsTable } from "@/components/results/results-table";
 
 interface RunInfo {
@@ -8,11 +9,15 @@ interface RunInfo {
   status: string;
   totalEclipses: number | null;
   detected: number | null;
-  paramSet: { id: number; name: string };
+  paramSetId: number;
+  paramSetName: string;
+  versionNumber: number;
+  paramVersionId: number;
 }
 
 export default function ResultsPage() {
   const { runId } = useParams();
+  const navigate = useNavigate();
   const [run, setRun] = useState<RunInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -34,10 +39,10 @@ export default function ResultsPage() {
             status: data.status,
             totalEclipses: data.total_eclipses,
             detected: data.detected,
-            paramSet: {
-              id: data.param_set_id,
-              name: data.param_set_name,
-            },
+            paramSetId: data.param_set_id,
+            paramSetName: data.param_set_name,
+            versionNumber: data.version_number,
+            paramVersionId: data.param_version_id,
           });
         }
       })
@@ -54,36 +59,44 @@ export default function ResultsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">
-          Results: {run.paramSet.name}
-        </h1>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>
-            Test type:{" "}
-            <span className="font-medium capitalize text-foreground">
-              {run.testType}
-            </span>
-          </span>
-          <span>
-            Status:{" "}
-            <span className="font-medium capitalize text-foreground">
-              {run.status}
-            </span>
-          </span>
-          <span>
-            Detection rate:{" "}
-            <span className="font-medium text-foreground">{detectionRate}</span>
-          </span>
-          {run.totalEclipses !== null && (
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">
+            {run.paramSetName} — v{run.versionNumber}
+          </h1>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span>
-              Total eclipses:{" "}
-              <span className="font-medium text-foreground">
-                {run.totalEclipses}
+              Test type:{" "}
+              <span className="font-medium capitalize text-foreground">
+                {run.testType}
               </span>
             </span>
-          )}
+            <span>
+              Status:{" "}
+              <span className="font-medium capitalize text-foreground">
+                {run.status}
+              </span>
+            </span>
+            <span>
+              Detection rate:{" "}
+              <span className="font-medium text-foreground">{detectionRate}</span>
+            </span>
+            {run.totalEclipses !== null && (
+              <span>
+                Total eclipses:{" "}
+                <span className="font-medium text-foreground">
+                  {run.totalEclipses}
+                </span>
+              </span>
+            )}
+          </div>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate(`/parameters/${run.paramSetId}/versions/${run.paramVersionId}`)}
+        >
+          View Version Detail
+        </Button>
       </div>
 
       <ResultsTable runId={runId!} />
