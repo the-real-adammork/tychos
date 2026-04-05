@@ -29,6 +29,7 @@ interface Ancestor {
   version_number: number;
   parent_version_id: number | null;
   params_md5: string;
+  params_json: string;
   notes: string | null;
   created_at: string;
   solar_detected: number | null;
@@ -119,6 +120,45 @@ export default function ParamVersionDetailPage() {
 
   const solarRun = data.runs.find((r) => r.test_type === "solar" && r.status === "done") ?? null;
   const lunarRun = data.runs.find((r) => r.test_type === "lunar" && r.status === "done") ?? null;
+
+  // Build version chain: current version + ancestors, each with diff against parent
+  type ParamChange = { body: string; param: string; oldVal: string; newVal: string };
+  type ChainEntry = { version: Ancestor & { params_json: string }; changes: ParamChange[] };
+
+  const versionChain: ChainEntry[] = (() => {
+    // Build ordered list: current version first, then ancestors
+    const allVersions: Array<Ancestor & { params_json: string }> = [
+      { ...data, solar_detected: solarRun?.detected ?? null, solar_total: solarRun?.total_eclipses ?? null,
+        lunar_detected: lunarRun?.detected ?? null, lunar_total: lunarRun?.total_eclipses ?? null },
+      ...data.ancestors,
+    ];
+
+    return allVersions.map((ver, idx) => {
+      // Find this version's parent in the chain
+      const parent = idx < allVersions.length - 1 ? allVersions[idx + 1] : null;
+      const changes: ParamChange[] = [];
+
+      if (parent) {
+        try {
+          const newParams = JSON.parse(ver.params_json) as Record<string, Record<string, unknown>>;
+          const oldParams = JSON.parse(parent.params_json) as Record<string, Record<string, unknown>>;
+          for (const body of new Set([...Object.keys(newParams), ...Object.keys(oldParams)])) {
+            const newBody = newParams[body] || {};
+            const oldBody = oldParams[body] || {};
+            for (const param of new Set([...Object.keys(newBody), ...Object.keys(oldBody)])) {
+              const nv = newBody[param];
+              const ov = oldBody[param];
+              if (String(nv) !== String(ov)) {
+                changes.push({ body, param, oldVal: String(ov ?? "—"), newVal: String(nv ?? "—") });
+              }
+            }
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      return { version: ver, changes };
+    });
+  })();
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(data.notes || "");
@@ -228,57 +268,60 @@ export default function ParamVersionDetailPage() {
         )}
       </section>
 
-      {/* Ancestors */}
-      {data.ancestors.length > 0 && (
+      {/* Version History with Diffs */}
+      {versionChain.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold mb-3">Ancestor Versions</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Version</TableHead>
-                <TableHead>Based On</TableHead>
-                <TableHead>Solar</TableHead>
-                <TableHead>Lunar</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.ancestors.map((anc) => (
-                <TableRow key={anc.id}>
-                  <TableCell className="font-medium">v{anc.version_number}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {anc.parent_version_id
-                      ? `v${data.ancestors.find((a) => a.id === anc.parent_version_id)?.version_number ?? "?"}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="tabular-nums text-xs">
-                    {detectionLabel(anc.solar_detected, anc.solar_total)}
-                  </TableCell>
-                  <TableCell className="tabular-nums text-xs">
-                    {detectionLabel(anc.lunar_detected, anc.lunar_total)}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-48 truncate">
-                    {anc.notes || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {format(new Date(anc.created_at), "MMM d, yyyy HH:mm")}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/versions/${anc.id}`)}>
-                        View
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/edit?from=${anc.id}`)}>
-                        Edit
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <h2 className="text-lg font-semibold mb-3">Version History</h2>
+          <div className="space-y-3">
+            {versionChain.map((entry) => (
+              <div key={entry.version.id} className="border rounded-lg overflow-hidden">
+                {/* Version header row */}
+                <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+                  <div className="flex items-center gap-4">
+                    <span className="font-medium">v{entry.version.version_number}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(entry.version.created_at), "MMM d, yyyy HH:mm")}
+                    </span>
+                    <span className="tabular-nums text-xs">
+                      Solar: {detectionLabel(entry.version.solar_detected, entry.version.solar_total)}
+                    </span>
+                    <span className="tabular-nums text-xs">
+                      Lunar: {detectionLabel(entry.version.lunar_detected, entry.version.lunar_total)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {entry.version.notes && (
+                      <span className="text-xs text-muted-foreground italic max-w-48 truncate">
+                        {entry.version.notes}
+                      </span>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/versions/${entry.version.id}`)}>
+                      View
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/parameters/${id}/edit?from=${entry.version.id}`)}>
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+                {/* Diff */}
+                {entry.changes.length > 0 && (
+                  <div className="px-4 py-2 font-mono text-xs space-y-1 bg-background">
+                    {entry.changes.map((change, i) => (
+                      <div key={i}>
+                        <span className="text-muted-foreground font-semibold">{change.body}.{change.param}:</span>
+                        <span className="ml-2 bg-red-500/15 text-red-400 px-1 rounded">{change.oldVal}</span>
+                        <span className="mx-1 text-muted-foreground">→</span>
+                        <span className="bg-green-500/15 text-green-400 px-1 rounded">{change.newVal}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {entry.changes.length === 0 && entry.version.id !== data.id && (
+                  <div className="px-4 py-2 text-xs text-muted-foreground">No parameter changes</div>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>
