@@ -1,7 +1,4 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Settings2,
@@ -23,12 +20,12 @@ const navItems = [
 ];
 
 export function Sidebar({ userName, userEmail }: SidebarProps) {
-  const pathname = usePathname();
-  const router = useRouter();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    navigate("/login");
   }
 
   return (
@@ -40,7 +37,7 @@ export function Sidebar({ userName, userEmail }: SidebarProps) {
             return (
               <Link
                 key={href}
-                href={href}
+                to={href}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-accent text-accent-foreground"

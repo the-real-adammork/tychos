@@ -1,7 +1,4 @@
-"use client";
-
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,7 +38,6 @@ interface ParamEditorProps {
 }
 
 export function ParamEditor({ id }: ParamEditorProps) {
-  const router = useRouter();
   const [meta, setMeta] = React.useState<ParamSetMeta | null>(null);
   const [values, setValues] = React.useState<ParamsData>({});
   const [loading, setLoading] = React.useState(true);
@@ -119,7 +115,6 @@ export function ParamEditor({ id }: ParamEditorProps) {
         return;
       }
       setSaved(true);
-      router.refresh();
     } catch {
       setSaveError("Network error");
     } finally {

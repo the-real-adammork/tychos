@@ -1,7 +1,5 @@
-"use client";
-
 import * as React from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -135,7 +133,7 @@ export function ParamList() {
                       Fork
                     </Button>
                     <Link
-                      href={`/parameters/${ps.id}`}
+                      to={`/parameters/${ps.id}`}
                       className={buttonVariants({ size: "sm", variant: "outline" })}
                     >
                       Edit

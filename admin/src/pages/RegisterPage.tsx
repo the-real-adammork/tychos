@@ -1,7 +1,6 @@
-"use client"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate, Link } from "react-router-dom"
+import { useAuth } from "@/App"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +12,8 @@ import {
 } from "@/components/ui/card"
 
 export default function RegisterPage() {
-  const router = useRouter()
+  const navigate = useNavigate()
+  const { setUser } = useAuth()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -35,7 +35,9 @@ export default function RegisterPage() {
         setError(data.error ?? "Registration failed")
         return
       }
-      router.push("/")
+      const user = await res.json()
+      setUser(user)
+      navigate("/")
     } catch {
       setError("An unexpected error occurred")
     } finally {
@@ -88,13 +90,13 @@ export default function RegisterPage() {
               <p className="text-sm text-destructive">{error}</p>
             )}
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating account…" : "Create account"}
+              {loading ? "Creating account\u2026" : "Create account"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <a href="/login" className="text-primary underline-offset-4 hover:underline">
+              <Link to="/login" className="text-primary underline-offset-4 hover:underline">
                 Sign in
-              </a>
+              </Link>
             </p>
           </form>
         </CardContent>

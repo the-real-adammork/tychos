@@ -1,0 +1,72 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect, createContext, useContext } from "react";
+import { Sidebar } from "@/components/sidebar";
+
+import DashboardPage from "@/pages/DashboardPage";
+import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
+import ParametersPage from "@/pages/ParametersPage";
+import ParamDetailPage from "@/pages/ParamDetailPage";
+import RunsPage from "@/pages/RunsPage";
+import ResultsPage from "@/pages/ResultsPage";
+import ComparePage from "@/pages/ComparePage";
+
+type User = { id: number; email: string; name: string } | null;
+
+const AuthContext = createContext<{ user: User; setUser: (u: User) => void }>({
+  user: null,
+  setUser: () => {},
+});
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  return <>{children}</>;
+}
+
+export default function App() {
+  const [user, setUser] = useState<User>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => setUser(u))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+
+  return (
+    <AuthContext.Provider value={{ user, setUser }}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <div className="flex h-screen overflow-hidden">
+                <Sidebar userName={user!.name} userEmail={user!.email} />
+                <main className="flex-1 overflow-y-auto p-6">
+                  <Routes>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/parameters" element={<ParametersPage />} />
+                    <Route path="/parameters/:id" element={<ParamDetailPage />} />
+                    <Route path="/runs" element={<RunsPage />} />
+                    <Route path="/results/:runId" element={<ResultsPage />} />
+                    <Route path="/compare" element={<ComparePage />} />
+                  </Routes>
+                </main>
+              </div>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AuthContext.Provider>
+  );
+}

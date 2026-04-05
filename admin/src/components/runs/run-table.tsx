@@ -1,7 +1,5 @@
-"use client"
-
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "react-router-dom"
 import { format } from "date-fns"
 import {
   Table,
@@ -78,7 +76,7 @@ function detectionRate(run: Run): string {
 type FilterStatus = "all" | RunStatus
 
 export default function RunTable() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const [runs, setRuns] = useState<Run[]>([])
   const [filter, setFilter] = useState<FilterStatus>("all")
   const [loading, setLoading] = useState(true)
@@ -140,7 +138,7 @@ export default function RunTable() {
                 className={run.status === "done" ? "cursor-pointer" : undefined}
                 onClick={
                   run.status === "done"
-                    ? () => router.push(`/results/${run.id}`)
+                    ? () => navigate(`/results/${run.id}`)
                     : undefined
                 }
               >
