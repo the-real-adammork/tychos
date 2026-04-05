@@ -269,7 +269,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => setPage(Math.max(1, page - 1))}
           >
             Previous
           </Button>
@@ -280,7 +280,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
           >
             Next
           </Button>
