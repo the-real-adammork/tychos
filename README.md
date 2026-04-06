@@ -2,9 +2,20 @@
 
 This project tests the [Tychos model](https://www.tychos.space/)'s ability to predict historical solar and lunar eclipses. It computes Sun and Moon positions using the Tychos geometric model, compares them against NASA's authoritative eclipse catalogs, and cross-references results with JPL ephemeris data to evaluate model accuracy.
 
+## How It Works
+
+1. **Get the eclipse catalogs.** Parse [NASA's Five Millennium Canon](#nasa-five-millennium-canon-of-eclipse-catalogs) of solar and lunar eclipses (1901–2100) into JSON, giving us ~500 eclipses with exact times in Julian Day (TT).
+
+2. **Set up two models via Skyfield.** Initialize the [Tychos geometric model](#tychos_skyfield-submodule) (`tychos_skyfield`) and the standard [heliocentric model](#jpl-de440s-planetary-ephemeris) (JPL DE440s ephemeris via Skyfield). Both produce Sun and Moon RA/Dec positions in the ICRF/J2000 frame.
+
+3. **Run eclipse detection.** For each catalog eclipse, [scan for minimum Sun-Moon separation](#how-eclipse-detection-works) in the Tychos model around the catalog time. If the separation falls within threshold, the eclipse is detected.
+
+4. **Compare against JPL.** For eclipses that fail the threshold, [compare the Tychos Moon position to JPL's Moon position](#jpl-rescue-recovering-threshold-failures). If they're within 1°, the near-miss is "rescued" — the model had the Moon in roughly the right place.
+
+5. **Store and visualize.** Results go into a SQLite database. The [admin dashboard](#admin-dashboard) provides per-eclipse [geometry diagrams](#visualizations), filtering, and side-by-side Tychos vs. JPL comparison.
+
 ## Table of Contents
 
-- [Architecture Overview](#architecture-overview)
 - [Dependencies](#dependencies)
 - [Datasets](#datasets)
 - [How Eclipse Detection Works](#how-eclipse-detection-works)
@@ -13,41 +24,6 @@ This project tests the [Tychos model](https://www.tychos.space/)'s ability to pr
 - [Admin Dashboard](#admin-dashboard)
 - [Running the Tests](#running-the-tests)
 - [Open Questions](#open-questions)
-
----
-
-## Architecture Overview
-
-```
-┌────────────────────┐      ┌──────────────────────┐
-│  NASA Eclipse       │      │  tychos_skyfield      │
-│  Catalogs (HTML)    │      │  (Python model)       │
-│  parse_nasa_      │      │  baselib.py            │
-│    eclipses.py     │──▶   │  skyfieldlib.py        │
-│  ──▶ JSON catalogs │      └──────────┬───────────┘
-└────────────────────┘                 │
-                                       ▼
-                          ┌──────────────────────────┐
-                          │  Eclipse Scanner          │
-                          │  tests/helpers.py         │
-                          │  server/services/         │
-                          │    scanner.py             │
-                          └──────────┬───────────────┘
-                                     │
-                    ┌────────────────┼────────────────┐
-                    ▼                                  ▼
-          ┌──────────────┐                  ┌──────────────────┐
-          │  SQLite DB    │                  │  JPL Reference    │
-          │  Results +    │◀─── compare ───▶│  (Skyfield +      │
-          │  Runs         │                  │   DE440s.bsp)     │
-          └──────┬───────┘                  └──────────────────┘
-                 │
-                 ▼
-          ┌──────────────┐
-          │  Admin UI     │
-          │  (React SPA)  │
-          └──────────────┘
-```
 
 ---
 
@@ -203,6 +179,8 @@ The admin dashboard provides two types of eclipse geometry diagrams for each ind
 
 ### Eclipse Geometry Diagram (per-result detail page)
 
+![Eclipse geometry detail page showing Tychos vs JPL side-by-side diagrams for the 1901-05-18 total solar eclipse](docs/images/eclipse-geometry-detail.png)
+
 Each eclipse result page shows two side-by-side diagrams: **Tychos** (left) and **JPL** (right).
 
 **Solar eclipses** are centered on the Sun:
@@ -220,13 +198,6 @@ Each eclipse result page shows two side-by-side diagrams: **Tychos** (left) and 
 
 The JPL diagram uses positions computed from `de440s.bsp` via Skyfield, providing a direct geometric comparison of where each model places the bodies relative to the eclipse condition.
 
-### Sky Position Diagram
-
-A full-sky Mollweide-style RA/Dec plot showing:
-- Sun and Moon positions on the celestial sphere (RA 0–24h, Dec ±90°)
-- An approximate ecliptic curve (sinusoidal with 23.44° obliquity)
-- The celestial equator
-- A connecting line between Sun and Moon
 
 ---
 
