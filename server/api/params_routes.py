@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from server.auth import require_user
 from server.db import get_async_db
+from server.params_store import save_param_set, save_param_version
 
 router = APIRouter(prefix="/api/params")
 
@@ -161,6 +162,14 @@ async def create_param_set(body: CreateParamSetBody, request: Request):
             (param_set_id,),
         )
         row = await row_cursor.fetchone()
+
+    # Persist to disk
+    save_param_set(body.name.strip(), body.description)
+    save_param_version(
+        body.name.strip(), 1,
+        json.loads(body.params_json),
+        notes=body.notes,
+    )
 
     return _row_to_dict(row)
 
@@ -331,6 +340,26 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
                 await conn.commit()
                 await auto_queue_runs(conn, param_version_id)
 
+                # Persist new version to disk
+                parent_label = None
+                if parent_id:
+                    par_cursor = await conn.execute(
+                        "SELECT pv.version_number, ps.name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = ?",
+                        (parent_id,),
+                    )
+                    par_row = await par_cursor.fetchone()
+                    if par_row:
+                        parent_label = f"{par_row['name']}/v{par_row['version_number']}"
+
+                ps_name_cursor = await conn.execute("SELECT name FROM param_sets WHERE id = ?", (param_set_id,))
+                ps_name_row = await ps_name_cursor.fetchone()
+                save_param_version(
+                    ps_name_row["name"], next_version,
+                    json.loads(body.params_json),
+                    notes=body.notes,
+                    parent_version=parent_label,
+                )
+
         updated_cursor = await conn.execute(
             """
             SELECT ps.*, u.name AS owner_name, u.email AS owner_email
@@ -387,7 +416,7 @@ async def fork_param_set(param_set_id: int, request: Request, body: ForkBody = F
         # Get latest version's params
         ver_cursor = await conn.execute(
             """
-            SELECT params_json, params_md5
+            SELECT version_number, params_json, params_md5
             FROM param_versions
             WHERE param_set_id = ?
             ORDER BY version_number DESC
@@ -432,6 +461,14 @@ async def fork_param_set(param_set_id: int, request: Request, body: ForkBody = F
             (new_param_set_id,),
         )
         row = await row_cursor.fetchone()
+
+    # Persist fork to disk
+    save_param_set(fork_name, source["description"], forked_from=source["name"])
+    save_param_version(
+        fork_name, 1,
+        json.loads(latest_ver["params_json"]),
+        parent_version=f"{source['name']}/v{latest_ver['version_number']}",
+    )
 
     return _row_to_dict(row)
 
@@ -581,5 +618,29 @@ async def update_version_notes(param_set_id: int, version_id: int, body: UpdateV
             (body.notes, version_id),
         )
         await conn.commit()
+
+        # Update the version file on disk
+        ver_cursor = await conn.execute(
+            "SELECT pv.version_number, pv.params_json, pv.parent_version_id, ps.name AS ps_name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = ?",
+            (version_id,),
+        )
+        ver_row = await ver_cursor.fetchone()
+        if ver_row:
+            parent_label = None
+            if ver_row["parent_version_id"]:
+                par_cursor = await conn.execute(
+                    "SELECT pv.version_number, ps.name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = ?",
+                    (ver_row["parent_version_id"],),
+                )
+                par_row = await par_cursor.fetchone()
+                if par_row:
+                    parent_label = f"{par_row['name']}/v{par_row['version_number']}"
+
+            save_param_version(
+                ver_row["ps_name"], ver_row["version_number"],
+                json.loads(ver_row["params_json"]),
+                notes=body.notes,
+                parent_version=parent_label,
+            )
 
     return {"ok": True}

@@ -4,6 +4,7 @@ Called automatically by init_db() after migrations. Idempotent.
 """
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -11,8 +12,8 @@ import bcrypt
 import numpy as np
 
 from server.db import get_db
+from server.params_store import load_all_param_sets
 
-PARAMS_PATH = Path(__file__).parent.parent / "params" / "v1-original.json"
 DATA_DIR = Path(__file__).parent.parent / "tests" / "data"
 
 # Add paths for helpers
@@ -22,50 +23,126 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
 
 def seed():
     _seed_admin_user()
-    _seed_v1_original()
+    _seed_param_sets_from_disk()
     _seed_jpl_reference()
 
 
 def _seed_admin_user():
+    admin_email = os.environ.get("TYCHOS_ADMIN_USER", "admin@tychos.local")
+    admin_password = os.environ.get("TYCHOS_ADMIN_PASSWORD", "admin")
+
     with get_db() as conn:
-        existing = conn.execute("SELECT id FROM users WHERE email = ?", ("admin@tychos.local",)).fetchone()
+        existing = conn.execute("SELECT id FROM users WHERE email = ?", (admin_email,)).fetchone()
         if existing:
             return
-        password_hash = bcrypt.hashpw(os.environ.get("TYCHOS_ADMIN_PASSWORD", "admin").encode(), bcrypt.gensalt()).decode()
+        password_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
         conn.execute(
             "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
-            ("admin@tychos.local", "Admin", password_hash),
+            (admin_email, "Admin", password_hash),
         )
         conn.commit()
-        print("[seed] Created admin user (admin@tychos.local / admin)")
+        print(f"[seed] Created admin user ({admin_email})")
 
 
-def _seed_v1_original():
+def _seed_param_sets_from_disk():
+    """Seed all param sets and versions from JSON files in params/ directory."""
+    param_sets = load_all_param_sets()
+    if not param_sets:
+        return
+
     with get_db() as conn:
-        existing = conn.execute("SELECT id FROM param_sets WHERE name = ?", ("v1-original",)).fetchone()
-        if existing:
+        admin_email = os.environ.get("TYCHOS_ADMIN_USER", "admin@tychos.local")
+        user = conn.execute("SELECT id FROM users WHERE email = ?", (admin_email,)).fetchone()
+        if not user:
             return
 
-        user = conn.execute("SELECT id FROM users WHERE email = ?", ("admin@tychos.local",)).fetchone()
-        params_json = PARAMS_PATH.read_text()
-        params_md5 = hashlib.md5(json.dumps(json.loads(params_json), sort_keys=True).encode()).hexdigest()
+        name_to_id = {}
 
-        cur = conn.execute("INSERT INTO param_sets (name, owner_id) VALUES (?, ?)", ("v1-original", user["id"]))
-        param_set_id = cur.lastrowid
+        for ps in param_sets:
+            existing = conn.execute("SELECT id FROM param_sets WHERE name = ?", (ps["name"],)).fetchone()
+            if existing:
+                name_to_id[ps["name"]] = existing["id"]
+                _seed_missing_versions(conn, existing["id"], ps["name"], ps["versions"])
+                continue
+
+            forked_from_id = name_to_id.get(ps.get("forked_from")) if ps.get("forked_from") else None
+
+            cur = conn.execute(
+                "INSERT INTO param_sets (name, description, owner_id, forked_from_id) VALUES (?, ?, ?, ?)",
+                (ps["name"], ps.get("description"), user["id"], forked_from_id),
+            )
+            param_set_id = cur.lastrowid
+            name_to_id[ps["name"]] = param_set_id
+
+            prev_version_id = None
+            for ver in ps["versions"]:
+                params_json = json.dumps(ver["params"], sort_keys=True)
+                params_md5 = hashlib.md5(params_json.encode()).hexdigest()
+
+                cur = conn.execute(
+                    "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) VALUES (?, ?, ?, ?, ?, ?)",
+                    (param_set_id, ver["version_number"], prev_version_id, params_md5, params_json, ver.get("notes")),
+                )
+                version_id = cur.lastrowid
+                prev_version_id = version_id
+
+                if ver == ps["versions"][-1]:
+                    for test_type in ("solar", "lunar"):
+                        conn.execute(
+                            "INSERT INTO runs (param_version_id, test_type, status) VALUES (?, ?, 'queued')",
+                            (version_id, test_type),
+                        )
+
+            conn.commit()
+            print(f"[seed] Created {ps['name']} with {len(ps['versions'])} version(s) and 2 queued runs")
+
+
+def _seed_missing_versions(conn, param_set_id: int, name: str, versions: list[dict]):
+    """Seed any versions from disk that don't yet exist in the DB."""
+    existing_nums = {
+        row[0]
+        for row in conn.execute(
+            "SELECT version_number FROM param_versions WHERE param_set_id = ?", (param_set_id,)
+        ).fetchall()
+    }
+
+    prev_cursor = conn.execute(
+        "SELECT id FROM param_versions WHERE param_set_id = ? ORDER BY version_number DESC LIMIT 1",
+        (param_set_id,),
+    )
+    prev_row = prev_cursor.fetchone()
+    prev_version_id = prev_row["id"] if prev_row else None
+
+    added = 0
+    for ver in versions:
+        if ver["version_number"] in existing_nums:
+            row = conn.execute(
+                "SELECT id FROM param_versions WHERE param_set_id = ? AND version_number = ?",
+                (param_set_id, ver["version_number"]),
+            ).fetchone()
+            if row:
+                prev_version_id = row["id"]
+            continue
+
+        params_json = json.dumps(ver["params"], sort_keys=True)
+        params_md5 = hashlib.md5(params_json.encode()).hexdigest()
 
         cur = conn.execute(
-            "INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json) VALUES (?, 1, ?, ?)",
-            (param_set_id, params_md5, params_json),
+            "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) VALUES (?, ?, ?, ?, ?, ?)",
+            (param_set_id, ver["version_number"], prev_version_id, params_md5, params_json, ver.get("notes")),
         )
-        param_version_id = cur.lastrowid
+        prev_version_id = cur.lastrowid
+        added += 1
 
         for test_type in ("solar", "lunar"):
             conn.execute(
                 "INSERT INTO runs (param_version_id, test_type, status) VALUES (?, ?, 'queued')",
-                (param_version_id, test_type),
+                (prev_version_id, test_type),
             )
+
+    if added:
         conn.commit()
-        print("[seed] Created v1-original param set with 2 queued runs")
+        print(f"[seed] Added {added} new version(s) to {name}")
 
 
 def _seed_jpl_reference():
