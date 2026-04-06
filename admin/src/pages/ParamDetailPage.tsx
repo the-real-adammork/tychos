@@ -119,6 +119,9 @@ export default function ParamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -169,6 +172,24 @@ export default function ParamDetailPage() {
     }
   }
 
+  async function handleSaveName() {
+    if (!id || !data || !nameValue.trim()) return;
+    setSavingName(true);
+    try {
+      const res = await fetch(`/api/params/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nameValue.trim() }),
+      });
+      if (res.ok) {
+        setData({ ...data, name: nameValue.trim() });
+        setEditingName(false);
+      }
+    } finally {
+      setSavingName(false);
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) return null;
@@ -178,7 +199,34 @@ export default function ParamDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{data.name}</h1>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                className="text-2xl font-bold bg-background border border-input rounded px-2 py-0.5"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveName();
+                  if (e.key === "Escape") { setEditingName(false); setNameValue(data.name); }
+                }}
+                autoFocus
+              />
+              <Button size="sm" onClick={handleSaveName} disabled={savingName || !nameValue.trim()}>
+                {savingName ? "Saving…" : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setEditingName(false); setNameValue(data.name); }}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <h1
+              className="text-2xl font-bold cursor-pointer hover:text-muted-foreground transition-colors"
+              onClick={() => { setNameValue(data.name); setEditingName(true); }}
+              title="Click to rename"
+            >
+              {data.name}
+            </h1>
+          )}
           {data.description && (
             <p className="text-sm text-muted-foreground mt-1">{data.description}</p>
           )}
