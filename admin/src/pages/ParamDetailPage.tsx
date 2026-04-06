@@ -156,6 +156,27 @@ export default function ParamDetailPage() {
     }
   }
 
+  async function handleDownload() {
+    if (!id || !data || data.versions.length === 0) return;
+    const latestVersion = data.versions[0]; // newest first
+    const res = await fetch(`/api/params/${id}/versions/${latestVersion.id}`);
+    if (!res.ok) return;
+    const ver = await res.json();
+    const payload = {
+      name: data.name,
+      description: data.description,
+      params_json: ver.params_json,
+      notes: ver.notes,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${data.name}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleFork() {
     if (!id || !data) return;
     try {
@@ -236,6 +257,9 @@ export default function ParamDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" onClick={handleDownload}>
+            Download JSON
+          </Button>
           <Button variant="outline" onClick={handleFork}>
             Fork
           </Button>

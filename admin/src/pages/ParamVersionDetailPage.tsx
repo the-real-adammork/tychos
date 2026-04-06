@@ -168,6 +168,22 @@ export default function ParamVersionDetailPage() {
     });
   })();
 
+  function handleDownload() {
+    const payload = {
+      name: paramSetName ? `${paramSetName} v${data.version_number}` : `version-${data.version_number}`,
+      description: null,
+      params_json: data.params_json,
+      notes: data.notes,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${payload.name}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleSaveNotes() {
     setSavingNotes(true);
     try {
@@ -228,6 +244,9 @@ export default function ParamVersionDetailPage() {
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Button variant="outline" onClick={handleDownload}>
+            Download JSON
+          </Button>
           <Button onClick={() => navigate(`/parameters/${id}/edit?from=${versionId}`)}>
             New Version Based On v{data.version_number}
           </Button>
