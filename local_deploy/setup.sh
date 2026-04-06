@@ -47,9 +47,11 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR"
 fi
 source "${VENV_DIR}/bin/activate"
-pip install -q -r "${TYCHOS_DIR}/requirements.txt"
+# Install server deps (pure Python, always fast)
 pip install -q -r "${TYCHOS_DIR}/server/requirements.txt"
-pip install -q -r "${TYCHOS_DIR}/tychos_skyfield/requirements.txt"
+# For scientific deps, skip if already importable (avoids building scipy from source on Python 3.14)
+python3 -c "import numpy, scipy, skyfield" 2>/dev/null || pip install -q -r "${TYCHOS_DIR}/tychos_skyfield/requirements.txt"
+python3 -c "import pytest" 2>/dev/null || pip install -q -r "${TYCHOS_DIR}/requirements.txt"
 echo "  Python deps installed."
 
 # ── Build admin SPA ──────────────────────────────────────────
