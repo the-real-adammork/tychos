@@ -14,6 +14,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { ChangedEclipses } from "./changed-eclipses";
 import { ParamDiff } from "./param-diff";
 
@@ -51,6 +60,22 @@ interface CompareResult {
   changed: ChangedEclipse[];
 }
 
+interface SarosGroupCompare {
+  saros_num: number;
+  count: number;
+  year_start: string;
+  year_end: string;
+  a_mean_tychos_error: number | null;
+  b_mean_tychos_error: number | null;
+  delta: number | null;
+}
+
+interface SarosCompareResult {
+  run_a: { id: number; param_set_name: string; owner_name: string };
+  run_b: { id: number; param_set_name: string; owner_name: string } | null;
+  groups: SarosGroupCompare[];
+}
+
 export default function CompareView() {
   const [paramSets, setParamSets] = React.useState<ParamSet[]>([]);
   const [aId, setAId] = React.useState<string>("");
@@ -74,6 +99,10 @@ export default function CompareView() {
       })
       .catch(() => setError("Failed to load parameter sets"));
   }, []);
+
+  const [sarosResult, setSarosResult] = React.useState<SarosCompareResult | null>(null);
+  const [sarosLoading, setSarosLoading] = React.useState(false);
+  const [sarosSort, setSarosSort] = React.useState<"a_error" | "delta">("a_error");
 
   React.useEffect(() => {
     if (!aId || !bId) {
@@ -129,9 +158,49 @@ export default function CompareView() {
       .finally(() => setLoading(false));
   }, [aId, bId, datasetSlug]);
 
+  // Fetch saros analysis when A is selected (B optional)
+  React.useEffect(() => {
+    if (!aId) {
+      setSarosResult(null);
+      return;
+    }
+    if (bId && aId === bId) {
+      setSarosResult(null);
+      return;
+    }
+    setSarosLoading(true);
+    const url = bId
+      ? `/api/compare/saros?a=${aId}&b=${bId}&dataset=${datasetSlug}`
+      : `/api/compare/saros?a=${aId}&dataset=${datasetSlug}`;
+    fetch(url)
+      .then(async (r) => {
+        if (!r.ok) {
+          setSarosResult(null);
+          return;
+        }
+        const data = (await r.json()) as SarosCompareResult;
+        setSarosResult(data);
+      })
+      .catch(() => setSarosResult(null))
+      .finally(() => setSarosLoading(false));
+  }, [aId, bId, datasetSlug]);
+
   const errorA = result?.runA.meanTychosError ?? null;
   const errorB = result?.runB.meanTychosError ?? null;
   const delta = errorA != null && errorB != null ? errorB - errorA : null;
+
+  const sortedSarosGroups = React.useMemo(() => {
+    if (!sarosResult) return [];
+    const groups = [...sarosResult.groups];
+    if (sarosSort === "delta" && sarosResult.run_b) {
+      // Most-improved-by-B first (most negative delta first)
+      groups.sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0));
+    } else {
+      // Worst A error first
+      groups.sort((a, b) => (b.a_mean_tychos_error ?? 0) - (a.a_mean_tychos_error ?? 0));
+    }
+    return groups;
+  }, [sarosResult, sarosSort]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,19 +227,22 @@ export default function CompareView() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Version B</label>
-              <Select value={bId} onValueChange={(v) => setBId(v ?? "")}>
-                <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Select param set" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paramSets.map((ps) => (
-                    <SelectItem key={ps.id} value={String(ps.id)}>
-                      {ps.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Version B (optional)</label>
+              <div className="flex items-center gap-1">
+                <Select value={bId || "__none__"} onValueChange={(v) => setBId(v === "__none__" ? "" : (v ?? ""))}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="Saros only" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None (Saros only) —</SelectItem>
+                    {paramSets.map((ps) => (
+                      <SelectItem key={ps.id} value={String(ps.id)}>
+                        {ps.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -273,6 +345,101 @@ export default function CompareView() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Saros analysis — works with A only or A+B */}
+      {sarosResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Saros Analysis</span>
+              {sarosResult.run_b && (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground font-normal">Sort by</span>
+                  <Button
+                    size="sm"
+                    variant={sarosSort === "a_error" ? "default" : "outline"}
+                    className="h-7 text-xs"
+                    onClick={() => setSarosSort("a_error")}
+                  >
+                    Worst A
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={sarosSort === "delta" ? "default" : "outline"}
+                    className="h-7 text-xs"
+                    onClick={() => setSarosSort("delta")}
+                  >
+                    Best improvement
+                  </Button>
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sarosLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : sortedSarosGroups.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No Saros series with results.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Saros #</TableHead>
+                    <TableHead className="text-right">Eclipses</TableHead>
+                    <TableHead>Years</TableHead>
+                    <TableHead className="text-right">A: {sarosResult.run_a.param_set_name}</TableHead>
+                    {sarosResult.run_b && (
+                      <>
+                        <TableHead className="text-right">B: {sarosResult.run_b.param_set_name}</TableHead>
+                        <TableHead className="text-right">Δ (B − A)</TableHead>
+                      </>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedSarosGroups.map((g) => (
+                    <TableRow key={g.saros_num}>
+                      <TableCell className="font-mono">{g.saros_num}</TableCell>
+                      <TableCell className="text-right tabular-nums">{g.count}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm tabular-nums">
+                        {g.year_start}–{g.year_end}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {g.a_mean_tychos_error != null ? `${g.a_mean_tychos_error.toFixed(1)}'` : "—"}
+                      </TableCell>
+                      {sarosResult.run_b && (
+                        <>
+                          <TableCell className="text-right font-mono">
+                            {g.b_mean_tychos_error != null ? `${g.b_mean_tychos_error.toFixed(1)}'` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {g.delta != null ? (
+                              <Badge
+                                className={
+                                  g.delta < 0
+                                    ? "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30"
+                                    : g.delta > 0
+                                    ? "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
+                                    : ""
+                                }
+                              >
+                                {g.delta > 0 ? "+" : ""}
+                                {g.delta.toFixed(1)}'
+                              </Badge>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
