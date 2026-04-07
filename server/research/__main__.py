@@ -29,6 +29,32 @@ def main(argv=None):
     p_val = sub.add_parser("validate", help="Run a full-catalog validation")
     p_val.add_argument("job")
 
+    p_search = sub.add_parser(
+        "search",
+        help="Run Nelder-Mead joint multi-parameter search over the subset",
+    )
+    p_search.add_argument("job")
+    p_search.add_argument(
+        "--params",
+        required=True,
+        help="Comma-separated list of body.field keys to search "
+             "(e.g. 'moon.start_pos,moon_def_a.speed'). Every key must be "
+             "in the job's program.md allowlist.",
+    )
+    p_search.add_argument(
+        "--budget",
+        type=int,
+        default=50,
+        help="Max scanner evaluations (default 50). Must be ≥ n+1 for n params.",
+    )
+    p_search.add_argument(
+        "--scale",
+        type=float,
+        default=0.01,
+        help="Initial simplex step as fraction of each starting value "
+             "(default 0.01 = ±1%%). Zero-valued starts use a 1e-4 floor.",
+    )
+
     args = parser.parse_args(argv)
 
     from server.research import cli
@@ -38,6 +64,8 @@ def main(argv=None):
         return cli.cmd_iterate(args)
     if args.command == "validate":
         return cli.cmd_validate(args)
+    if args.command == "search":
+        return cli.cmd_search(args)
     return 1
 
 
