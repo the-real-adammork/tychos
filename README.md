@@ -2,6 +2,8 @@
 
 ![Eclipse geometry detail page showing Tychos vs JPL side-by-side diagrams for a solar eclipse](docs/images/eclipse-geometry-detail.png)
 
+![Results detail table showing eclipse detection results](docs/images/results-detail.png)
+
 This project tests the [Tychos model](https://www.tychos.space/)'s ability to predict historical solar and lunar eclipses. It computes Sun and Moon positions using the Tychos geometric model, compares them against NASA's authoritative eclipse catalogs, and cross-references results with JPL ephemeris data to evaluate model accuracy.
 
 ## How It Works
