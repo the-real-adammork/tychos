@@ -119,3 +119,50 @@ async def get_dataset_catalog(
         "page_size": page_size,
         "event_type": event_type,
     }
+
+
+@router.get("/{slug}/{eclipse_id}")
+async def get_dataset_eclipse(slug: str, eclipse_id: int):
+    """Return a single eclipse catalog record + its predicted geometry."""
+    async with get_async_db() as conn:
+        ds_cursor = await conn.execute(
+            "SELECT * FROM datasets WHERE slug = ?", (slug,)
+        )
+        ds = await ds_cursor.fetchone()
+        if not ds:
+            raise HTTPException(status_code=404, detail=f"Dataset '{slug}' not found")
+
+        ds_dict = dict(ds)
+        dataset_id = ds_dict["id"]
+        event_type = ds_dict["event_type"]
+        test_type = slug.replace("_eclipse", "")
+
+        cursor = await conn.execute(
+            """
+            SELECT ec.*,
+                   pr.expected_separation_arcmin,
+                   pr.moon_apparent_radius_arcmin,
+                   pr.sun_apparent_radius_arcmin,
+                   pr.umbra_radius_arcmin,
+                   pr.penumbra_radius_arcmin,
+                   pr.approach_angle_deg
+            FROM eclipse_catalog ec
+            LEFT JOIN predicted_reference pr ON pr.julian_day_tt = ec.julian_day_tt
+                AND pr.test_type = ?
+            WHERE ec.id = ? AND ec.dataset_id = ?
+            """,
+            (test_type, eclipse_id, dataset_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Eclipse not found")
+
+    return {
+        "dataset": {
+            "name": ds_dict["name"],
+            "slug": slug,
+            "event_type": event_type,
+        },
+        "test_type": test_type,
+        "eclipse": dict(row),
+    }

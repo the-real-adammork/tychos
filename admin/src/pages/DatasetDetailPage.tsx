@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -166,9 +166,9 @@ export default function DatasetDetailPage() {
         <>
           <div className="overflow-x-auto">
             {data.event_type === "solar_eclipse" ? (
-              <SolarTable eclipses={data.eclipses} />
+              <SolarTable eclipses={data.eclipses} slug={slug ?? ""} />
             ) : (
-              <LunarTable eclipses={data.eclipses} />
+              <LunarTable eclipses={data.eclipses} slug={slug ?? ""} />
             )}
           </div>
 
@@ -201,7 +201,8 @@ export default function DatasetDetailPage() {
   );
 }
 
-function SolarTable({ eclipses }: { eclipses: Record<string, unknown>[] }) {
+function SolarTable({ eclipses, slug }: { eclipses: Record<string, unknown>[]; slug: string }) {
+  const navigate = useNavigate();
   return (
     <Table>
       <TableHeader>
@@ -224,7 +225,11 @@ function SolarTable({ eclipses }: { eclipses: Record<string, unknown>[] }) {
       </TableHeader>
       <TableBody>
         {eclipses.map((ecl) => (
-          <TableRow key={ecl.id as number}>
+          <TableRow
+            key={ecl.id as number}
+            className="cursor-pointer"
+            onClick={() => navigate(`/datasets/${slug}/${ecl.id}`)}
+          >
             <TableCell className="font-mono text-xs">{cell(ecl.catalog_number)}</TableCell>
             <TableCell className="whitespace-nowrap">{formatDate(ecl.date as string)}</TableCell>
             <TableCell>
@@ -248,7 +253,8 @@ function SolarTable({ eclipses }: { eclipses: Record<string, unknown>[] }) {
   );
 }
 
-function LunarTable({ eclipses }: { eclipses: Record<string, unknown>[] }) {
+function LunarTable({ eclipses, slug }: { eclipses: Record<string, unknown>[]; slug: string }) {
+  const navigate = useNavigate();
   return (
     <Table>
       <TableHeader>
@@ -272,7 +278,11 @@ function LunarTable({ eclipses }: { eclipses: Record<string, unknown>[] }) {
       </TableHeader>
       <TableBody>
         {eclipses.map((ecl) => (
-          <TableRow key={ecl.id as number}>
+          <TableRow
+            key={ecl.id as number}
+            className="cursor-pointer"
+            onClick={() => navigate(`/datasets/${slug}/${ecl.id}`)}
+          >
             <TableCell className="font-mono text-xs">{cell(ecl.catalog_number)}</TableCell>
             <TableCell className="whitespace-nowrap">{formatDate(ecl.date as string)}</TableCell>
             <TableCell>

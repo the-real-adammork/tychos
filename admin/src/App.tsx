@@ -15,6 +15,7 @@ import ResultDetailPage from "@/pages/ResultDetailPage";
 import ComparePage from "@/pages/ComparePage";
 import DatasetsPage from "@/pages/DatasetsPage";
 import DatasetDetailPage from "@/pages/DatasetDetailPage";
+import EclipseCatalogDetailPage from "@/pages/EclipseCatalogDetailPage";
 
 type User = { id: number; email: string; name: string } | null;
 
@@ -63,6 +64,7 @@ export default function App() {
                     <Route path="/results/:runId/:resultId" element={<ResultDetailPage />} />
                     <Route path="/datasets" element={<DatasetsPage />} />
                     <Route path="/datasets/:slug" element={<DatasetDetailPage />} />
+                    <Route path="/datasets/:slug/:eclipseId" element={<EclipseCatalogDetailPage />} />
                     <Route path="/compare" element={<ComparePage />} />
                   </Routes>
                 </main>
