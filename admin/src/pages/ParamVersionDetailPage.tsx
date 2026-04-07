@@ -114,11 +114,34 @@ export default function ParamVersionDetailPage() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Reset notes value when data loads
   useEffect(() => {
     if (data) setNotesValue(data.notes || "");
   }, [data]);
+
+  async function handleDelete() {
+    if (!data) return;
+    const confirmed = window.confirm(
+      `Delete version ${data.version_number}? This will also delete its runs and results. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/params/${id}/versions/${versionId}`, { method: "DELETE" });
+      if (res.ok) {
+        navigate(`/parameters/${id}`);
+        return;
+      }
+      const body = await res.json().catch(() => ({}));
+      alert(body?.detail || `Failed to delete version (${res.status})`);
+    } catch (e) {
+      alert(`Failed to delete version: ${e instanceof Error ? e.message : "unknown error"}`);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (error) return <p className="text-sm text-destructive">{error}</p>;
@@ -244,6 +267,14 @@ export default function ParamVersionDetailPage() {
           </Button>
           <Button onClick={() => navigate(`/parameters/${id}/edit?from=${versionId}`)}>
             New Version Based On v{data.version_number}
+          </Button>
+          <Button
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            disabled={deleting}
+            onClick={handleDelete}
+          >
+            {deleting ? "Deleting…" : "Delete Version"}
           </Button>
           <Button variant="outline" onClick={() => navigate(`/parameters/${id}`)}>
             Back to Param Set

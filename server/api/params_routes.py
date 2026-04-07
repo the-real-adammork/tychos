@@ -401,6 +401,59 @@ async def delete_param_set(param_set_id: int, request: Request):
         await conn.commit()
 
 
+@router.delete("/{param_set_id}/versions/{version_id}", status_code=204)
+async def delete_param_version(param_set_id: int, version_id: int, request: Request):
+    """Delete a single version of a param set. Auth required; owner only.
+
+    Refuses to delete the last remaining version of a set (delete the whole
+    param set instead). Re-parents any child versions to this version's parent
+    so the version chain stays intact. Cascades to runs and eclipse_results
+    via the existing FK ON DELETE CASCADE.
+    """
+    user = await require_user(request)
+
+    async with get_async_db() as conn:
+        # Verify ownership and existence
+        ps_cursor = await conn.execute(
+            "SELECT owner_id FROM param_sets WHERE id = ?", (param_set_id,)
+        )
+        ps_row = await ps_cursor.fetchone()
+        if ps_row is None:
+            raise HTTPException(status_code=404, detail="Param set not found")
+        if ps_row["owner_id"] != user["id"]:
+            raise HTTPException(status_code=403, detail="Not the owner")
+
+        ver_cursor = await conn.execute(
+            "SELECT id, parent_version_id FROM param_versions WHERE id = ? AND param_set_id = ?",
+            (version_id, param_set_id),
+        )
+        ver_row = await ver_cursor.fetchone()
+        if ver_row is None:
+            raise HTTPException(status_code=404, detail="Version not found in this param set")
+
+        # Refuse to delete the last remaining version
+        count_cursor = await conn.execute(
+            "SELECT COUNT(*) AS n FROM param_versions WHERE param_set_id = ?",
+            (param_set_id,),
+        )
+        count = (await count_cursor.fetchone())["n"]
+        if count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot delete the only version of a param set. Delete the param set instead.",
+            )
+
+        # Re-parent any child versions to this version's parent so the chain stays intact
+        await conn.execute(
+            "UPDATE param_versions SET parent_version_id = ? WHERE parent_version_id = ?",
+            (ver_row["parent_version_id"], version_id),
+        )
+
+        # Delete the version (runs + eclipse_results cascade via FK)
+        await conn.execute("DELETE FROM param_versions WHERE id = ?", (version_id,))
+        await conn.commit()
+
+
 class ForkBody(BaseModel):
     name: str | None = None
 
