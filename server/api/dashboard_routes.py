@@ -25,21 +25,25 @@ async def dashboard():
             best_cursor = await conn.execute(
                 """
                 SELECT ps.name, pv.version_number,
-                       CAST(SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate
+                       AVG(er.tychos_error_arcmin) AS mean_error
                 FROM runs r
                 JOIN param_versions pv ON r.param_version_id = pv.id
                 JOIN param_sets ps ON pv.param_set_id = ps.id
                 JOIN eclipse_results er ON er.run_id = r.id
                 WHERE r.dataset_id = ? AND r.status = 'done' AND r.total_eclipses > 0
+                    AND er.tychos_error_arcmin IS NOT NULL
                 GROUP BY r.id
-                ORDER BY rate DESC
+                ORDER BY mean_error ASC
                 LIMIT 1
                 """,
                 (ds["id"],),
             )
             best_row = await best_cursor.fetchone()
             best_by_dataset[ds["slug"]] = (
-                {"name": f"{best_row['name']} v{best_row['version_number']}", "rate": best_row["rate"]}
+                {
+                    "name": f"{best_row['name']} v{best_row['version_number']}",
+                    "mean_error": best_row["mean_error"],
+                }
                 if best_row else None
             )
 
@@ -62,39 +66,39 @@ async def dashboard():
         for row in recent_rows:
             d = _row_to_dict(row)
             if d["status"] == "done":
-                op_cursor = await conn.execute(
+                err_cursor = await conn.execute(
                     """
-                    SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
+                    SELECT AVG(tychos_error_arcmin) AS mean_error
                     FROM eclipse_results WHERE run_id = ?
                     """,
                     (d["id"],),
                 )
-                op_row = await op_cursor.fetchone()
-                d["overall_pass"] = op_row["overall_pass"] or 0
+                err_row = await err_cursor.fetchone()
+                d["mean_tychos_error"] = (
+                    round(err_row["mean_error"], 2) if err_row["mean_error"] is not None else None
+                )
             else:
-                d["overall_pass"] = None
+                d["mean_tychos_error"] = None
             recent_runs.append(d)
 
         leader_cursor = await conn.execute(
             """
             SELECT ps.name AS param_set_name, u.name AS owner_name,
-                   AVG(
-                       CAST(sub.overall_pass AS REAL) / sub.total
-                   ) AS avg_rate
+                   AVG(sub.mean_error) AS avg_mean_error
             FROM (
                 SELECT r.id AS run_id, pv.param_set_id,
-                       SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass,
-                       COUNT(*) AS total
+                       AVG(er.tychos_error_arcmin) AS mean_error
                 FROM runs r
                 JOIN param_versions pv ON r.param_version_id = pv.id
                 JOIN eclipse_results er ON er.run_id = r.id
                 WHERE r.status = 'done' AND r.total_eclipses > 0
+                    AND er.tychos_error_arcmin IS NOT NULL
                 GROUP BY r.id
             ) sub
             JOIN param_sets ps ON sub.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
             GROUP BY ps.id
-            ORDER BY avg_rate DESC
+            ORDER BY avg_mean_error ASC
             LIMIT 20
             """
         )
