@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 interface ResultDetail {
   id: number;
   run_id: number;
   julian_day_tt: number;
   date: string;
+  test_type: string;
   catalog_type: string;
   magnitude: number;
   detected: boolean | number;
@@ -27,24 +27,24 @@ interface ResultDetail {
   jpl_separation_arcmin: number | null;
   jpl_moon_ra_vel: number | null;
   jpl_moon_dec_vel: number | null;
-  moon_error_arcmin: number | null;
   moon_ra_vel: number | null;
   moon_dec_vel: number | null;
-  status: "pass" | "fail";
-  threshold_pass: boolean;
-  jpl_rescued: boolean;
+  expected_separation_arcmin: number | null;
+  moon_apparent_radius_arcmin: number | null;
+  sun_apparent_radius_arcmin: number | null;
+  umbra_radius_arcmin: number | null;
+  penumbra_radius_arcmin: number | null;
+  approach_angle_deg: number | null;
+  pred_gamma: number | null;
+  pred_catalog_magnitude: number | null;
+  tychos_error_arcmin: number | null;
+  jpl_error_arcmin: number | null;
   dataset_slug: string;
   dataset_name: string;
   version_number: number;
   param_set_id: number;
   param_set_name: string;
 }
-
-// Mean angular radii in arcminutes
-const SUN_RADIUS_ARCMIN = 16.0;
-const MOON_RADIUS_ARCMIN = 15.55;
-const UMBRA_RADIUS_ARCMIN = 42.0;
-const PENUMBRA_RADIUS_ARCMIN = 78.0;
 
 function radToHMS(rad: number): string {
   const hours = (rad * 12) / Math.PI;
@@ -64,130 +64,29 @@ function radToDMS(rad: number): string {
   return `${sign}${d}\u00B0 ${m.toString().padStart(2, "0")}' ${s.toFixed(1).padStart(4, "0")}"`;
 }
 
-function SkyPositionDiagram({ result }: { result: ResultDetail }) {
-  const sunRa = result.sun_ra_rad;
-  const sunDec = result.sun_dec_rad;
-  const moonRa = result.moon_ra_rad;
-  const moonDec = result.moon_dec_rad;
-
-  if (sunRa == null || sunDec == null || moonRa == null || moonDec == null) {
-    return <p className="text-sm text-muted-foreground">No position data</p>;
-  }
-
-  // Full sky: RA 0-24h (0 to 2π), Dec -90° to +90° (-π/2 to π/2)
-  const svgW = 400;
-  const svgH = 200;
-  const pad = 30;
-  const plotW = svgW - pad * 2;
-  const plotH = svgH - pad * 2;
-
-  // Map RA (0 to 2π) → x, reversed so RA increases right-to-left (sky convention)
-  const raToX = (ra: number) => pad + plotW - (ra / (2 * Math.PI)) * plotW;
-  // Map Dec (-π/2 to π/2) → y, flipped so +Dec is up
-  const decToY = (dec: number) => pad + plotH / 2 - (dec / (Math.PI / 2)) * (plotH / 2);
-
-  const sunX = raToX(sunRa);
-  const sunY = decToY(sunDec);
-  const moonX = raToX(moonRa);
-  const moonY = decToY(moonDec);
-
-  // Ecliptic: approximate as sinusoidal with obliquity 23.44°
-  const obliquity = 23.44 * (Math.PI / 180);
-  const eclipticPoints: string[] = [];
-  for (let i = 0; i <= 100; i++) {
-    const ra = (i / 100) * 2 * Math.PI;
-    const dec = Math.asin(Math.sin(obliquity) * Math.sin(ra));
-    eclipticPoints.push(`${raToX(ra)},${decToY(dec)}`);
-  }
-
-  // RA hour labels
-  const raLabels = [0, 3, 6, 9, 12, 15, 18, 21];
-
-  return (
-    <div className="flex flex-col gap-2">
-      <svg width={svgW} height={svgH} className="border rounded-lg bg-zinc-950">
-        {/* Dec grid lines */}
-        {[-60, -30, 0, 30, 60].map(d => {
-          const decRad = d * (Math.PI / 180);
-          const y = decToY(decRad);
-          return (
-            <g key={d}>
-              <line x1={pad} y1={y} x2={svgW - pad} y2={y} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
-              <text x={pad - 4} y={y + 3} textAnchor="end" fill="rgba(255,255,255,0.25)" fontSize={8}>{d}°</text>
-            </g>
-          );
-        })}
-
-        {/* RA grid lines */}
-        {raLabels.map(h => {
-          const ra = h * (Math.PI / 12);
-          const x = raToX(ra);
-          return (
-            <g key={h}>
-              <line x1={x} y1={pad} x2={x} y2={svgH - pad} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
-              <text x={x} y={svgH - pad + 12} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={8}>{h}h</text>
-            </g>
-          );
-        })}
-
-        {/* Ecliptic */}
-        <polyline points={eclipticPoints.join(" ")} fill="none" stroke="rgba(255,200,50,0.15)" strokeWidth={1} />
-
-        {/* Celestial equator */}
-        <line x1={pad} y1={decToY(0)} x2={svgW - pad} y2={decToY(0)} stroke="rgba(100,150,255,0.15)" strokeWidth={1} />
-
-        {/* Sun */}
-        <circle cx={sunX} cy={sunY} r={6} fill="rgba(255,200,50,0.4)" stroke="rgba(255,200,50,0.8)" strokeWidth={1.5} />
-        <text x={sunX} y={sunY - 9} textAnchor="middle" fill="rgba(255,200,50,0.7)" fontSize={9}>Sun</text>
-
-        {/* Moon */}
-        <circle cx={moonX} cy={moonY} r={5} fill="rgba(180,180,180,0.3)" stroke="rgba(180,180,180,0.8)" strokeWidth={1.5} />
-        <text x={moonX} y={moonY - 9} textAnchor="middle" fill="rgba(200,200,200,0.7)" fontSize={9}>Moon</text>
-
-        {/* Connection line */}
-        <line x1={sunX} y1={sunY} x2={moonX} y2={moonY} stroke="rgba(255,100,100,0.3)" strokeWidth={1} strokeDasharray="2 2" />
-      </svg>
-
-      {/* Text readout below */}
-      <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-        <div>
-          <span className="text-muted-foreground">Sun  RA:</span> {radToHMS(sunRa)}
-        </div>
-        <div>
-          <span className="text-muted-foreground">Dec:</span> {radToDMS(sunDec)}
-        </div>
-        <div>
-          <span className="text-muted-foreground">Moon RA:</span> {radToHMS(moonRa)}
-        </div>
-        <div>
-          <span className="text-muted-foreground">Dec:</span> {radToDMS(moonDec)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface DiagramProps {
-  datasetSlug: string;
+  testType: string;
   sunRa: number | null;
   sunDec: number | null;
   moonRa: number | null;
   moonDec: number | null;
   moonRaVel: number | null;
   moonDecVel: number | null;
-  thresholdArcmin: number;
   separationArcmin: number | null;
+  errorArcmin: number | null;
+  moonRadiusArcmin: number;
+  sunRadiusArcmin: number | null;
+  umbraRadiusArcmin: number | null;
+  penumbraRadiusArcmin: number | null;
 }
 
-function EclipseDiagram({ datasetSlug, sunRa, sunDec, moonRa, moonDec, moonRaVel, moonDecVel, thresholdArcmin, separationArcmin }: DiagramProps) {
-  const isLunar = datasetSlug === "lunar_eclipse";
+function EclipseDiagram({ testType, sunRa, sunDec, moonRa, moonDec, moonRaVel, moonDecVel, separationArcmin, errorArcmin, moonRadiusArcmin, sunRadiusArcmin, umbraRadiusArcmin, penumbraRadiusArcmin }: DiagramProps) {
+  const isLunar = testType === "lunar";
 
   if (sunRa == null || sunDec == null || moonRa == null || moonDec == null) {
     return <p className="text-sm text-muted-foreground">No position data available</p>;
   }
 
-  // For solar: center on Sun, show Moon relative
-  // For lunar: center on anti-solar point (Earth shadow), show Moon relative
   let centerRa: number, centerDec: number;
   if (isLunar) {
     centerRa = (sunRa + Math.PI) % (2 * Math.PI);
@@ -198,25 +97,21 @@ function EclipseDiagram({ datasetSlug, sunRa, sunDec, moonRa, moonDec, moonRaVel
   }
 
   const avgDec = (centerDec + moonDec) / 2;
-  const dx = (moonRa - centerRa) * Math.cos(avgDec) * (180 / Math.PI) * 60; // arcmin
-  const dy = (moonDec - centerDec) * (180 / Math.PI) * 60; // arcmin
+  const dx = (moonRa - centerRa) * Math.cos(avgDec) * (180 / Math.PI) * 60;
+  const dy = (moonDec - centerDec) * (180 / Math.PI) * 60;
 
-  // SVG setup
-  const viewExtent = isLunar ? 100 : 50; // arcmin from center
+  const viewExtent = isLunar ? 100 : 50;
   const svgSize = 400;
   const scale = svgSize / (viewExtent * 2);
   const cx = svgSize / 2;
   const cy = svgSize / 2;
 
   const moonX = cx + dx * scale;
-  const moonY = cy - dy * scale; // flip Y for screen coords
-
-  const thresholdR = thresholdArcmin * scale;
+  const moonY = cy - dy * scale;
 
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width={svgSize} height={svgSize} className="border rounded-lg bg-zinc-950">
-        {/* Grid lines */}
         {[-40, -30, -20, -10, 0, 10, 20, 30, 40].filter(v => Math.abs(v) <= viewExtent).map(v => (
           <g key={v}>
             <line
@@ -230,42 +125,31 @@ function EclipseDiagram({ datasetSlug, sunRa, sunDec, moonRa, moonDec, moonRaVel
           </g>
         ))}
 
-        {/* Detection threshold circle */}
-        <circle cx={cx} cy={cy} r={thresholdR} fill="none" stroke="rgba(255,255,100,0.3)" strokeWidth={1} strokeDasharray="4 4" />
-
         {isLunar ? (
           <>
-            {/* Penumbra */}
-            <circle cx={cx} cy={cy} r={PENUMBRA_RADIUS_ARCMIN * scale} fill="rgba(100,100,100,0.15)" stroke="rgba(150,150,150,0.3)" strokeWidth={1} />
-            {/* Umbra */}
-            <circle cx={cx} cy={cy} r={UMBRA_RADIUS_ARCMIN * scale} fill="rgba(50,50,50,0.3)" stroke="rgba(200,100,100,0.5)" strokeWidth={1.5} />
-            {/* Earth shadow center label */}
+            <circle cx={cx} cy={cy} r={(penumbraRadiusArcmin ?? 78) * scale} fill="rgba(100,100,100,0.15)" stroke="rgba(150,150,150,0.3)" strokeWidth={1} />
+            <circle cx={cx} cy={cy} r={(umbraRadiusArcmin ?? 42) * scale} fill="rgba(50,50,50,0.3)" stroke="rgba(200,100,100,0.5)" strokeWidth={1.5} />
             <text x={cx} y={cy + 4} textAnchor="middle" fill="rgba(200,200,200,0.4)" fontSize={10}>Shadow</text>
           </>
         ) : (
           <>
-            {/* Sun disk */}
-            <circle cx={cx} cy={cy} r={SUN_RADIUS_ARCMIN * scale} fill="rgba(255,200,50,0.2)" stroke="rgba(255,200,50,0.6)" strokeWidth={1.5} />
+            <circle cx={cx} cy={cy} r={(sunRadiusArcmin ?? 16) * scale} fill="rgba(255,200,50,0.2)" stroke="rgba(255,200,50,0.6)" strokeWidth={1.5} />
             <text x={cx} y={cy + 4} textAnchor="middle" fill="rgba(255,200,50,0.5)" fontSize={10}>Sun</text>
           </>
         )}
 
-        {/* Moon disk */}
-        <circle cx={moonX} cy={moonY} r={MOON_RADIUS_ARCMIN * scale} fill="rgba(180,180,180,0.2)" stroke="rgba(180,180,180,0.7)" strokeWidth={1.5} />
+        <circle cx={moonX} cy={moonY} r={moonRadiusArcmin * scale} fill="rgba(180,180,180,0.2)" stroke="rgba(180,180,180,0.7)" strokeWidth={1.5} />
         <text x={moonX} y={moonY + 4} textAnchor="middle" fill="rgba(200,200,200,0.6)" fontSize={10}>Moon</text>
 
-        {/* Moon direction arrow */}
         {moonRaVel != null && moonDecVel != null && (
           (() => {
             const avgDec2 = moonDec ?? 0;
-            // Convert velocity (rad/hr) to arcmin displacement, scale by 3 hours for visible arrow
             const velDx = moonRaVel * Math.cos(avgDec2) * (180 / Math.PI) * 60 * 3;
             const velDy = moonDecVel * (180 / Math.PI) * 60 * 3;
             const arrowEndX = moonX + velDx * scale;
             const arrowEndY = moonY - velDy * scale;
             const arrowLen = Math.sqrt((arrowEndX - moonX) ** 2 + (arrowEndY - moonY) ** 2);
             if (arrowLen < 2) return null;
-            // Arrowhead
             const angle = Math.atan2(arrowEndY - moonY, arrowEndX - moonX);
             const headLen = 6;
             const h1x = arrowEndX - headLen * Math.cos(angle - 0.4);
@@ -281,10 +165,8 @@ function EclipseDiagram({ datasetSlug, sunRa, sunDec, moonRa, moonDec, moonRaVel
           })()
         )}
 
-        {/* Separation line */}
         <line x1={cx} y1={cy} x2={moonX} y2={moonY} stroke="rgba(255,100,100,0.5)" strokeWidth={1} strokeDasharray="3 3" />
 
-        {/* Separation label */}
         {separationArcmin != null && (
           <text
             x={(cx + moonX) / 2 + 8}
@@ -297,17 +179,82 @@ function EclipseDiagram({ datasetSlug, sunRa, sunDec, moonRa, moonDec, moonRaVel
           </text>
         )}
 
-        {/* Scale bar */}
         <line x1={10} y1={svgSize - 15} x2={10 + 10 * scale} y2={svgSize - 15} stroke="rgba(255,255,255,0.4)" strokeWidth={2} />
         <text x={10} y={svgSize - 5} fill="rgba(255,255,255,0.4)" fontSize={9}>10 arcmin</text>
 
-        {/* Legend */}
-        <text x={svgSize - 5} y={15} textAnchor="end" fill="rgba(255,255,100,0.5)" fontSize={9}>
-          - - - threshold ({thresholdArcmin.toFixed(0)}')
-        </text>
+        {errorArcmin != null && (
+          <text x={svgSize - 5} y={svgSize - 5} textAnchor="end" fill="rgba(255,150,150,0.8)" fontSize={11} fontFamily="monospace">
+            error: {errorArcmin.toFixed(1)}'
+          </text>
+        )}
       </svg>
       <p className="text-xs text-muted-foreground">
-        {isLunar ? "Centered on Earth shadow (anti-solar point)" : "Centered on Sun"} · Scale in arcminutes · N↑ E←
+        {isLunar ? "Centered on Earth shadow (anti-solar point)" : "Centered on Sun"} · N↑ E←
+      </p>
+    </div>
+  );
+}
+
+interface PredictedDiagramProps {
+  testType: string;
+  expectedSeparationArcmin: number;
+  approachAngleDeg: number | null;
+  moonRadiusArcmin: number;
+  sunRadiusArcmin: number | null;
+  umbraRadiusArcmin: number | null;
+  penumbraRadiusArcmin: number | null;
+}
+
+function PredictedDiagram({ testType, expectedSeparationArcmin, approachAngleDeg, moonRadiusArcmin, sunRadiusArcmin, umbraRadiusArcmin, penumbraRadiusArcmin }: PredictedDiagramProps) {
+  const isLunar = testType === "lunar";
+  const viewExtent = isLunar ? 100 : 50;
+  const svgSize = 400;
+  const scale = svgSize / (viewExtent * 2);
+  const cx = svgSize / 2;
+  const cy = svgSize / 2;
+
+  const angle = ((approachAngleDeg ?? 90) * Math.PI) / 180;
+  const dx = expectedSeparationArcmin * Math.cos(angle);
+  const dy = expectedSeparationArcmin * Math.sin(angle);
+  const moonX = cx + dx * scale;
+  const moonY = cy - dy * scale;
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg width={svgSize} height={svgSize} className="border rounded-lg bg-zinc-950">
+        {[-40, -30, -20, -10, 0, 10, 20, 30, 40].filter(v => Math.abs(v) <= viewExtent).map(v => (
+          <g key={v}>
+            <line x1={cx + v * scale} y1={0} x2={cx + v * scale} y2={svgSize} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+            <line x1={0} y1={cy - v * scale} x2={svgSize} y2={cy - v * scale} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+          </g>
+        ))}
+
+        {isLunar ? (
+          <>
+            <circle cx={cx} cy={cy} r={(penumbraRadiusArcmin ?? 78) * scale} fill="rgba(100,100,100,0.15)" stroke="rgba(150,150,150,0.3)" strokeWidth={1} />
+            <circle cx={cx} cy={cy} r={(umbraRadiusArcmin ?? 42) * scale} fill="rgba(50,50,50,0.3)" stroke="rgba(200,100,100,0.5)" strokeWidth={1.5} />
+            <text x={cx} y={cy + 4} textAnchor="middle" fill="rgba(200,200,200,0.4)" fontSize={10}>Shadow</text>
+          </>
+        ) : (
+          <>
+            <circle cx={cx} cy={cy} r={(sunRadiusArcmin ?? 16) * scale} fill="rgba(255,200,50,0.2)" stroke="rgba(255,200,50,0.6)" strokeWidth={1.5} />
+            <text x={cx} y={cy + 4} textAnchor="middle" fill="rgba(255,200,50,0.5)" fontSize={10}>Sun</text>
+          </>
+        )}
+
+        <circle cx={moonX} cy={moonY} r={moonRadiusArcmin * scale} fill="rgba(180,180,180,0.2)" stroke="rgba(180,180,180,0.7)" strokeWidth={1.5} />
+        <text x={moonX} y={moonY + 4} textAnchor="middle" fill="rgba(200,200,200,0.6)" fontSize={10}>Moon</text>
+
+        <line x1={cx} y1={cy} x2={moonX} y2={moonY} stroke="rgba(255,100,100,0.5)" strokeWidth={1} strokeDasharray="3 3" />
+        <text x={(cx + moonX) / 2 + 8} y={(cy + moonY) / 2 - 8} fill="rgba(255,150,150,0.8)" fontSize={11} fontFamily="monospace">
+          {expectedSeparationArcmin.toFixed(1)}'
+        </text>
+
+        <line x1={10} y1={svgSize - 15} x2={10 + 10 * scale} y2={svgSize - 15} stroke="rgba(255,255,255,0.4)" strokeWidth={2} />
+        <text x={10} y={svgSize - 5} fill="rgba(255,255,255,0.4)" fontSize={9}>10 arcmin</text>
+      </svg>
+      <p className="text-xs text-muted-foreground">
+        {isLunar ? "Centered on Earth shadow" : "Centered on Sun"} · Catalog-derived
       </p>
     </div>
   );
@@ -329,9 +276,7 @@ export default function ResultDetailPage() {
   if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (!result) return <p className="text-sm text-destructive">Result not found</p>;
 
-  const thresholdPass = result.detected === 1 || result.detected === true;
-  const status = result.status ?? (thresholdPass ? "pass" : "fail");
-  const jplRescued = result.jpl_rescued ?? false;
+  const moonR = result.moon_apparent_radius_arcmin ?? 15.5;
 
   return (
     <div className="flex flex-col gap-6">
@@ -342,21 +287,6 @@ export default function ResultDetailPage() {
             Eclipse: {result.date.split("T")[0]}
           </h1>
           <div className="flex items-center gap-3 mt-1">
-            <Badge className={status === "pass" ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
-              {status}
-            </Badge>
-            {thresholdPass ? (
-              <Badge variant="outline" className="text-green-600 border-green-600/30">threshold pass</Badge>
-            ) : (
-              <>
-                <Badge variant="outline" className="text-red-600 border-red-600/30">threshold fail</Badge>
-                {jplRescued && (
-                  <Badge variant="outline" className="text-blue-600 border-blue-600/30">
-                    JPL rescued ({result.moon_error_arcmin?.toFixed(1)}')
-                  </Badge>
-                )}
-              </>
-            )}
             <span className="text-sm text-muted-foreground capitalize">{result.catalog_type}</span>
             <span className="text-sm text-muted-foreground">Magnitude: {result.magnitude}</span>
             <span className="text-sm text-muted-foreground">
@@ -374,46 +304,71 @@ export default function ResultDetailPage() {
         </div>
       </div>
 
-      {/* Two diagrams side by side */}
-      <div className="grid grid-cols-2 gap-6">
+      {/* Three diagrams */}
+      <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tychos {result.dataset_name} Geometry
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Predicted (Catalog)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {result.expected_separation_arcmin != null ? (
+              <PredictedDiagram
+                testType={result.test_type}
+                expectedSeparationArcmin={result.expected_separation_arcmin}
+                approachAngleDeg={result.approach_angle_deg}
+                moonRadiusArcmin={moonR}
+                sunRadiusArcmin={result.sun_apparent_radius_arcmin}
+                umbraRadiusArcmin={result.umbra_radius_arcmin}
+                penumbraRadiusArcmin={result.penumbra_radius_arcmin}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">No predicted data</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tychos</CardTitle>
           </CardHeader>
           <CardContent>
             <EclipseDiagram
-              datasetSlug={result.dataset_slug}
+              testType={result.test_type}
               sunRa={result.sun_ra_rad}
               sunDec={result.sun_dec_rad}
               moonRa={result.moon_ra_rad}
               moonDec={result.moon_dec_rad}
               moonRaVel={result.moon_ra_vel}
               moonDecVel={result.moon_dec_vel}
-              thresholdArcmin={result.threshold_arcmin}
               separationArcmin={result.min_separation_arcmin}
+              errorArcmin={result.tychos_error_arcmin}
+              moonRadiusArcmin={moonR}
+              sunRadiusArcmin={result.sun_apparent_radius_arcmin}
+              umbraRadiusArcmin={result.umbra_radius_arcmin}
+              penumbraRadiusArcmin={result.penumbra_radius_arcmin}
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              JPL {result.dataset_name} Geometry
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">JPL (DE440s)</CardTitle>
           </CardHeader>
           <CardContent>
             <EclipseDiagram
-              datasetSlug={result.dataset_slug}
+              testType={result.test_type}
               sunRa={result.jpl_sun_ra_rad}
               sunDec={result.jpl_sun_dec_rad}
               moonRa={result.jpl_moon_ra_rad}
               moonDec={result.jpl_moon_dec_rad}
               moonRaVel={result.jpl_moon_ra_vel}
               moonDecVel={result.jpl_moon_dec_vel}
-              thresholdArcmin={result.threshold_arcmin}
               separationArcmin={result.jpl_separation_arcmin}
+              errorArcmin={result.jpl_error_arcmin}
+              moonRadiusArcmin={moonR}
+              sunRadiusArcmin={result.sun_apparent_radius_arcmin}
+              umbraRadiusArcmin={result.umbra_radius_arcmin}
+              penumbraRadiusArcmin={result.penumbra_radius_arcmin}
             />
           </CardContent>
         </Card>
@@ -425,12 +380,35 @@ export default function ResultDetailPage() {
           <CardTitle className="text-sm font-medium text-muted-foreground">Measurements</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-6 text-sm">
+          <div className="grid grid-cols-3 gap-6 text-sm">
+            <div className="space-y-2">
+              <h4 className="font-medium text-xs text-muted-foreground uppercase">Predicted</h4>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Expected Separation</span>
+                <span className="font-mono">{result.expected_separation_arcmin?.toFixed(2) ?? "—"} arcmin</span>
+              </div>
+              {result.approach_angle_deg != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Approach Angle</span>
+                  <span className="font-mono">{result.approach_angle_deg.toFixed(1)}°</span>
+                </div>
+              )}
+              {result.pred_gamma != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Gamma</span>
+                  <span className="font-mono">{result.pred_gamma.toFixed(3)}</span>
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               <h4 className="font-medium text-xs text-muted-foreground uppercase">Tychos</h4>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Separation</span>
                 <span className="font-mono">{result.min_separation_arcmin?.toFixed(2) ?? "—"} arcmin</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Error vs Predicted</span>
+                <span className="font-mono">{result.tychos_error_arcmin?.toFixed(2) ?? "—"} arcmin</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Timing Offset</span>
@@ -450,14 +428,14 @@ export default function ResultDetailPage() {
               )}
             </div>
             <div className="space-y-2">
-              <h4 className="font-medium text-xs text-muted-foreground uppercase">JPL (DE421)</h4>
+              <h4 className="font-medium text-xs text-muted-foreground uppercase">JPL (DE440s)</h4>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Separation</span>
                 <span className="font-mono">{result.jpl_separation_arcmin?.toFixed(2) ?? "—"} arcmin</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Threshold</span>
-                <span className="font-mono">{result.threshold_arcmin.toFixed(2)} arcmin</span>
+                <span className="text-muted-foreground">Error vs Predicted</span>
+                <span className="font-mono">{result.jpl_error_arcmin?.toFixed(2) ?? "—"} arcmin</span>
               </div>
               {result.jpl_sun_ra_rad != null && (
                 <>
@@ -474,24 +452,6 @@ export default function ResultDetailPage() {
             </div>
           </div>
           <div className="mt-4 pt-3 border-t space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Threshold Detection</span>
-              <span className={`font-medium ${thresholdPass ? "text-green-600" : "text-red-600"}`}>
-                {thresholdPass ? "Pass" : "Fail"}
-              </span>
-            </div>
-            {!thresholdPass && (
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Moon Error vs JPL</span>
-                <span className={`font-mono font-medium ${
-                  result.moon_error_arcmin != null && result.moon_error_arcmin < 60
-                    ? "text-blue-600" : "text-red-600"
-                }`}>
-                  {result.moon_error_arcmin?.toFixed(1) ?? "—"} arcmin
-                  {jplRescued && " (rescued)"}
-                </span>
-              </div>
-            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Catalog Date</span>
               <span className="font-mono">{result.date}</span>
