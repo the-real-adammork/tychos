@@ -86,22 +86,44 @@ def _process_one() -> None:
 
         detected = sum(1 for r in results if r["detected"])
 
+        # Map dataset slug to predicted_reference test_type
+        test_type = "solar" if dataset_slug == "solar_eclipse" else "lunar"
+
+        # Load predicted reference geometry (expected separations)
+        with get_db() as conn:
+            pred_rows = conn.execute(
+                "SELECT julian_day_tt, expected_separation_arcmin FROM predicted_reference WHERE test_type = ?",
+                (test_type,),
+            ).fetchall()
+        pred_by_jd = {row["julian_day_tt"]: row for row in pred_rows}
+
+        # Load JPL reference separations
         with get_db() as conn:
             jpl_rows = conn.execute(
-                "SELECT julian_day_tt, moon_ra_rad, moon_dec_rad FROM jpl_reference WHERE dataset_id = ?",
+                "SELECT julian_day_tt, separation_arcmin FROM jpl_reference WHERE dataset_id = ?",
                 (dataset_id,),
             ).fetchall()
         jpl_by_jd = {row["julian_day_tt"]: row for row in jpl_rows}
 
         for r in results:
+            pred = pred_by_jd.get(r["julian_day_tt"])
             jpl = jpl_by_jd.get(r["julian_day_tt"])
-            if jpl and r["moon_ra_rad"] is not None and r["moon_dec_rad"] is not None:
-                r["moon_error_arcmin"] = round(_angular_sep_arcmin(
-                    r["moon_ra_rad"], r["moon_dec_rad"],
-                    jpl["moon_ra_rad"], jpl["moon_dec_rad"],
-                ), 2)
+
+            if pred and r["min_separation_arcmin"] is not None:
+                r["tychos_error_arcmin"] = round(
+                    abs(r["min_separation_arcmin"] - pred["expected_separation_arcmin"]), 4
+                )
             else:
-                r["moon_error_arcmin"] = None
+                r["tychos_error_arcmin"] = None
+
+            if pred and jpl:
+                r["jpl_error_arcmin"] = round(
+                    abs(jpl["separation_arcmin"] - pred["expected_separation_arcmin"]), 4
+                )
+            else:
+                r["jpl_error_arcmin"] = None
+
+            r["moon_error_arcmin"] = None  # deprecated
 
         CHUNK_SIZE = 50
         insert_sql = """
@@ -110,8 +132,9 @@ def _process_one() -> None:
                 detected, threshold_arcmin, min_separation_arcmin,
                 timing_offset_min, best_jd,
                 sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
-                moon_error_arcmin, moon_ra_vel, moon_dec_vel
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                moon_error_arcmin, moon_ra_vel, moon_dec_vel,
+                tychos_error_arcmin, jpl_error_arcmin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         rows = [
             (
@@ -121,6 +144,7 @@ def _process_one() -> None:
                 r["timing_offset_min"], r["best_jd"],
                 r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
                 r["moon_error_arcmin"], r.get("moon_ra_vel"), r.get("moon_dec_vel"),
+                r["tychos_error_arcmin"], r["jpl_error_arcmin"],
             )
             for r in results
         ]
