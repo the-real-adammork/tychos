@@ -6,6 +6,14 @@
 set -e
 cd "$(dirname "$0")"
 
+# Load environment variables from local_deploy/.env if present so dev runs
+# share the same TYCHOS_ADMIN_USER / TYCHOS_ADMIN_PASSWORD as the deploy.
+if [ -f local_deploy/.env ]; then
+    set -a
+    source local_deploy/.env
+    set +a
+fi
+
 cleanup() {
     echo ""
     echo "Shutting down..."
