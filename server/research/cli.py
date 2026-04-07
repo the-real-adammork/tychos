@@ -192,4 +192,50 @@ def cmd_iterate(args) -> int:
 
 
 def cmd_validate(args) -> int:
-    raise NotImplementedError
+    try:
+        paths, current, baseline, frontmatter, subset_blob = _load_job_state(args.job)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    # Same guardrails as iterate
+    try:
+        check_diff_against_allowlist(
+            current,
+            baseline,
+            allowlist_globs=frontmatter.get("allowlist", []),
+            known_bodies=list(baseline.keys()),
+        )
+    except AllowlistViolation as e:
+        print(f"error: allowlist violation: {e}", file=sys.stderr)
+        return 4
+
+    dataset_slug = subset_blob["dataset_slug"]
+    full_catalog = load_eclipses_for_dataset(dataset_slug)
+    if not full_catalog:
+        print(f"error: no eclipses found for dataset {dataset_slug}", file=sys.stderr)
+        return 3
+
+    try:
+        results = _run_scan(dataset_slug, current, full_catalog)
+        objective = compute_objective(results)
+    except EmptyResults as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 5
+
+    aux = aux_stats(results)
+
+    entry = {
+        "iter": _next_iter_number(paths.log_jsonl),
+        "ts": _now_iso(),
+        "kind": "validate",
+        "params_hash": params_hash(current),
+        "validation_objective": round(objective, 4),
+        **aux,
+    }
+    append_log(paths.log_jsonl, entry)
+
+    print(f"validation_objective: {entry['validation_objective']}")
+    print(f"mean_separation_arcmin: {aux['mean_separation_arcmin']}")
+    print(f"detected: {aux['n_detected']}/{aux['n_total']}")
+    return 0
