@@ -1,4 +1,5 @@
 results/*.db
+results/*.db.bak
 results/*.md5
 *.pyc
 __pycache__/
@@ -12,3 +13,8 @@ admin/.next/
 local_deploy/.env
 logs/
 .claude/
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/
