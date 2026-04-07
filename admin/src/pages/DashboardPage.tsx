@@ -69,7 +69,7 @@ export default function DashboardPage() {
         <RecentRuns
           runs={data.recent_runs.map((r) => ({
             id: r.id,
-            testType: r.dataset_name,
+            datasetName: r.dataset_name,
             status: r.status,
             totalEclipses: r.total_eclipses,
             detected: r.overall_pass ?? r.detected,

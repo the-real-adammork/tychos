@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 interface RecentRunsProps {
   runs: Array<{
     id: number;
-    testType: string;
+    datasetName: string;
     status: string;
     totalEclipses: number | null;
     detected: number | null;
@@ -26,7 +26,7 @@ export function RecentRuns({ runs }: RecentRunsProps) {
             {runs.map((run) => (
               <li key={run.id} className="flex items-center justify-between">
                 <span className="text-sm">
-                  {run.paramSet.name} / {run.testType}
+                  {run.paramSet.name} / {run.datasetName}
                 </span>
                 <span className="text-sm">
                   {run.status === "done" &&

@@ -71,7 +71,7 @@ export default function CompareView() {
   const [paramSets, setParamSets] = React.useState<ParamSet[]>([]);
   const [aId, setAId] = React.useState<string>("");
   const [bId, setBId] = React.useState<string>("");
-  const [eclipseType, setEclipseType] = React.useState<"solar" | "lunar">("solar");
+  const [datasetSlug, setDatasetSlug] = React.useState<string>("solar_eclipse");
   const [result, setResult] = React.useState<CompareResult | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -106,7 +106,7 @@ export default function CompareView() {
     }
     setLoading(true);
     setError(null);
-    fetch(`/api/compare?a=${aId}&b=${bId}&type=${eclipseType}`)
+    fetch(`/api/compare?a=${aId}&b=${bId}&dataset=${datasetSlug}`)
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) {
@@ -145,7 +145,7 @@ export default function CompareView() {
       })
       .catch(() => setError("Network error"))
       .finally(() => setLoading(false));
-  }, [aId, bId, eclipseType]);
+  }, [aId, bId, datasetSlug]);
 
   const rateA =
     result && result.runA.totalEclipses > 0
@@ -200,14 +200,14 @@ export default function CompareView() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Eclipse Type</label>
+              <label className="text-sm font-medium">Dataset</label>
               <Tabs
-                value={eclipseType}
-                onValueChange={(v) => setEclipseType(v as "solar" | "lunar")}
+                value={datasetSlug}
+                onValueChange={(v) => setDatasetSlug(v)}
               >
                 <TabsList>
-                  <TabsTrigger value="solar">Solar</TabsTrigger>
-                  <TabsTrigger value="lunar">Lunar</TabsTrigger>
+                  <TabsTrigger value="solar_eclipse">Solar</TabsTrigger>
+                  <TabsTrigger value="lunar_eclipse">Lunar</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>

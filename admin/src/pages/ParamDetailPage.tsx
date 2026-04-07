@@ -17,7 +17,8 @@ type RunStatus = "queued" | "running" | "done" | "failed";
 
 interface RunRow {
   id: number;
-  test_type: string;
+  dataset_slug: string;
+  dataset_name: string;
   status: RunStatus;
   total_eclipses: number | null;
   detected: number | null;
@@ -46,8 +47,8 @@ interface ParamDetail {
   owner_id: number;
   owner_name: string;
   created_at: string;
-  solar_stats: StatResult | null;
-  lunar_stats: StatResult | null;
+  solar_eclipse_stats: StatResult | null;
+  lunar_eclipse_stats: StatResult | null;
   latest_version_runs: RunRow[];
   versions: VersionRow[];
 }
@@ -271,8 +272,8 @@ export default function ParamDetailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <StatCard title="Best Solar Detection" stats={data.solar_stats} />
-        <StatCard title="Best Lunar Detection" stats={data.lunar_stats} />
+        <StatCard title="Best Solar Detection" stats={data.solar_eclipse_stats} />
+        <StatCard title="Best Lunar Detection" stats={data.lunar_eclipse_stats} />
       </div>
 
       {/* Latest Runs */}
@@ -286,7 +287,7 @@ export default function ParamDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Test Type</TableHead>
+                <TableHead>Dataset</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Detection</TableHead>
                 <TableHead>Created</TableHead>
@@ -303,7 +304,7 @@ export default function ParamDetailPage() {
                       : undefined
                   }
                 >
-                  <TableCell className="capitalize">{run.test_type}</TableCell>
+                  <TableCell className="capitalize">{run.dataset_name}</TableCell>
                   <TableCell>
                     <StatusBadge status={run.status} />
                   </TableCell>

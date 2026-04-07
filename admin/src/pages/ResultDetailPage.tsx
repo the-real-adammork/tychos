@@ -33,7 +33,8 @@ interface ResultDetail {
   status: "pass" | "fail";
   threshold_pass: boolean;
   jpl_rescued: boolean;
-  test_type: string;
+  dataset_slug: string;
+  dataset_name: string;
   version_number: number;
   param_set_id: number;
   param_set_name: string;
@@ -167,7 +168,7 @@ function SkyPositionDiagram({ result }: { result: ResultDetail }) {
 }
 
 interface DiagramProps {
-  testType: string;
+  datasetSlug: string;
   sunRa: number | null;
   sunDec: number | null;
   moonRa: number | null;
@@ -178,8 +179,8 @@ interface DiagramProps {
   separationArcmin: number | null;
 }
 
-function EclipseDiagram({ testType, sunRa, sunDec, moonRa, moonDec, moonRaVel, moonDecVel, thresholdArcmin, separationArcmin }: DiagramProps) {
-  const isLunar = testType === "lunar";
+function EclipseDiagram({ datasetSlug, sunRa, sunDec, moonRa, moonDec, moonRaVel, moonDecVel, thresholdArcmin, separationArcmin }: DiagramProps) {
+  const isLunar = datasetSlug === "lunar_eclipse";
 
   if (sunRa == null || sunDec == null || moonRa == null || moonDec == null) {
     return <p className="text-sm text-muted-foreground">No position data available</p>;
@@ -378,12 +379,12 @@ export default function ResultDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tychos {result.test_type === "lunar" ? "Lunar" : "Solar"} Eclipse Geometry
+              Tychos {result.dataset_name} Geometry
             </CardTitle>
           </CardHeader>
           <CardContent>
             <EclipseDiagram
-              testType={result.test_type}
+              datasetSlug={result.dataset_slug}
               sunRa={result.sun_ra_rad}
               sunDec={result.sun_dec_rad}
               moonRa={result.moon_ra_rad}
@@ -399,12 +400,12 @@ export default function ResultDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              JPL {result.test_type === "lunar" ? "Lunar" : "Solar"} Eclipse Geometry
+              JPL {result.dataset_name} Geometry
             </CardTitle>
           </CardHeader>
           <CardContent>
             <EclipseDiagram
-              testType={result.test_type}
+              datasetSlug={result.dataset_slug}
               sunRa={result.jpl_sun_ra_rad}
               sunDec={result.jpl_sun_dec_rad}
               moonRa={result.jpl_moon_ra_rad}

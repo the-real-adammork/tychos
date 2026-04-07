@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { format } from "date-fns"
 import {
   Table,
@@ -22,7 +22,8 @@ type RunStatus = "queued" | "running" | "done" | "failed"
 
 interface Run {
   id: number
-  testType: string
+  datasetSlug: string
+  datasetName: string
   status: RunStatus
   totalEclipses: number | null
   detected: number | null
@@ -90,7 +91,8 @@ export default function RunTable() {
       .then((data: any[]) => {
         setRuns(data.map((r) => ({
           id: r.id,
-          testType: r.test_type,
+          datasetSlug: r.dataset_slug,
+          datasetName: r.dataset_name,
           status: r.status,
           totalEclipses: r.total_eclipses,
           detected: r.detected,
@@ -142,7 +144,7 @@ export default function RunTable() {
             <TableRow>
               <TableHead>Param Set</TableHead>
               <TableHead>Owner</TableHead>
-              <TableHead>Test Type</TableHead>
+              <TableHead>Dataset</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Detection Rate</TableHead>
               <TableHead>Created</TableHead>
@@ -166,7 +168,15 @@ export default function RunTable() {
                   )}
                 </TableCell>
                 <TableCell>{run.paramSet.owner.name}</TableCell>
-                <TableCell>{run.testType}</TableCell>
+                <TableCell>
+                  <Link
+                    to={`/datasets/${run.datasetSlug}`}
+                    className="text-sm text-blue-500 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {run.datasetName}
+                  </Link>
+                </TableCell>
                 <TableCell>
                   <StatusBadge status={run.status} />
                 </TableCell>

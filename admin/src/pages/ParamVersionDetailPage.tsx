@@ -17,7 +17,8 @@ type RunStatus = "queued" | "running" | "done" | "failed";
 
 interface RunRow {
   id: number;
-  test_type: string;
+  dataset_slug: string;
+  dataset_name: string;
   status: RunStatus;
   total_eclipses: number | null;
   detected: number | null;
@@ -33,10 +34,10 @@ interface Ancestor {
   params_json: string;
   notes: string | null;
   created_at: string;
-  solar_detected: number | null;
-  solar_total: number | null;
-  lunar_detected: number | null;
-  lunar_total: number | null;
+  solar_eclipse_detected: number | null;
+  solar_eclipse_total: number | null;
+  lunar_eclipse_detected: number | null;
+  lunar_eclipse_total: number | null;
 }
 
 interface VersionDetail {
@@ -128,8 +129,8 @@ export default function ParamVersionDetailPage() {
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) return null;
 
-  const solarRun = data.runs.find((r) => r.test_type === "solar" && r.status === "done") ?? null;
-  const lunarRun = data.runs.find((r) => r.test_type === "lunar" && r.status === "done") ?? null;
+  const solarRun = data.runs.find((r) => r.dataset_slug === "solar_eclipse" && r.status === "done") ?? null;
+  const lunarRun = data.runs.find((r) => r.dataset_slug === "lunar_eclipse" && r.status === "done") ?? null;
 
   // Build version chain: current version + ancestors, each with diff against parent
   type ParamChange = { body: string; param: string; oldVal: string; newVal: string };
@@ -137,8 +138,8 @@ export default function ParamVersionDetailPage() {
 
   const versionChain: ChainEntry[] = (() => {
     const allVersions: Array<Ancestor & { params_json: string }> = [
-      { ...data, solar_detected: solarRun?.detected ?? null, solar_total: solarRun?.total_eclipses ?? null,
-        lunar_detected: lunarRun?.detected ?? null, lunar_total: lunarRun?.total_eclipses ?? null },
+      { ...data, solar_eclipse_detected: solarRun?.detected ?? null, solar_eclipse_total: solarRun?.total_eclipses ?? null,
+        lunar_eclipse_detected: lunarRun?.detected ?? null, lunar_eclipse_total: lunarRun?.total_eclipses ?? null },
       ...data.ancestors,
     ];
 
@@ -271,7 +272,7 @@ export default function ParamVersionDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Test Type</TableHead>
+                <TableHead>Dataset</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Detection</TableHead>
                 <TableHead>Created</TableHead>
@@ -284,7 +285,7 @@ export default function ParamVersionDetailPage() {
                   className={run.status === "done" ? "cursor-pointer" : undefined}
                   onClick={run.status === "done" ? () => navigate(`/results/${run.id}`) : undefined}
                 >
-                  <TableCell className="capitalize">{run.test_type}</TableCell>
+                  <TableCell className="capitalize">{run.dataset_name}</TableCell>
                   <TableCell><StatusBadge status={run.status} /></TableCell>
                   <TableCell className="tabular-nums">{detectionLabel(run.overall_pass ?? run.detected, run.total_eclipses)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
@@ -317,10 +318,10 @@ export default function ParamVersionDetailPage() {
                       {format(new Date(entry.version.created_at), "MMM d, yyyy HH:mm")}
                     </span>
                     <span className="tabular-nums text-xs">
-                      Solar: {detectionLabel(entry.version.solar_detected, entry.version.solar_total)}
+                      Solar: {detectionLabel(entry.version.solar_eclipse_detected, entry.version.solar_eclipse_total)}
                     </span>
                     <span className="tabular-nums text-xs">
-                      Lunar: {detectionLabel(entry.version.lunar_detected, entry.version.lunar_total)}
+                      Lunar: {detectionLabel(entry.version.lunar_eclipse_detected, entry.version.lunar_eclipse_total)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

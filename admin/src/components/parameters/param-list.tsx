@@ -11,7 +11,7 @@ import {
 import { ParamForm } from "./param-form";
 
 interface LatestRun {
-  test_type: string;
+  dataset_slug: string;
   status: string;
   total_eclipses: number | null;
   detected: number | null;
@@ -26,8 +26,8 @@ interface ParamSetRow {
   latest_runs: LatestRun[];
 }
 
-function detectionCell(runs: LatestRun[], testType: "solar" | "lunar"): string {
-  const run = runs.find((r) => r.test_type === testType && r.status === "done");
+function detectionCell(runs: LatestRun[], datasetSlug: string): string {
+  const run = runs.find((r) => r.dataset_slug === datasetSlug && r.status === "done");
   if (!run || run.total_eclipses === null) return "—";
   const pass = run.overall_pass ?? run.detected ?? 0;
   const pct =
@@ -99,10 +99,10 @@ export function ParamList() {
                 <TableCell className="font-medium">{ps.name}</TableCell>
                 <TableCell>{ps.owner_name}</TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionCell(ps.latest_runs, "solar")}
+                  {detectionCell(ps.latest_runs, "solar_eclipse")}
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionCell(ps.latest_runs, "lunar")}
+                  {detectionCell(ps.latest_runs, "lunar_eclipse")}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
                   {new Date(ps.created_at).toLocaleDateString()}

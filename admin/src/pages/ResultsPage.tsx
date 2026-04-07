@@ -5,7 +5,8 @@ import { ResultsTable } from "@/components/results/results-table";
 
 interface RunInfo {
   id: number;
-  testType: string;
+  datasetSlug: string;
+  datasetName: string;
   status: string;
   totalEclipses: number | null;
   paramSetId: number;
@@ -41,7 +42,8 @@ export default function ResultsPage() {
         }
         setRun({
           id: runData.id,
-          testType: runData.test_type,
+          datasetSlug: runData.dataset_slug,
+          datasetName: runData.dataset_name,
           status: runData.status,
           totalEclipses: runData.total_eclipses,
           paramSetId: runData.param_set_id,
@@ -73,9 +75,9 @@ export default function ResultsPage() {
           </h1>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span>
-              Test type:{" "}
+              Dataset:{" "}
               <span className="font-medium capitalize text-foreground">
-                {run.testType}
+                {run.datasetName}
               </span>
             </span>
             <span>
