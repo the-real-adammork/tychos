@@ -288,21 +288,15 @@ python -m server.app
 
 2. **Timing offset distribution.** The timing offsets recorded for each result (how many minutes the Tychos minimum-separation moment differs from the catalog time) have not been rigorously analyzed for systematic bias. A consistent positive or negative offset could indicate a drift in the model's time calibration.
 
-3. **Partial-eclipse moon radius fallback.** For partial solar eclipses, magnitude does not directly give the lunar disk radius, so the predicted geometry falls back to a mean lunar radius. This may bias the predicted disk geometry (and thus the visual diagram) for partial events, even though the separation calculation itself is unaffected.
-
 ### Dependencies and Data Integrity
 
-4. **DE440s vs. DE421.** The JPL reference data uses `de440s.bsp` (DE440, 2021), while `skyfieldlib.py` examples reference `de421.bsp` (DE421, 2008). DE440 incorporates more recent data and is more accurate, but this means the Skyfield adapter examples and the test infrastructure use different ephemeris versions. It has not been verified whether this difference is material for Sun/Moon positions in the 1901–2100 range.
-
-5. **TT vs. UTC ambiguity.** The NASA catalogs provide times in Terrestrial Time (TT). The `baselib.py` Julian Day reference epoch comment says "2000-6-21 12:00:00" without specifying the time scale. The `skyfieldlib.py` adapter passes `t.tt` (Terrestrial Time) to `move_system()`, which appears correct, but the chain from catalog → JSON → Tychos model should be audited to confirm no ΔT correction is being double-applied or dropped.
-
-6. **Vincenty formula edge cases.** The angular separation uses the Vincenty formula, which is well-behaved for small angles (unlike the cosine formula). However, the implementation has not been tested against a reference implementation for edge cases near the poles or at exactly 0°/180° separation beyond the basic smoke tests.
+3. **Vincenty formula edge cases.** The angular separation uses the Vincenty formula, which is well-behaved for small angles (unlike the cosine formula). However, the implementation has not been tested against a reference implementation for edge cases near the poles or at exactly 0°/180° separation beyond the basic smoke tests.
 
 ### Model Questions
 
-7. **J2000 quaternion hardcoding.** The `baselib.py` RA/Dec calculation uses a hardcoded quaternion (`[-0.1420..., 0.6927..., -0.1451..., 0.6919...]`) for the J2000 epoch frame transformation. The code comments state this was "obtained by manually getting rotation quaternion of polar axis for the date 2000/01/01 12:00." The derivation of this quaternion and its sensitivity to the polar axis model parameters have not been independently verified.
+4. **J2000 quaternion hardcoding.** The `baselib.py` RA/Dec calculation uses a hardcoded quaternion (`[-0.1420..., 0.6927..., -0.1451..., 0.6919...]`) for the J2000 epoch frame transformation. The code comments state this was "obtained by manually getting rotation quaternion of polar axis for the date 2000/01/01 12:00." The derivation of this quaternion and its sensitivity to the polar axis model parameters have not been independently verified.
 
-8. **Parameter sensitivity.** The system supports multiple parameter sets, but the relationship between individual orbital parameters (orbit radius, tilt, speed, center offsets) and eclipse detection accuracy has not been systematically mapped. Small changes to Moon deferent parameters likely dominate eclipse detection, but this hasn't been quantified.
+5. **Parameter sensitivity.** The system supports multiple parameter sets, but the relationship between individual orbital parameters (orbit radius, tilt, speed, center offsets) and eclipse detection accuracy has not been systematically mapped. Small changes to Moon deferent parameters likely dominate eclipse detection, but this hasn't been quantified.
 
 ---
 
