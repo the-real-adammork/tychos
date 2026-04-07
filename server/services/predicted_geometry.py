@@ -22,14 +22,25 @@ def expected_separation_from_gamma(gamma: float) -> float:
     return math.degrees(rad) * 60
 
 
-def solar_disk_radii(magnitude: float) -> tuple[float, float]:
+MOON_MEAN_RADIUS_ARCMIN = 15.5  # mean lunar angular radius
+
+
+def solar_disk_radii(magnitude: float, eclipse_type: str = "total") -> tuple[float, float]:
     """Derive Moon and Sun apparent radii from solar eclipse magnitude.
 
-    For central eclipses, magnitude = D_moon / D_sun = R_moon / R_sun.
+    For central eclipses (total/annular/hybrid), magnitude = D_moon / D_sun,
+    so we can derive the Moon's apparent radius from the magnitude. For partial
+    eclipses, magnitude is the fraction of the Sun's diameter covered by the
+    Moon at maximum, which depends on geometry not just sizes — we fall back
+    to the mean Moon radius.
+
     Returns (moon_radius_arcmin, sun_radius_arcmin).
     """
     sun_r = SUN_MEAN_RADIUS_ARCMIN
-    moon_r = magnitude * sun_r
+    if eclipse_type in ("total", "annular", "hybrid"):
+        moon_r = magnitude * sun_r
+    else:
+        moon_r = MOON_MEAN_RADIUS_ARCMIN
     return moon_r, sun_r
 
 

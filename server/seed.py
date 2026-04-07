@@ -354,7 +354,7 @@ def _seed_predicted_reference():
 
     for ecl in solar_eclipses:
         sep = expected_separation_from_gamma(ecl["gamma"])
-        moon_r, sun_r = solar_disk_radii(ecl["magnitude"])
+        moon_r, sun_r = solar_disk_radii(ecl["magnitude"], ecl.get("type", "central"))
         angle = approach_angle_from_gamma(ecl["gamma"])
         rows.append((
             ecl["julian_day_tt"], "solar",

@@ -119,7 +119,8 @@ async def get_result(run_id: int, result_id: int):
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT er.*, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name, pv.version_number,
+            SELECT er.*, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name,
+                   REPLACE(d.slug, '_eclipse', '') AS test_type, pv.version_number,
                    ps.id AS param_set_id, ps.name AS param_set_name,
                    jpl.sun_ra_rad AS jpl_sun_ra_rad, jpl.sun_dec_rad AS jpl_sun_dec_rad,
                    jpl.moon_ra_rad AS jpl_moon_ra_rad, jpl.moon_dec_rad AS jpl_moon_dec_rad,
