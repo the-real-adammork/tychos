@@ -16,9 +16,13 @@ interface RunInfo {
 }
 
 interface RunStats {
-  overall_pass: number;
-  overall_fail: number;
   total: number;
+  mean_tychos_error: number | null;
+  mean_jpl_error: number | null;
+  median_tychos_error: number | null;
+  median_jpl_error: number | null;
+  max_tychos_error: number | null;
+  max_jpl_error: number | null;
 }
 
 export default function ResultsPage() {
@@ -61,11 +65,6 @@ export default function ResultsPage() {
   if (loading) return null;
   if (notFound || !run) return <Navigate to="/" />;
 
-  const detectionRate =
-    stats && stats.total > 0
-      ? ((stats.overall_pass / stats.total) * 100).toFixed(1) + "%"
-      : "\u2014";
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
@@ -86,10 +85,14 @@ export default function ResultsPage() {
                 {run.status}
               </span>
             </span>
-            <span>
-              Detection rate:{" "}
-              <span className="font-medium text-foreground">{detectionRate}</span>
-            </span>
+            {stats && stats.mean_tychos_error != null && (
+              <span>
+                Mean Tychos error:{" "}
+                <span className="font-medium text-foreground">
+                  {stats.mean_tychos_error.toFixed(1)}'
+                </span>
+              </span>
+            )}
             {run.totalEclipses !== null && (
               <span>
                 Total eclipses:{" "}
