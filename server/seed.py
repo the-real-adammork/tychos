@@ -305,12 +305,7 @@ def _seed_jpl_reference():
 
     print("[seed] Computing JPL reference positions (this takes a moment)...")
 
-    from skyfield.api import load as skyfield_load
-    from helpers import angular_separation
-
-    eph = skyfield_load("de440s.bsp")
-    ts = skyfield_load.timescale()
-    earth = eph["earth"]
+    from server.services.jpl_scanner import scan_jpl_eclipses
 
     rows = []
     with get_db() as conn:
@@ -322,32 +317,25 @@ def _seed_jpl_reference():
                 (ds["id"],),
             ).fetchall()
 
-            for ecl in eclipses:
-                jd = ecl["julian_day_tt"]
-                t = ts.tt_jd(jd)
-                t2 = ts.tt_jd(jd + 1.0 / 24.0)
+            jpl_rows = scan_jpl_eclipses(
+                [{"julian_day_tt": e["julian_day_tt"]} for e in eclipses],
+                "de440s.bsp",
+                is_lunar=is_lunar,
+            )
 
-                sun_ra, sun_dec, _ = earth.at(t).observe(eph["sun"]).radec()
-                moon_ra, moon_dec, _ = earth.at(t).observe(eph["moon"]).radec()
-                moon_ra2, moon_dec2, _ = earth.at(t2).observe(eph["moon"]).radec()
-
-                s_ra, s_dec = sun_ra.radians, sun_dec.radians
-                m_ra, m_dec = moon_ra.radians, moon_dec.radians
-                m_ra_vel = float(moon_ra2.radians - m_ra)
-                m_dec_vel = float(moon_dec2.radians - m_dec)
-                # For solar eclipses: Sun-Moon angular separation
-                # For lunar eclipses: Moon-to-antisolar-point separation (Moon vs Earth shadow center)
-                if is_lunar:
-                    import math
-                    anti_ra = (s_ra + math.pi) % (2 * math.pi)
-                    anti_dec = -s_dec
-                    sep = float(np.degrees(angular_separation(m_ra, m_dec, anti_ra, anti_dec)) * 60)
-                else:
-                    sep = float(np.degrees(angular_separation(s_ra, s_dec, m_ra, m_dec)) * 60)
-
-                best_jd = _scan_jpl_min_jd(earth, eph, ts, jd, is_lunar)
-
-                rows.append((ds["id"], jd, float(s_ra), float(s_dec), float(m_ra), float(m_dec), round(sep, 2), m_ra_vel, m_dec_vel, best_jd))
+            for r in jpl_rows:
+                rows.append((
+                    ds["id"],
+                    r["julian_day_tt"],
+                    r["sun_ra_rad"],
+                    r["sun_dec_rad"],
+                    r["moon_ra_rad"],
+                    r["moon_dec_rad"],
+                    r["separation_arcmin"],
+                    r["moon_ra_vel"],
+                    r["moon_dec_vel"],
+                    r["best_jd"],
+                ))
 
     with get_db() as conn:
         conn.executemany(
@@ -361,70 +349,12 @@ def _seed_jpl_reference():
     print(f"[seed] Computed {len(rows)} JPL reference positions")
 
 
-def _scan_jpl_min_jd(earth, eph, ts, center_jd: float, is_lunar: bool) -> float:
-    """Scan Skyfield for the JD of minimum Sun-Moon (or Moon-to-antisolar) separation.
-
-    Two-pass (5-minute coarse, 1-minute fine) over a +/-2h window around center_jd,
-    then a 3-point quadratic refinement. Returns the refined best JD.
-    """
-    import math
-    from helpers import angular_separation
-
-    MIN = 1.0 / 1440.0
-
-    def sep_at(jd: float) -> float:
-        t = ts.tt_jd(jd)
-        s_ra, s_dec, _ = earth.at(t).observe(eph["sun"]).radec()
-        m_ra, m_dec, _ = earth.at(t).observe(eph["moon"]).radec()
-        s_ra_r, s_dec_r = s_ra.radians, s_dec.radians
-        m_ra_r, m_dec_r = m_ra.radians, m_dec.radians
-        if is_lunar:
-            anti_ra = (s_ra_r + math.pi) % (2 * math.pi)
-            anti_dec = -s_dec_r
-            return float(angular_separation(m_ra_r, m_dec_r, anti_ra, anti_dec))
-        return float(angular_separation(s_ra_r, s_dec_r, m_ra_r, m_dec_r))
-
-    # Coarse pass: 5-minute steps across +/-2h
-    best_jd = center_jd
-    best_sep = float("inf")
-    jd = center_jd - 2.0 / 24.0
-    end = center_jd + 2.0 / 24.0 + 1e-12
-    while jd <= end:
-        s = sep_at(jd)
-        if s < best_sep:
-            best_sep = s
-            best_jd = jd
-        jd += 5 * MIN
-
-    # Fine pass: 1-minute steps within +/-10min of coarse minimum
-    jd = best_jd - 10 * MIN
-    end = best_jd + 10 * MIN + 1e-12
-    while jd <= end:
-        s = sep_at(jd)
-        if s < best_sep:
-            best_sep = s
-            best_jd = jd
-        jd += MIN
-
-    # Quadratic refinement on the 3-point bracket
-    s_a = sep_at(best_jd - MIN)
-    s_b = sep_at(best_jd)
-    s_c = sep_at(best_jd + MIN)
-    denom = s_a - 2.0 * s_b + s_c
-    if denom > 0:
-        offset = 0.5 * (s_a - s_c) / denom
-        if -1.0 <= offset <= 1.0:
-            refined_jd = best_jd + offset * MIN
-            if sep_at(refined_jd) < s_b:
-                return refined_jd
-    return best_jd
-
-
 def _backfill_jpl_best_jd(missing_count: int) -> None:
     """Populate best_jd on existing jpl_reference rows that are missing it."""
     print(f"[seed] Backfilling JPL best_jd for {missing_count} rows...")
 
     from skyfield.api import load as skyfield_load
+    from server.services.jpl_scanner import _scan_jpl_min_jd
 
     eph = skyfield_load("de440s.bsp")
     ts = skyfield_load.timescale()
