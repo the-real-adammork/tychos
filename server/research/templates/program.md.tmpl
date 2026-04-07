@@ -70,7 +70,16 @@ Guidelines for using `search`:
 
 ## Background: the Tychos model (technical brief)
 
-### Geometry
+> **How this section is organized.** Parts A–C below describe the geometry
+> and parameters in **objective-agnostic** terms — they apply no matter what
+> metric you're optimizing. Part D ("Leverage analysis") and Part E
+> ("Empirical findings") are **specific to the current objective
+> `mean(|timing_offset_min|)`**. If you change the objective (e.g. to
+> minimize separation error, detection rate, or directional error),
+> **re-derive D and E from the physics in A–C** — the sensitivity rankings
+> and "dead parameter" lists below are valid only for timing.
+
+### A. Geometry (objective-agnostic)
 Tychos is a **geo-heliocentric** model. Earth sits near the system barycenter;
 the Sun orbits Earth once per year (orbital diameter ~299.2 Mkm, speed ~107,226
 km/h) and carries Mercury and Venus as its satellites. Mars, Jupiter, Saturn
@@ -88,37 +97,33 @@ frame; the book itself does not give an explicit eclipse-mechanics derivation,
 so the mechanism here is inferred from the pure geometry of moon + sun circles
 around Earth.
 
-### Parameter meanings (in Tychosium terms)
+### B. Parameter meanings (objective-agnostic)
+Mechanical descriptions only — what each field does in the Tychosium
+geometry. For how each field affects the **current objective**, see Part D.
 - **`orbit_radius`** — radius of the body's primary circle around its center.
-  For `sun` this is ~1 AU; for `moon` ~381,547 km. A +1% change scales the
-  whole trajectory outward and (for the Moon) proportionally shifts the
-  geometric alignment window for eclipses, mainly affecting shadow geometry
-  and separation, not mean timing.
+  For `sun` this is ~1 AU; for `moon` ~381,547 km. Scaling it changes the
+  size of the whole trajectory.
 - **`orbit_center_a/b/c`** — Cartesian offsets of the orbit's center from
   its parent. Non-zero values are how Tychosium encodes eccentricity-like
   displacements and epicyclic corrections; they tilt the line of apsides
-  and create the asymmetry that mainstream models call eccentricity. A 1%
-  change in an offset moves the apse line and modulates timing near syzygy
-  by tens of seconds to a minute.
+  and create the asymmetry that mainstream models call eccentricity.
 - **`orbit_tilt_a/b`** — two-axis inclination of the orbital plane relative
   to the parent frame. For the Moon this encodes the ~5° lunar inclination
-  and nodal orientation. Timing sensitivity is weak; tilt mostly controls
-  whether a given syzygy is an eclipse at all (separation at closest approach).
+  and nodal orientation.
 - **`start_pos`** — angular phase at t=0 (radians in the internal
   representation, degrees in the JSON). Pure phase offset along the orbit.
 - **`speed`** — angular rate per Tychos time unit. Since `sun.speed = 2π`,
   the base time unit is one (Tychos) year; `moon.speed ≈ 2π · (365.25/27.322)`
   accordingly.
 
-### Deferents
+### C. Deferents (objective-agnostic)
 Tychosium layers smaller carrier circles ("deferents") on the primary orbit
 to reproduce lunar/solar corrections without Keplerian ellipses:
 - **`moon_def_a`** — the book explicitly discusses an **8.85-year apsidal
   precession of the Moon's perigee** (0.1114°/day, stated as a 3:1 ratio
   against Earth's PVP motion). `moon_def_a` is the carrier that rotates the
   moon's apse line on this cycle; its `speed` should correspond to 2π/8.85
-  rad/yr. Tuning it changes the ±few-minute modulation of eclipse times on
-  that period.
+  rad/yr.
 - **`moon_def_b`** — a second smaller deferent. The book links lunar
   **evection** to a ~31.8-day oscillation of ±1.274° producing ~14,070 km
   lateral displacement, attributed to the PVP geometry rather than
@@ -130,7 +135,16 @@ to reproduce lunar/solar corrections without Keplerian ellipses:
   eccentricity). It shifts the Sun's apparent longitude by up to ~±2° over
   the year.
 
-### What moves eclipse timing vs. what doesn't
+---
+
+### D. Leverage analysis — **objective: `mean(|timing_offset_min|)`**
+
+> ⚠️ **Everything below this line is specific to the timing-offset
+> objective.** If you are optimizing a different metric (separation,
+> detection rate, directional error), the sensitivity rankings and
+> "dead parameter" claims here **do not apply** — re-derive from Parts
+> A–C above.
+
 **High leverage on timing:**
 - **`moon.start_pos`** — direct, linear leverage: the Moon sweeps ~0.549°/hr,
   so a 1° phase error ≈ **109 min of timing shift on every eclipse**.
@@ -166,7 +180,7 @@ to reproduce lunar/solar corrections without Keplerian ellipses:
   shadow geometry, but not when the closest approach happens. Expect
   movement in `mean_separation_arcmin` but little in `objective`.
 
-### Time and sign conventions
+### Time and sign conventions — **objective: timing**
 The book itself does not specify a numerical epoch or timing sign convention.
 From the codebase: catalog times are **Julian Date in TT**, and
 **`timing_offset_min = (best_jd - catalog_jd) × 1440`**, so a **positive**
@@ -175,10 +189,13 @@ systematically positive mean signed offset means "shift the Moon forward
 in its orbit so it reaches alignment sooner" → **decrease** `moon.start_pos`
 (in degrees).
 
-### Known empirical findings (from prior research sessions)
+### E. Empirical findings — **objective: timing, base: v1-original/v1**
 These are facts learned from hand-probing v1-original/v1 against the solar
-eclipse catalog with a 6-hour search window. Take them as context, not
-dogma — if your current base params differ, re-verify:
+eclipse catalog with a 6-hour search window, optimizing
+`mean(|timing_offset_min|)`. Take them as context, not dogma — if your
+current base params differ, re-verify. **If you change the objective, these
+findings may be wrong or misleading — `earth.speed` being "insensitive" is
+a claim about timing, not about separation or detection rate.**
 - **`earth.speed` is insensitive.** See above.
 - **`moon.speed` sits near a local minimum** in v1 — moving it ±1e-4 made
   the objective worse in both directions.
