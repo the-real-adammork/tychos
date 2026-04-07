@@ -289,17 +289,19 @@ export default function ParamDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {datasets.map((ds) => (
-            <Button
-              key={ds.id}
-              onClick={() => handleQueueRun(ds)}
-              disabled={queueing !== null}
-            >
-              {queueing === ds.slug
-                ? "Queueing…"
-                : `Run ${ds.name.replace(/^NASA /, "")}`}
-            </Button>
-          ))}
+          {datasets
+            .filter((ds) => !data.latest_version_runs.some((r) => r.dataset_slug === ds.slug))
+            .map((ds) => (
+              <Button
+                key={ds.id}
+                onClick={() => handleQueueRun(ds)}
+                disabled={queueing !== null}
+              >
+                {queueing === ds.slug
+                  ? "Queueing…"
+                  : `Run ${ds.name.replace(/^NASA /, "")}`}
+              </Button>
+            ))}
           <Button variant="outline" onClick={handleDownload}>
             Download JSON
           </Button>
