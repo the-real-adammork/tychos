@@ -21,7 +21,7 @@ interface RunRow {
   dataset_name: string;
   status: RunStatus;
   total_eclipses: number | null;
-  detected: number | null;
+  mean_tychos_error: number | null;
   created_at: string;
 }
 
@@ -35,7 +35,7 @@ interface VersionRow {
 }
 
 interface StatResult {
-  overall_pass: number;
+  mean_tychos_error: number | null;
   total_eclipses: number;
   version_number: number;
 }
@@ -70,10 +70,9 @@ function StatusBadge({ status }: { status: RunStatus }) {
   return <Badge variant="destructive">failed</Badge>;
 }
 
-function detectionLabel(detected: number | null, total: number | null): string {
-  if (detected === null || total === null) return "—";
-  const pct = total === 0 ? 0 : Math.round((detected / total) * 100);
-  return `${detected}/${total} (${pct}%)`;
+function errorLabel(error: number | null): string {
+  if (error == null) return "—";
+  return `${error.toFixed(1)}'`;
 }
 
 function StatCard({
@@ -91,15 +90,13 @@ function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {stats ? (
+        {stats && stats.mean_tychos_error != null ? (
           <>
-            <p className="text-3xl font-bold text-teal-400">
-              {stats.total_eclipses === 0
-                ? "0%"
-                : `${Math.round((stats.overall_pass / stats.total_eclipses) * 100)}%`}
+            <p className="text-3xl font-bold">
+              {stats.mean_tychos_error.toFixed(1)}'
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              {stats.overall_pass}/{stats.total_eclipses} pass
+              mean error · {stats.total_eclipses} eclipses
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <span className="font-medium">Version:</span> v{stats.version_number}
@@ -289,7 +286,7 @@ export default function ParamDetailPage() {
               <TableRow>
                 <TableHead>Dataset</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Detection</TableHead>
+                <TableHead>Mean Error</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -309,7 +306,7 @@ export default function ParamDetailPage() {
                     <StatusBadge status={run.status} />
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    {detectionLabel(run.detected, run.total_eclipses)}
+                    {errorLabel(run.mean_tychos_error)}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}

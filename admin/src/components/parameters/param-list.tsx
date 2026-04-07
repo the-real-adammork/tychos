@@ -14,8 +14,7 @@ interface LatestRun {
   dataset_slug: string;
   status: string;
   total_eclipses: number | null;
-  detected: number | null;
-  overall_pass: number | null;
+  mean_tychos_error: number | null;
 }
 
 interface ParamSetRow {
@@ -26,15 +25,10 @@ interface ParamSetRow {
   latest_runs: LatestRun[];
 }
 
-function detectionCell(runs: LatestRun[], datasetSlug: string): string {
+function errorCell(runs: LatestRun[], datasetSlug: string): string {
   const run = runs.find((r) => r.dataset_slug === datasetSlug && r.status === "done");
-  if (!run || run.total_eclipses === null) return "—";
-  const pass = run.overall_pass ?? run.detected ?? 0;
-  const pct =
-    run.total_eclipses === 0
-      ? 0
-      : Math.round((pass / run.total_eclipses) * 100);
-  return `${pass}/${run.total_eclipses} (${pct}%)`;
+  if (!run || run.mean_tychos_error == null) return "—";
+  return `${run.mean_tychos_error.toFixed(1)}'`;
 }
 
 export function ParamList() {
@@ -77,8 +71,8 @@ export function ParamList() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Owner</TableHead>
-              <TableHead>Solar Detection</TableHead>
-              <TableHead>Lunar Detection</TableHead>
+              <TableHead>Solar Mean Error</TableHead>
+              <TableHead>Lunar Mean Error</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -99,10 +93,10 @@ export function ParamList() {
                 <TableCell className="font-medium">{ps.name}</TableCell>
                 <TableCell>{ps.owner_name}</TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionCell(ps.latest_runs, "solar_eclipse")}
+                  {errorCell(ps.latest_runs, "solar_eclipse")}
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionCell(ps.latest_runs, "lunar_eclipse")}
+                  {errorCell(ps.latest_runs, "lunar_eclipse")}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
                   {new Date(ps.created_at).toLocaleDateString()}

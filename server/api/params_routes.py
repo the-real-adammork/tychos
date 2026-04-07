@@ -91,12 +91,12 @@ async def list_param_sets():
                 latest_runs = []
                 for rr in run_rows:
                     rd = _row_to_dict(rr)
-                    op_cursor = await conn.execute(
-                        "SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass FROM eclipse_results WHERE run_id = ?",
+                    err_cursor = await conn.execute(
+                        "SELECT AVG(tychos_error_arcmin) AS mean_error FROM eclipse_results WHERE run_id = ?",
                         (rd["id"],),
                     )
-                    op_row = await op_cursor.fetchone()
-                    rd["overall_pass"] = op_row["overall_pass"] or 0
+                    err_row = await err_cursor.fetchone()
+                    rd["mean_tychos_error"] = round(err_row["mean_error"], 2) if err_row["mean_error"] is not None else None
                     latest_runs.append(rd)
                 item["latest_runs"] = latest_runs
             else:
@@ -219,15 +219,16 @@ async def get_param_set(param_set_id: int):
                 best_cursor = await conn.execute(
                     f"""
                     SELECT r.id AS run_id, r.total_eclipses, pv.version_number,
-                           SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
+                           AVG(er.tychos_error_arcmin) AS mean_error
                     FROM runs r
                     JOIN param_versions pv ON r.param_version_id = pv.id
                     JOIN eclipse_results er ON er.run_id = r.id
                     WHERE r.param_version_id IN ({placeholders})
                       AND r.dataset_id = ? AND r.status = 'done'
                       AND r.total_eclipses > 0
+                      AND er.tychos_error_arcmin IS NOT NULL
                     GROUP BY r.id
-                    ORDER BY CAST(overall_pass AS REAL) / r.total_eclipses DESC
+                    ORDER BY mean_error ASC
                     LIMIT 1
                     """,
                     (*version_ids, ds["id"]),
@@ -235,7 +236,7 @@ async def get_param_set(param_set_id: int):
                 best_row = await best_cursor.fetchone()
                 if best_row:
                     item[f"{ds['slug']}_stats"] = {
-                        "overall_pass": best_row["overall_pass"],
+                        "mean_tychos_error": round(best_row["mean_error"], 2) if best_row["mean_error"] is not None else None,
                         "total_eclipses": best_row["total_eclipses"],
                         "version_number": best_row["version_number"],
                     }
@@ -532,20 +533,20 @@ async def get_version(param_set_id: int, version_id: int):
         )
         runs_list = [_row_to_dict(r) for r in await runs_cursor.fetchall()]
 
-        # Compute overall_pass for each done run
+        # Compute mean_tychos_error for each done run
         for run in runs_list:
             if run["status"] == "done":
-                op_cursor = await conn.execute(
+                err_cursor = await conn.execute(
                     """
-                    SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
+                    SELECT AVG(tychos_error_arcmin) AS mean_error
                     FROM eclipse_results WHERE run_id = ?
                     """,
                     (run["id"],),
                 )
-                op_row = await op_cursor.fetchone()
-                run["overall_pass"] = op_row["overall_pass"] or 0
+                err_row = await err_cursor.fetchone()
+                run["mean_tychos_error"] = round(err_row["mean_error"], 2) if err_row["mean_error"] is not None else None
             else:
-                run["overall_pass"] = None
+                run["mean_tychos_error"] = None
 
         item["runs"] = runs_list
 
