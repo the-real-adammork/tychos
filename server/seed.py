@@ -282,6 +282,7 @@ def _seed_jpl_reference():
     with get_db() as conn:
         datasets = _get_all_datasets(conn)
         for ds in datasets:
+            is_lunar = ds["slug"] == "lunar_eclipse"
             eclipses = conn.execute(
                 "SELECT julian_day_tt FROM eclipse_catalog WHERE dataset_id = ? ORDER BY julian_day_tt",
                 (ds["id"],),
@@ -300,7 +301,15 @@ def _seed_jpl_reference():
                 m_ra, m_dec = moon_ra.radians, moon_dec.radians
                 m_ra_vel = float(moon_ra2.radians - m_ra)
                 m_dec_vel = float(moon_dec2.radians - m_dec)
-                sep = float(np.degrees(angular_separation(s_ra, s_dec, m_ra, m_dec)) * 60)
+                # For solar eclipses: Sun-Moon angular separation
+                # For lunar eclipses: Moon-to-antisolar-point separation (Moon vs Earth shadow center)
+                if is_lunar:
+                    import math
+                    anti_ra = (s_ra + math.pi) % (2 * math.pi)
+                    anti_dec = -s_dec
+                    sep = float(np.degrees(angular_separation(m_ra, m_dec, anti_ra, anti_dec)) * 60)
+                else:
+                    sep = float(np.degrees(angular_separation(s_ra, s_dec, m_ra, m_dec)) * 60)
 
                 rows.append((ds["id"], jd, float(s_ra), float(s_dec), float(m_ra), float(m_dec), round(sep, 2), m_ra_vel, m_dec_vel))
 
