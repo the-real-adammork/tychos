@@ -46,6 +46,7 @@ def seed():
     _seed_param_sets_from_disk()
     _seed_eclipse_catalog()
     _seed_jpl_reference()
+    _seed_predicted_reference()
 
 
 def _seed_admin_user():
@@ -313,3 +314,74 @@ def _seed_jpl_reference():
         conn.commit()
 
     print(f"[seed] Computed {len(rows)} JPL reference positions")
+
+
+def _seed_predicted_reference():
+    """Precompute predicted eclipse geometry from catalog data.
+
+    Uses only catalog parameters (gamma, magnitude) — no Skyfield, no Tychos.
+    Only runs once — skips if predicted_reference table already has data.
+    """
+    with get_db() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM predicted_reference").fetchone()[0]
+        if count > 0:
+            return
+
+    print("[seed] Computing predicted reference geometry from catalog data...")
+
+    from server.services.predicted_geometry import (
+        expected_separation_from_gamma,
+        solar_disk_radii,
+        lunar_shadow_radii,
+        approach_angle_from_gamma,
+    )
+
+    rows = []
+
+    # Solar eclipses
+    solar_path = DATA_DIR / "solar_eclipses.json"
+    with open(solar_path) as f:
+        solar_eclipses = json.load(f)
+
+    for ecl in solar_eclipses:
+        sep = expected_separation_from_gamma(ecl["gamma"])
+        moon_r, sun_r = solar_disk_radii(ecl["magnitude"])
+        angle = approach_angle_from_gamma(ecl["gamma"])
+        rows.append((
+            ecl["julian_day_tt"], "solar",
+            round(sep, 4), round(moon_r, 4), round(sun_r, 4),
+            None, None,
+            round(angle, 2), ecl["gamma"], ecl["magnitude"],
+        ))
+
+    # Lunar eclipses
+    lunar_path = DATA_DIR / "lunar_eclipses.json"
+    with open(lunar_path) as f:
+        lunar_eclipses = json.load(f)
+
+    for ecl in lunar_eclipses:
+        sep = expected_separation_from_gamma(ecl["gamma"])
+        umbra_r, penumbra_r, moon_r = lunar_shadow_radii(
+            ecl["um_mag"], ecl["pen_mag"], ecl["gamma"]
+        )
+        angle = approach_angle_from_gamma(ecl["gamma"])
+        rows.append((
+            ecl["julian_day_tt"], "lunar",
+            round(sep, 4), round(moon_r, 4), None,
+            round(umbra_r, 4), round(penumbra_r, 4),
+            round(angle, 2), ecl["gamma"], ecl["pen_mag"],
+        ))
+
+    with get_db() as conn:
+        conn.executemany(
+            """INSERT OR IGNORE INTO predicted_reference
+               (julian_day_tt, test_type, expected_separation_arcmin,
+                moon_apparent_radius_arcmin, sun_apparent_radius_arcmin,
+                umbra_radius_arcmin, penumbra_radius_arcmin,
+                approach_angle_deg, gamma, catalog_magnitude)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows,
+        )
+        conn.commit()
+
+    print(f"[seed] Computed {len(rows)} predicted reference geometries")
