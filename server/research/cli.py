@@ -101,8 +101,94 @@ def cmd_init(args) -> int:
     return 0
 
 
+def _load_job_state(job_name: str):
+    """Load all sandbox files needed for iterate/validate. Returns a tuple."""
+    paths = JobPaths.for_job(job_name)
+    if not paths.root.exists():
+        raise FileNotFoundError(
+            f"Job directory not found: {paths.root}. Run `init` first."
+        )
+    current = load_json(paths.current_json)
+    baseline = load_json(paths.baseline_json)
+    program_md = paths.program_md.read_text()
+    frontmatter = parse_frontmatter(program_md)
+    subset_blob = load_json(paths.subset_json)
+    return paths, current, baseline, frontmatter, subset_blob
+
+
+def _run_scan(dataset_slug: str, params: dict, eclipses: list[dict]) -> list[dict]:
+    """Dispatch to the right scanner for the dataset."""
+    from server.services.scanner import scan_solar_eclipses, scan_lunar_eclipses
+    if dataset_slug == "solar_eclipse":
+        return scan_solar_eclipses(params, eclipses)
+    if dataset_slug == "lunar_eclipse":
+        return scan_lunar_eclipses(params, eclipses)
+    raise ValueError(f"Unknown dataset_slug: {dataset_slug}")
+
+
+def _next_iter_number(log_path) -> int:
+    tail = read_log_tail(log_path, n=1)
+    if not tail:
+        return 1
+    return int(tail[0].get("iter", 0)) + 1
+
+
 def cmd_iterate(args) -> int:
-    raise NotImplementedError
+    try:
+        paths, current, baseline, frontmatter, subset_blob = _load_job_state(args.job)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    # Guardrail: allowlist diff
+    try:
+        check_diff_against_allowlist(
+            current,
+            baseline,
+            allowlist_globs=frontmatter.get("allowlist", []),
+            known_bodies=list(baseline.keys()),
+        )
+    except AllowlistViolation as e:
+        print(f"error: allowlist violation: {e}", file=sys.stderr)
+        return 4
+
+    # Guardrail: hash dedup
+    h = params_hash(current)
+    tail = read_log_tail(paths.log_jsonl, n=1)
+    if tail and tail[0].get("params_hash") == h and tail[0].get("kind") == "iterate":
+        cached = tail[0]
+        print(f"objective: {cached['objective']}")
+        print(f"mean_separation_arcmin: {cached.get('mean_separation_arcmin')}")
+        print(f"detected: {cached.get('n_detected')}/{cached.get('n_total')}")
+        print("(cached — current.json identical to last iterate)")
+        return 0
+
+    dataset_slug = subset_blob["dataset_slug"]
+    eclipses = subset_blob["events"]
+
+    try:
+        results = _run_scan(dataset_slug, current, eclipses)
+        objective = compute_objective(results)
+    except EmptyResults as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 5
+
+    aux = aux_stats(results)
+
+    entry = {
+        "iter": _next_iter_number(paths.log_jsonl),
+        "ts": _now_iso(),
+        "kind": "iterate",
+        "params_hash": h,
+        "objective": round(objective, 4),
+        **aux,
+    }
+    append_log(paths.log_jsonl, entry)
+
+    print(f"objective: {entry['objective']}")
+    print(f"mean_separation_arcmin: {aux['mean_separation_arcmin']}")
+    print(f"detected: {aux['n_detected']}/{aux['n_total']}")
+    return 0
 
 
 def cmd_validate(args) -> int:
