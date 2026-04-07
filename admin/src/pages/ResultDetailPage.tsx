@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PredictedDiagram } from "@/components/eclipse/predicted-diagram";
+import { SarosContext, type SarosNeighbor } from "@/components/eclipse/saros-context";
 
 interface ResultDetail {
   id: number;
@@ -45,6 +46,12 @@ interface ResultDetail {
   version_number: number;
   param_set_id: number;
   param_set_name: string;
+  saros_num: number | null;
+  saros_position: number | null;
+  saros_total: number | null;
+  saros_year_start: string | null;
+  saros_year_end: string | null;
+  saros_neighbors: SarosNeighbor[];
 }
 
 function radToHMS(rad: number): string {
@@ -408,6 +415,21 @@ export default function ResultDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Saros context */}
+      {result.saros_num != null && (
+        <SarosContext
+          sarosNum={result.saros_num}
+          sarosPosition={result.saros_position}
+          sarosTotal={result.saros_total}
+          yearStart={result.saros_year_start}
+          yearEnd={result.saros_year_end}
+          neighbors={result.saros_neighbors}
+          showErrors={true}
+          onNeighborClick={(neighborId) => navigate(`/results/${runId}/${neighborId}`)}
+          onViewFullSeries={(sarosNum) => navigate(`/results/${runId}?saros=${sarosNum}`)}
+        />
+      )}
     </div>
   );
 }

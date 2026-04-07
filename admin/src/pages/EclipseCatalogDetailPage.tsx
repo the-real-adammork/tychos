@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PredictedDiagram } from "@/components/eclipse/predicted-diagram";
+import { SarosContext, type SarosNeighbor } from "@/components/eclipse/saros-context";
 
 interface EclipseRecord {
   id: number;
@@ -40,6 +41,12 @@ interface EclipseRecord {
   umbra_radius_arcmin: number | null;
   penumbra_radius_arcmin: number | null;
   approach_angle_deg: number | null;
+  // Saros context
+  saros_total: number | null;
+  saros_position: number | null;
+  saros_year_start: string | null;
+  saros_year_end: string | null;
+  saros_neighbors: SarosNeighbor[];
 }
 
 interface EclipseDetailResponse {
@@ -219,6 +226,21 @@ export default function EclipseCatalogDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Saros context */}
+      {ecl.saros_num != null && (
+        <SarosContext
+          sarosNum={ecl.saros_num}
+          sarosPosition={ecl.saros_position}
+          sarosTotal={ecl.saros_total}
+          yearStart={ecl.saros_year_start}
+          yearEnd={ecl.saros_year_end}
+          neighbors={ecl.saros_neighbors}
+          showErrors={false}
+          onNeighborClick={(neighborId) => navigate(`/datasets/${slug}/${neighborId}`)}
+          onViewFullSeries={(sarosNum) => navigate(`/datasets/${slug}?saros=${sarosNum}`)}
+        />
+      )}
     </div>
   );
 }
