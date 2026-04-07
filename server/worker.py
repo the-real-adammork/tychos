@@ -1,6 +1,5 @@
 """Background worker thread that processes queued eclipse runs."""
 import json
-import math
 import time
 import threading
 import traceback
@@ -14,17 +13,6 @@ from server.services.scanner import (
 )
 
 _POLL_INTERVAL = 5
-
-
-def _angular_sep_arcmin(ra1, dec1, ra2, dec2):
-    """Vincenty angular separation in arcminutes."""
-    dra = ra2 - ra1
-    num = math.sqrt(
-        (math.cos(dec2) * math.sin(dra)) ** 2
-        + (math.cos(dec1) * math.sin(dec2) - math.sin(dec1) * math.cos(dec2) * math.cos(dra)) ** 2
-    )
-    den = math.sin(dec1) * math.sin(dec2) + math.cos(dec1) * math.cos(dec2) * math.cos(dra)
-    return math.degrees(math.atan2(num, den)) * 60
 
 
 def start_worker() -> threading.Thread:

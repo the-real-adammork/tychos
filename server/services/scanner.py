@@ -5,14 +5,25 @@ from tychos_skyfield import baselib as T
 from helpers import (
     scan_min_separation,
     scan_lunar_eclipse,
-    lunar_threshold,
-    SOLAR_DETECTION_THRESHOLD,
     MINUTE_IN_DAYS,
 )
 
 from server.db import get_db
 
 HOUR_IN_DAYS = 1.0 / 24.0
+
+# Detection thresholds (radians) — moved from helpers.py
+SOLAR_DETECTION_THRESHOLD = 0.8 * (np.pi / 180)        # 0.8 degrees
+LUNAR_UMBRAL_RADIUS = 0.45 * (np.pi / 180)             # 0.45 degrees
+LUNAR_PENUMBRAL_RADIUS = 1.25 * (np.pi / 180)          # 1.25 degrees
+MOON_MEAN_ANGULAR_RADIUS = 0.259 * (np.pi / 180)       # 0.259 degrees
+
+
+def _lunar_threshold(catalog_type):
+    """Get detection threshold for a lunar eclipse based on catalog type."""
+    if catalog_type == "penumbral":
+        return LUNAR_PENUMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
+    return LUNAR_UMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
 
 
 def _tychos_moon_velocity(system, jd, m_ra, m_dec):
@@ -74,7 +85,7 @@ def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
     for ecl in eclipses:
         jd = ecl["julian_day_tt"]
         min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_lunar_eclipse(system, jd)
-        threshold = lunar_threshold(ecl["type"])
+        threshold = _lunar_threshold(ecl["type"])
         threshold_arcmin = np.degrees(threshold) * 60
         det = min_sep < threshold
         m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))

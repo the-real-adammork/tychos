@@ -8,12 +8,6 @@ from tychos_skyfield import baselib as T
 
 MINUTE_IN_DAYS = 1.0 / 1440.0
 
-# Detection thresholds (radians)
-SOLAR_DETECTION_THRESHOLD = 0.8 * (np.pi / 180)        # 0.8 degrees
-LUNAR_UMBRAL_RADIUS = 0.45 * (np.pi / 180)             # 0.45 degrees
-LUNAR_PENUMBRAL_RADIUS = 1.25 * (np.pi / 180)          # 1.25 degrees
-MOON_MEAN_ANGULAR_RADIUS = 0.259 * (np.pi / 180)       # 0.259 degrees
-
 
 def angular_separation(ra1, dec1, ra2, dec2):
     """Angular separation using the Vincenty formula. All inputs/output in radians."""
@@ -24,13 +18,6 @@ def angular_separation(ra1, dec1, ra2, dec2):
                  np.sin(dec1) * np.cos(dec2) * np.cos(dra))**2),
         np.sin(dec1) * np.sin(dec2) + np.cos(dec1) * np.cos(dec2) * np.cos(dra)
     )
-
-
-def lunar_threshold(catalog_type):
-    """Get detection threshold for a lunar eclipse based on catalog type."""
-    if catalog_type == "penumbral":
-        return LUNAR_PENUMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
-    return LUNAR_UMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
 
 
 def _get_sun_moon_radec(system):
