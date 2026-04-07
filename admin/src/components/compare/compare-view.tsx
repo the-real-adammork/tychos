@@ -32,39 +32,23 @@ interface CompareRun {
     owner: { name: string };
   };
   totalEclipses: number;
-  detected: number;
+  meanTychosError: number | null;
 }
 
 interface ChangedEclipse {
   date: string;
   catalogType: string;
-  aDetected: boolean;
-  bDetected: boolean;
+  aError: number | null;
+  bError: number | null;
   aSep: number | null;
   bSep: number | null;
+  errorDelta: number;
 }
 
 interface CompareResult {
   runA: CompareRun;
   runB: CompareRun;
   changed: ChangedEclipse[];
-}
-
-function DetectionBar({ detected, total }: { detected: number; total: number }) {
-  const pct = total > 0 ? (detected / total) * 100 : 0;
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${pct.toFixed(1)}%` }}
-        />
-      </div>
-      <span className="text-xs text-muted-foreground">
-        {detected} / {total} ({pct.toFixed(1)}%)
-      </span>
-    </div>
-  );
 }
 
 export default function CompareView() {
@@ -76,7 +60,6 @@ export default function CompareView() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Fetch param sets on mount
   React.useEffect(() => {
     fetch("/api/params")
       .then((r) => r.json())
@@ -92,7 +75,6 @@ export default function CompareView() {
       .catch(() => setError("Failed to load parameter sets"));
   }, []);
 
-  // Fetch comparison when all selections are made
   React.useEffect(() => {
     if (!aId || !bId) {
       setResult(null);
@@ -114,26 +96,26 @@ export default function CompareView() {
           setResult(null);
         } else {
           function mapRun(run: Record<string, unknown>): CompareRun {
-            const ps = run.param_set as Record<string, unknown> | undefined;
             return {
               id: run.id as number,
               paramSet: {
-                name: (ps?.name ?? run.param_set_name) as string,
-                paramsJson: (ps?.params_json ?? ps?.paramsJson ?? run.params_json) as string,
-                owner: (ps?.owner ?? { name: "" }) as { name: string },
+                name: run.param_set_name as string,
+                paramsJson: run.params_json as string,
+                owner: { name: "" },
               },
-              totalEclipses: (run.total_eclipses ?? run.totalEclipses) as number,
-              detected: run.detected as number,
+              totalEclipses: run.total_eclipses as number,
+              meanTychosError: (run.mean_tychos_error as number | null) ?? null,
             };
           }
           function mapChanged(c: Record<string, unknown>): ChangedEclipse {
             return {
               date: c.date as string,
               catalogType: (c.catalog_type ?? c.catalogType) as string,
-              aDetected: (c.a_detected ?? c.aDetected) as boolean,
-              bDetected: (c.b_detected ?? c.bDetected) as boolean,
+              aError: (c.a_error as number | null) ?? null,
+              bError: (c.b_error as number | null) ?? null,
               aSep: (c.a_sep ?? c.aSep ?? null) as number | null,
               bSep: (c.b_sep ?? c.bSep ?? null) as number | null,
+              errorDelta: c.error_delta as number,
             };
           }
           setResult({
@@ -147,20 +129,12 @@ export default function CompareView() {
       .finally(() => setLoading(false));
   }, [aId, bId, datasetSlug]);
 
-  const rateA =
-    result && result.runA.totalEclipses > 0
-      ? (result.runA.detected / result.runA.totalEclipses) * 100
-      : null;
-  const rateB =
-    result && result.runB.totalEclipses > 0
-      ? (result.runB.detected / result.runB.totalEclipses) * 100
-      : null;
-  const delta =
-    rateA != null && rateB != null ? rateB - rateA : null;
+  const errorA = result?.runA.meanTychosError ?? null;
+  const errorB = result?.runB.meanTychosError ?? null;
+  const delta = errorA != null && errorB != null ? errorB - errorA : null;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Selectors */}
       <Card>
         <CardHeader>
           <CardTitle>Select Versions</CardTitle>
@@ -218,26 +192,24 @@ export default function CompareView() {
         </CardContent>
       </Card>
 
-      {/* Detection Rate Comparison */}
       {result && (
         <>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                Detection Rate Comparison
+                Mean Error Comparison
                 {delta != null && (
                   <Badge
                     className={
-                      delta > 0
+                      delta < 0
                         ? "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30"
-                        : delta < 0
-                        ? ""
+                        : delta > 0
+                        ? "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
                         : "bg-muted text-muted-foreground"
                     }
-                    variant={delta < 0 ? "destructive" : "outline"}
                   >
                     {delta > 0 ? "+" : ""}
-                    {delta.toFixed(2)}%
+                    {delta.toFixed(2)}'
                   </Badge>
                 )}
               </CardTitle>
@@ -249,14 +221,10 @@ export default function CompareView() {
                     <span className="text-sm font-medium">
                       A: {result.runA.paramSet.name}
                     </span>
-                    <span className="text-sm text-muted-foreground">
-                      {rateA?.toFixed(1)}%
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {errorA != null ? `${errorA.toFixed(1)}'` : "—"}
                     </span>
                   </div>
-                  <DetectionBar
-                    detected={result.runA.detected}
-                    total={result.runA.totalEclipses}
-                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -264,26 +232,19 @@ export default function CompareView() {
                     <span className="text-sm font-medium">
                       B: {result.runB.paramSet.name}
                     </span>
-                    <span className="text-sm text-muted-foreground">
-                      {rateB?.toFixed(1)}%
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {errorB != null ? `${errorB.toFixed(1)}'` : "—"}
                     </span>
                   </div>
-                  <DetectionBar
-                    detected={result.runB.detected}
-                    total={result.runB.totalEclipses}
-                  />
                 </div>
               </div>
 
               <div className="text-sm text-muted-foreground">
-                A: {result.runA.detected} detected of {result.runA.totalEclipses} eclipses
-                {" · "}
-                B: {result.runB.detected} detected of {result.runB.totalEclipses} eclipses
+                A: {result.runA.totalEclipses} eclipses · B: {result.runB.totalEclipses} eclipses
               </div>
             </CardContent>
           </Card>
 
-          {/* Changed Eclipses */}
           <Card>
             <CardHeader>
               <CardTitle>
@@ -300,7 +261,6 @@ export default function CompareView() {
             </CardContent>
           </Card>
 
-          {/* Parameter Diff */}
           <Card>
             <CardHeader>
               <CardTitle>Parameter Diff</CardTitle>

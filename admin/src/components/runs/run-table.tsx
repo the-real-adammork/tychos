@@ -26,8 +26,7 @@ interface Run {
   datasetName: string
   status: RunStatus
   totalEclipses: number | null
-  detected: number | null
-  overallPass: number | null
+  meanTychosError: number | null
   createdAt: string
   versionNumber: number | null
   paramSet: {
@@ -66,15 +65,10 @@ function StatusBadge({ status }: { status: RunStatus }) {
   )
 }
 
-function detectionRate(run: Run): string {
+function meanErrorDisplay(run: Run): string {
   if (run.status !== "done") return "—"
-  const pass = run.overallPass ?? run.detected
-  if (pass === null || run.totalEclipses === null) return "—"
-  const pct =
-    run.totalEclipses === 0
-      ? 0
-      : Math.round((pass / run.totalEclipses) * 100)
-  return `${pass}/${run.totalEclipses} (${pct}%)`
+  if (run.meanTychosError === null) return "—"
+  return `${run.meanTychosError.toFixed(1)}'`
 }
 
 type FilterStatus = "all" | RunStatus
@@ -95,8 +89,7 @@ export default function RunTable() {
           datasetName: r.dataset_name,
           status: r.status,
           totalEclipses: r.total_eclipses,
-          detected: r.detected,
-          overallPass: r.overall_pass ?? null,
+          meanTychosError: r.mean_tychos_error ?? null,
           createdAt: r.created_at,
           versionNumber: r.version_number ?? null,
           paramSet: {
@@ -146,7 +139,7 @@ export default function RunTable() {
               <TableHead>Owner</TableHead>
               <TableHead>Dataset</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Detection Rate</TableHead>
+              <TableHead>Mean Error</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -181,7 +174,7 @@ export default function RunTable() {
                   <StatusBadge status={run.status} />
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {detectionRate(run)}
+                  {meanErrorDisplay(run)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {format(new Date(run.createdAt), "MMM d, yyyy HH:mm")}

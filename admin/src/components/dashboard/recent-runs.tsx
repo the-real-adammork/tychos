@@ -6,8 +6,7 @@ interface RecentRunsProps {
     id: number;
     datasetName: string;
     status: string;
-    totalEclipses: number | null;
-    detected: number | null;
+    meanTychosError: number | null;
     paramSet: { name: string };
   }>;
 }
@@ -29,11 +28,11 @@ export function RecentRuns({ runs }: RecentRunsProps) {
                   {run.paramSet.name} / {run.datasetName}
                 </span>
                 <span className="text-sm">
-                  {run.status === "done" &&
-                  run.detected !== null &&
-                  run.totalEclipses !== null ? (
+                  {run.status === "done" ? (
                     <span className="tabular-nums">
-                      {run.detected}/{run.totalEclipses}
+                      {run.meanTychosError != null
+                        ? `${run.meanTychosError.toFixed(1)}'`
+                        : "—"}
                     </span>
                   ) : (
                     <Badge

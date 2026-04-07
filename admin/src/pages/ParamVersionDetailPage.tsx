@@ -21,8 +21,7 @@ interface RunRow {
   dataset_name: string;
   status: RunStatus;
   total_eclipses: number | null;
-  detected: number | null;
-  overall_pass: number | null;
+  mean_tychos_error: number | null;
   created_at: string;
 }
 
@@ -34,10 +33,8 @@ interface Ancestor {
   params_json: string;
   notes: string | null;
   created_at: string;
-  solar_eclipse_detected: number | null;
-  solar_eclipse_total: number | null;
-  lunar_eclipse_detected: number | null;
-  lunar_eclipse_total: number | null;
+  solar_mean_error?: number | null;
+  lunar_mean_error?: number | null;
 }
 
 interface VersionDetail {
@@ -61,25 +58,22 @@ function StatusBadge({ status }: { status: RunStatus }) {
   return <Badge variant="destructive">failed</Badge>;
 }
 
-function detectionLabel(detected: number | null, total: number | null): string {
-  if (detected === null || total === null) return "—";
-  const pct = total === 0 ? 0 : Math.round((detected / total) * 100);
-  return `${detected}/${total} (${pct}%)`;
+function meanErrorLabel(error: number | null | undefined): string {
+  if (error === null || error === undefined) return "—";
+  return `${error.toFixed(1)}'`;
 }
 
-function StatCard({ title, run, notes }: { title: string; run: RunRow | null; notes?: string | null }) {
+function StatCard({ title, run }: { title: string; run: RunRow | null }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {run && run.total_eclipses !== null && run.total_eclipses > 0 ? (
+        {run && run.mean_tychos_error != null ? (
           <>
-            <p className="text-3xl font-bold text-teal-400">
-              {run.total_eclipses === 0 ? "0%" : `${Math.round(((run.overall_pass ?? run.detected ?? 0) / run.total_eclipses) * 100)}%`}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">{run.overall_pass ?? run.detected}/{run.total_eclipses} pass</p>
+            <p className="text-3xl font-bold">{run.mean_tychos_error.toFixed(1)}'</p>
+            <p className="text-sm text-muted-foreground mt-1">mean error</p>
           </>
         ) : (
           <p className="text-muted-foreground text-sm">No runs yet</p>
@@ -138,8 +132,7 @@ export default function ParamVersionDetailPage() {
 
   const versionChain: ChainEntry[] = (() => {
     const allVersions: Array<Ancestor & { params_json: string }> = [
-      { ...data, solar_eclipse_detected: solarRun?.detected ?? null, solar_eclipse_total: solarRun?.total_eclipses ?? null,
-        lunar_eclipse_detected: lunarRun?.detected ?? null, lunar_eclipse_total: lunarRun?.total_eclipses ?? null },
+      { ...data, solar_mean_error: solarRun?.mean_tychos_error ?? null, lunar_mean_error: lunarRun?.mean_tychos_error ?? null },
       ...data.ancestors,
     ];
 
@@ -259,8 +252,8 @@ export default function ParamVersionDetailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <StatCard title="Solar Detection" run={solarRun} />
-        <StatCard title="Lunar Detection" run={lunarRun} />
+        <StatCard title="Solar Mean Error" run={solarRun} />
+        <StatCard title="Lunar Mean Error" run={lunarRun} />
       </div>
 
       {/* Runs */}
@@ -274,7 +267,7 @@ export default function ParamVersionDetailPage() {
               <TableRow>
                 <TableHead>Dataset</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Detection</TableHead>
+                <TableHead>Mean Error</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -287,7 +280,7 @@ export default function ParamVersionDetailPage() {
                 >
                   <TableCell className="capitalize">{run.dataset_name}</TableCell>
                   <TableCell><StatusBadge status={run.status} /></TableCell>
-                  <TableCell className="tabular-nums">{detectionLabel(run.overall_pass ?? run.detected, run.total_eclipses)}</TableCell>
+                  <TableCell className="tabular-nums">{meanErrorLabel(run.mean_tychos_error)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}
                   </TableCell>
@@ -318,10 +311,10 @@ export default function ParamVersionDetailPage() {
                       {format(new Date(entry.version.created_at), "MMM d, yyyy HH:mm")}
                     </span>
                     <span className="tabular-nums text-xs">
-                      Solar: {detectionLabel(entry.version.solar_eclipse_detected, entry.version.solar_eclipse_total)}
+                      Solar: {meanErrorLabel(entry.version.solar_mean_error)}
                     </span>
                     <span className="tabular-nums text-xs">
-                      Lunar: {detectionLabel(entry.version.lunar_eclipse_detected, entry.version.lunar_eclipse_total)}
+                      Lunar: {meanErrorLabel(entry.version.lunar_mean_error)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

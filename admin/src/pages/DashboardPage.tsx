@@ -16,23 +16,21 @@ interface DatasetSummaryData {
 
 interface DashboardData {
   total_param_sets: number;
-  best_solar: { name: string; rate: number } | null;
-  best_lunar: { name: string; rate: number } | null;
+  best_solar: { name: string; mean_error: number } | null;
+  best_lunar: { name: string; mean_error: number } | null;
   recent_runs: Array<{
     id: number;
     dataset_slug: string;
     dataset_name: string;
     status: string;
-    total_eclipses: number | null;
-    detected: number | null;
-    overall_pass: number | null;
+    mean_tychos_error: number | null;
     version_number: number | null;
     param_set_name: string;
   }>;
   leaderboard: Array<{
     param_set_name: string;
     owner_name: string;
-    avg_rate: number;
+    avg_mean_error: number;
   }>;
 }
 
@@ -71,8 +69,7 @@ export default function DashboardPage() {
             id: r.id,
             datasetName: r.dataset_name,
             status: r.status,
-            totalEclipses: r.total_eclipses,
-            detected: r.overall_pass ?? r.detected,
+            meanTychosError: r.mean_tychos_error,
             paramSet: { name: `${r.param_set_name} v${r.version_number}` },
           }))}
         />
@@ -80,7 +77,7 @@ export default function DashboardPage() {
           entries={data.leaderboard.map((e) => ({
             paramSetName: e.param_set_name,
             ownerName: e.owner_name,
-            avgRate: e.avg_rate,
+            avgMeanError: e.avg_mean_error,
           }))}
         />
       </div>

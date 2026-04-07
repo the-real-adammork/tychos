@@ -4,12 +4,12 @@ interface LeaderboardProps {
   entries: Array<{
     paramSetName: string;
     ownerName: string;
-    avgRate: number;
+    avgMeanError: number;
   }>;
 }
 
 export function Leaderboard({ entries }: LeaderboardProps) {
-  const sorted = [...entries].sort((a, b) => b.avgRate - a.avgRate);
+  const sorted = [...entries].sort((a, b) => a.avgMeanError - b.avgMeanError);
 
   return (
     <Card>
@@ -30,7 +30,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   </span>
                 </span>
                 <span className="text-sm font-medium tabular-nums">
-                  {(entry.avgRate * 100).toFixed(1)}%
+                  {entry.avgMeanError.toFixed(1)}'
                 </span>
               </li>
             ))}

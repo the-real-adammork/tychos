@@ -7,8 +7,8 @@ import {
 
 interface StatsCardsProps {
   totalParamSets: number;
-  bestSolar: { name: string; rate: number } | null;
-  bestLunar: { name: string; rate: number } | null;
+  bestSolar: { name: string; mean_error: number } | null;
+  bestLunar: { name: string; mean_error: number } | null;
 }
 
 export function StatsCards({
@@ -29,13 +29,13 @@ export function StatsCards({
 
       <Card>
         <CardHeader>
-          <CardTitle>Best Solar Detection</CardTitle>
+          <CardTitle>Best Solar Error</CardTitle>
         </CardHeader>
         <CardContent>
           {bestSolar ? (
             <>
-              <p className="text-4xl font-bold text-teal-400">
-                {(bestSolar.rate * 100).toFixed(1)}%
+              <p className="text-4xl font-bold">
+                {bestSolar.mean_error.toFixed(1)}'
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {bestSolar.name}
@@ -49,13 +49,13 @@ export function StatsCards({
 
       <Card>
         <CardHeader>
-          <CardTitle>Best Lunar Detection</CardTitle>
+          <CardTitle>Best Lunar Error</CardTitle>
         </CardHeader>
         <CardContent>
           {bestLunar ? (
             <>
-              <p className="text-4xl font-bold text-teal-400">
-                {(bestLunar.rate * 100).toFixed(1)}%
+              <p className="text-4xl font-bold">
+                {bestLunar.mean_error.toFixed(1)}'
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {bestLunar.name}
