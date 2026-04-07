@@ -18,7 +18,16 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
+interface DatasetMeta {
+  name: string;
+  description: string | null;
+  source_url: string | null;
+  event_type: string;
+  record_count: number;
+}
+
 interface DatasetResponse {
+  dataset: DatasetMeta;
   eclipses: Record<string, unknown>[];
   total: number;
   page: number;
@@ -106,7 +115,24 @@ export default function DatasetDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dataset</h1>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold">{data?.dataset.name ?? "Dataset"}</h1>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            {data?.dataset.description && (
+              <span>{data.dataset.description}</span>
+            )}
+            {data?.dataset.source_url && (
+              <a
+                href={data.dataset.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                Source
+              </a>
+            )}
+          </div>
+        </div>
         {data && (
           <span className="text-sm text-muted-foreground">
             {data.total} eclipses

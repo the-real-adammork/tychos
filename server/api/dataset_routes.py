@@ -57,14 +57,15 @@ async def get_dataset_catalog(
     """Return paginated catalog data for a dataset by slug."""
     async with get_async_db() as conn:
         ds_cursor = await conn.execute(
-            "SELECT id, slug, event_type FROM datasets WHERE slug = ?", (slug,)
+            "SELECT * FROM datasets WHERE slug = ?", (slug,)
         )
         ds = await ds_cursor.fetchone()
         if not ds:
             raise HTTPException(status_code=404, detail=f"Dataset '{slug}' not found")
 
-        dataset_id = ds["id"]
-        event_type = ds["event_type"]
+        ds_dict = dict(ds)
+        dataset_id = ds_dict["id"]
+        event_type = ds_dict["event_type"]
         offset = (page - 1) * page_size
 
         conditions = ["dataset_id = ?"]
@@ -105,6 +106,13 @@ async def get_dataset_catalog(
         rows = [dict(r) for r in await cursor.fetchall()]
 
     return {
+        "dataset": {
+            "name": ds_dict["name"],
+            "description": ds_dict["description"],
+            "source_url": ds_dict["source_url"],
+            "event_type": event_type,
+            "record_count": ds_dict["record_count"],
+        },
         "eclipses": rows,
         "total": total,
         "page": page,
