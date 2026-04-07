@@ -13,7 +13,7 @@ from server.services.scanner import (
     scan_lunar_eclipses,
 )
 
-_POLL_INTERVAL = 5  # seconds between polls when idle
+_POLL_INTERVAL = 5
 
 
 def _angular_sep_arcmin(ra1, dec1, ra2, dec2):
@@ -40,7 +40,6 @@ def _worker_loop() -> None:
         try:
             _process_one()
         except Exception:
-            # Unhandled error in the loop itself — log and keep running.
             print(f"[worker] Unexpected loop error:\n{traceback.format_exc()}")
         time.sleep(_POLL_INTERVAL)
 
@@ -50,9 +49,10 @@ def _process_one() -> None:
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT r.id, r.test_type, pv.params_json
+            SELECT r.id, r.dataset_id, d.slug AS dataset_slug, pv.params_json
               FROM runs r
               JOIN param_versions pv ON r.param_version_id = pv.id
+              JOIN datasets d ON r.dataset_id = d.id
              WHERE r.status = 'queued'
              ORDER BY r.created_at ASC
              LIMIT 1
@@ -63,10 +63,10 @@ def _process_one() -> None:
             return
 
         run_id = row["id"]
-        test_type = row["test_type"]
+        dataset_id = row["dataset_id"]
+        dataset_slug = row["dataset_slug"]
         params = json.loads(row["params_json"])
 
-    # Mark as running (separate connection to commit immediately)
     with get_db() as conn:
         conn.execute(
             "UPDATE runs SET status = 'running', started_at = ? WHERE id = ?",
@@ -75,24 +75,24 @@ def _process_one() -> None:
         conn.commit()
 
     try:
-        eclipses = load_eclipse_catalog(test_type)
+        eclipses = load_eclipse_catalog(dataset_id)
 
-        if test_type == "solar":
+        if dataset_slug == "solar_eclipse":
             results = scan_solar_eclipses(params, eclipses)
-        else:
+        elif dataset_slug == "lunar_eclipse":
             results = scan_lunar_eclipses(params, eclipses)
+        else:
+            raise ValueError(f"Unknown dataset slug: {dataset_slug}")
 
         detected = sum(1 for r in results if r["detected"])
 
-        # Load JPL reference for moon error computation
         with get_db() as conn:
             jpl_rows = conn.execute(
-                "SELECT julian_day_tt, moon_ra_rad, moon_dec_rad FROM jpl_reference WHERE test_type = ?",
-                (test_type,),
+                "SELECT julian_day_tt, moon_ra_rad, moon_dec_rad FROM jpl_reference WHERE dataset_id = ?",
+                (dataset_id,),
             ).fetchall()
         jpl_by_jd = {row["julian_day_tt"]: row for row in jpl_rows}
 
-        # Compute moon_error_arcmin for each result
         for r in results:
             jpl = jpl_by_jd.get(r["julian_day_tt"])
             if jpl and r["moon_ra_rad"] is not None and r["moon_dec_rad"] is not None:
@@ -103,7 +103,6 @@ def _process_one() -> None:
             else:
                 r["moon_error_arcmin"] = None
 
-        # Write results in small chunks to avoid holding the write lock
         CHUNK_SIZE = 50
         insert_sql = """
             INSERT INTO eclipse_results (
