@@ -120,6 +120,8 @@ export default function ParamDetailPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [datasets, setDatasets] = useState<{ id: number; slug: string; name: string }[]>([]);
+  const [queueing, setQueueing] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -134,6 +136,38 @@ export default function ParamDetailPage() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Fetch datasets once for the queue-run buttons
+  useEffect(() => {
+    fetch("/api/datasets")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setDatasets)
+      .catch(() => setDatasets([]));
+  }, []);
+
+  async function handleQueueRun(dataset: { id: number; slug: string; name: string }) {
+    if (!id) return;
+    setQueueing(dataset.slug);
+    try {
+      const res = await fetch("/api/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ param_set_id: Number(id), dataset_id: dataset.id }),
+      });
+      if (res.ok) {
+        // Refresh the page data to show the new queued run
+        const refreshed = await fetch(`/api/params/${id}`);
+        if (refreshed.ok) setData(await refreshed.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert(body?.detail || `Failed to queue run (${res.status})`);
+      }
+    } catch (e) {
+      alert(`Failed to queue run: ${e instanceof Error ? e.message : "unknown error"}`);
+    } finally {
+      setQueueing(null);
+    }
+  }
 
   async function handleDelete() {
     if (!id || !data) return;
@@ -255,6 +289,17 @@ export default function ParamDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {datasets.map((ds) => (
+            <Button
+              key={ds.id}
+              onClick={() => handleQueueRun(ds)}
+              disabled={queueing !== null}
+            >
+              {queueing === ds.slug
+                ? "Queueing…"
+                : `Run ${ds.name.replace(/^NASA /, "")}`}
+            </Button>
+          ))}
           <Button variant="outline" onClick={handleDownload}>
             Download JSON
           </Button>
