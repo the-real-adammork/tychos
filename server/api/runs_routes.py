@@ -52,17 +52,14 @@ async def list_runs(
         for row in rows:
             d = _row_to_dict(row)
             if d["status"] == "done":
-                op_cursor = await conn.execute(
-                    """
-                    SELECT SUM(CASE WHEN detected = 1 OR (moon_error_arcmin IS NOT NULL AND moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass
-                    FROM eclipse_results WHERE run_id = ?
-                    """,
+                err_cursor = await conn.execute(
+                    "SELECT AVG(tychos_error_arcmin) AS mean_error FROM eclipse_results WHERE run_id = ?",
                     (d["id"],),
                 )
-                op_row = await op_cursor.fetchone()
-                d["overall_pass"] = op_row["overall_pass"] or 0
+                err_row = await err_cursor.fetchone()
+                d["mean_tychos_error"] = round(err_row["mean_error"], 2) if err_row["mean_error"] else None
             else:
-                d["overall_pass"] = None
+                d["mean_tychos_error"] = None
             result.append(d)
 
     return result

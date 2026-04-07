@@ -14,7 +14,7 @@ async def _get_latest_done_run(conn, param_set_id: int, dataset_id: int):
     """Return the latest done run for a param_set + dataset via param_versions, or None."""
     cursor = await conn.execute(
         """
-        SELECT r.id, r.total_eclipses, r.detected, ps.name AS param_set_name,
+        SELECT r.id, r.total_eclipses, ps.name AS param_set_name,
                u.name AS owner_name, pv.params_json
         FROM runs r
         JOIN param_versions pv ON r.param_version_id = pv.id
@@ -60,7 +60,7 @@ async def compare(
         # Fetch all eclipse results for both runs indexed by julian_day_tt + catalog_type
         cursor_a = await conn.execute(
             """
-            SELECT julian_day_tt, date, catalog_type, detected, min_separation_arcmin
+            SELECT julian_day_tt, date, catalog_type, min_separation_arcmin, tychos_error_arcmin
             FROM eclipse_results WHERE run_id = ?
             """,
             (run_a["id"],),
@@ -69,7 +69,7 @@ async def compare(
 
         cursor_b = await conn.execute(
             """
-            SELECT julian_day_tt, date, catalog_type, detected, min_separation_arcmin
+            SELECT julian_day_tt, date, catalog_type, min_separation_arcmin, tychos_error_arcmin
             FROM eclipse_results WHERE run_id = ?
             """,
             (run_b["id"],),
@@ -84,7 +84,13 @@ async def compare(
         (r["julian_day_tt"], r["catalog_type"]): r for r in results_b
     }
 
-    # Find eclipses where detected status differs
+    # Compute mean tychos error for each run
+    a_errors = [r["tychos_error_arcmin"] for r in results_a if r["tychos_error_arcmin"] is not None]
+    b_errors = [r["tychos_error_arcmin"] for r in results_b if r["tychos_error_arcmin"] is not None]
+    run_a_mean_error = round(sum(a_errors) / len(a_errors), 2) if a_errors else None
+    run_b_mean_error = round(sum(b_errors) / len(b_errors), 2) if b_errors else None
+
+    # Find eclipses where error changed significantly
     changed = []
     all_keys = set(map_a.keys()) | set(map_b.keys())
     for key in sorted(all_keys):
@@ -92,17 +98,20 @@ async def compare(
         row_b = map_b.get(key)
         if row_a is None or row_b is None:
             continue
-        if bool(row_a["detected"]) != bool(row_b["detected"]):
-            changed.append(
-                {
+        err_a = row_a["tychos_error_arcmin"]
+        err_b = row_b["tychos_error_arcmin"]
+        if err_a is not None and err_b is not None:
+            delta = err_b - err_a
+            if abs(delta) > 1.0:  # Only show changes > 1 arcminute
+                changed.append({
                     "date": row_a["date"],
                     "catalog_type": row_a["catalog_type"],
-                    "a_detected": bool(row_a["detected"]),
-                    "b_detected": bool(row_b["detected"]),
+                    "a_error": err_a,
+                    "b_error": err_b,
                     "a_sep": row_a["min_separation_arcmin"],
                     "b_sep": row_b["min_separation_arcmin"],
-                }
-            )
+                    "error_delta": round(delta, 2),
+                })
 
     return {
         "run_a": {
@@ -111,7 +120,7 @@ async def compare(
             "owner_name": run_a["owner_name"],
             "params_json": run_a["params_json"],
             "total_eclipses": run_a["total_eclipses"],
-            "detected": run_a["detected"],
+            "mean_tychos_error": run_a_mean_error,
         },
         "run_b": {
             "id": run_b["id"],
@@ -119,7 +128,7 @@ async def compare(
             "owner_name": run_b["owner_name"],
             "params_json": run_b["params_json"],
             "total_eclipses": run_b["total_eclipses"],
-            "detected": run_b["detected"],
+            "mean_tychos_error": run_b_mean_error,
         },
         "changed": changed,
     }
