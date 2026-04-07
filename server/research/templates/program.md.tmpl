@@ -19,22 +19,18 @@ Lower `mean(|timing_offset_min|)` on the {dataset_slug} subset by editing
 
 ## The loop
 1. Form a hypothesis about which allowlisted parameter(s) to change and why.
-2. Edit `current.json` (only keys matching the allowlist above).
-3. Run: `python -m server.research iterate {job_name}`
-   - Read stdout for `objective: <number>`.
-4. If the new objective is **lower** than the current best:
-   - Run: `python -m server.research validate {job_name}`
-   - If `validation_objective` is also lower than the previous best
-     validation, keep the edit and update your "current best" mental note.
-   - If validation got *worse*, revert the edit (subset overfit) and note it.
-5. If the objective got worse, revert `current.json` and try a different change.
+2. Edit `current.json` (only keys in the allowlist).
+3. Run `python -m server.research iterate {job_name}` and read `objective: <n>`.
+4. If lower than current best: run `python -m server.research validate {job_name}`
+   and keep only if the `validation_objective` is also lower than the previous
+   best validation (otherwise revert — subset overfit).
+5. If worse, revert and try a different change.
 6. Repeat until the wall-clock budget is exhausted.
 
-## Joint multi-parameter search
+## Joint search (use this for coupled parameters)
 
-Single-parameter probing is slow and gets stuck at coordinate-wise minima.
-When you identify 2–6 coupled parameters that plausibly interact, hand them
-to the built-in Nelder-Mead optimizer instead of grinding by hand:
+Single-parameter grinding gets stuck at coordinate-wise minima. When you
+identify **2–6 coupled parameters**, hand them to Nelder-Mead instead:
 
 ```
 python -m server.research search {job_name} \
@@ -42,171 +38,104 @@ python -m server.research search {job_name} \
     --budget 60
 ```
 
-The search reads the current state of `current.json`, runs Nelder-Mead over
-just the listed keys against the subset, and — only if it finds a strictly
-better joint assignment — overwrites `current.json` with the best state.
-If it doesn't improve, `current.json` is untouched. A single summary entry
-is appended to `log.jsonl` with `kind: "search"` recording the starting
-and best objectives and the number of evaluations used.
-
-Guidelines for using `search`:
-- **2–6 parameters at a time**, not all 48. More dimensions → exponentially
-  harder search. Pick ones you have a coupling hypothesis about.
-- **Don't mix highly-sensitive and insensitive parameters** in one search —
-  the sensitive ones will dominate and the insensitive ones will barely move.
-- **Budget ~10× the number of parameters** as a starting point. A 3-param
-  search with budget=30–60 usually converges.
-- **Always run `iterate` by hand first** to get the starting objective so
-  you know whether the search's "improvement" is meaningful.
-- **Validate after a successful search**, same as a hand edit — the search
-  is still operating on the subset and can still overfit.
+It only overwrites `current.json` if it finds a strictly better joint
+assignment. Guidelines: 2–6 params at a time; budget ≈ 10× the number of
+params; don't mix highly- and barely-sensitive params in one call; run
+`iterate` first to know the starting objective; `validate` after a win.
 
 ## Constraints
-- **Only edit `current.json`.** Never touch `baseline.json`, `subset.json`,
-  or any other file.
-- **Only edit allowlisted keys.** The CLI will hard-fail if you don't.
-- **One change at a time** (by hand) when possible — easier to attribute wins.
-  For joint moves, use `search` instead of editing multiple fields manually.
-
-## Background: the Tychos model (technical brief)
-
-> **How this section is organized.** Parts A–C below describe the geometry
-> and parameters in **objective-agnostic** terms — they apply no matter what
-> metric you're optimizing. Part D ("Leverage analysis") and Part E
-> ("Empirical findings") are **specific to the current objective
-> `mean(|timing_offset_min|)`**. If you change the objective (e.g. to
-> minimize separation error, detection rate, or directional error),
-> **re-derive D and E from the physics in A–C** — the sensitivity rankings
-> and "dead parameter" lists below are valid only for timing.
-
-### A. Geometry (objective-agnostic)
-Tychos is a **geo-heliocentric** model. Earth sits near the system barycenter;
-the Sun orbits Earth once per year (orbital diameter ~299.2 Mkm, speed ~107,226
-km/h) and carries Mercury and Venus as its satellites. Mars, Jupiter, Saturn
-and the outer planets orbit the Sun. Unlike a strict Tychonic model, Earth is
-not perfectly static: it crawls along a large circular **"PVP" (Polaris-Vega-Polaris) orbit**
-of diameter 113,230,656 km (radius ~56.6 Mkm) at ~1.6 km/h, completing one
-revolution in **25,344 years** (the "Tychos Great Year"), opposite in sense to
-the Sun. Because Earth simultaneously rotates (361°/solar day) and translates
-along the PVP orbit, a body fixed to Earth traces a **prolate trochoid** — the
-book calls this "man's yearly path" — and the combination produces the analemma
-with its 3:1 asymmetry. The Moon orbits Earth on a ~763,095 km-diameter circle
-at ~3,656 km/h (sidereal 27.322 d, synodic ~29.22 d, called the TMSP in the
-book). Eclipses arise when the Moon's orbit crosses the Earth–Sun line in this
-frame; the book itself does not give an explicit eclipse-mechanics derivation,
-so the mechanism here is inferred from the pure geometry of moon + sun circles
-around Earth.
-
-### B. Parameter meanings (objective-agnostic)
-Mechanical descriptions only — what each field does in the Tychosium
-geometry. For how each field affects the **current objective**, see Part D.
-- **`orbit_radius`** — radius of the body's primary circle around its center.
-  For `sun` this is ~1 AU; for `moon` ~381,547 km. Scaling it changes the
-  size of the whole trajectory.
-- **`orbit_center_a/b/c`** — Cartesian offsets of the orbit's center from
-  its parent. Non-zero values are how Tychosium encodes eccentricity-like
-  displacements and epicyclic corrections; they tilt the line of apsides
-  and create the asymmetry that mainstream models call eccentricity.
-- **`orbit_tilt_a/b`** — two-axis inclination of the orbital plane relative
-  to the parent frame. For the Moon this encodes the ~5° lunar inclination
-  and nodal orientation.
-- **`start_pos`** — angular phase at t=0 (radians in the internal
-  representation, degrees in the JSON). Pure phase offset along the orbit.
-- **`speed`** — angular rate per Tychos time unit. Since `sun.speed = 2π`,
-  the base time unit is one (Tychos) year; `moon.speed ≈ 2π · (365.25/27.322)`
-  accordingly.
-
-### C. Deferents (objective-agnostic)
-Tychosium layers smaller carrier circles ("deferents") on the primary orbit
-to reproduce lunar/solar corrections without Keplerian ellipses:
-- **`moon_def_a`** — the book explicitly discusses an **8.85-year apsidal
-  precession of the Moon's perigee** (0.1114°/day, stated as a 3:1 ratio
-  against Earth's PVP motion). `moon_def_a` is the carrier that rotates the
-  moon's apse line on this cycle; its `speed` should correspond to 2π/8.85
-  rad/yr.
-- **`moon_def_b`** — a second smaller deferent. The book links lunar
-  **evection** to a ~31.8-day oscillation of ±1.274° producing ~14,070 km
-  lateral displacement, attributed to the PVP geometry rather than
-  perturbation theory. `moon_def_b` most plausibly encodes this evection-like
-  correction; the book does not name this parameter directly, so the mapping
-  is inferred from the geometry.
-- **`sun_def`** — a deferent on the Sun's orbit encoding the solar
-  equation-of-center analogue (what mainstream calls Earth's orbital
-  eccentricity). It shifts the Sun's apparent longitude by up to ~±2° over
-  the year.
+- Only edit `current.json`. Never touch `baseline.json`, `subset.json`, or
+  any other file.
+- Only edit allowlisted keys. The CLI hard-fails otherwise.
+- For joint moves, prefer `search` over hand-editing several fields at once.
 
 ---
 
-### D. Leverage analysis — **objective: `mean(|timing_offset_min|)`**
+## Background: the Tychos model
 
-> ⚠️ **Everything below this line is specific to the timing-offset
-> objective.** If you are optimizing a different metric (separation,
-> detection rate, directional error), the sensitivity rankings and
-> "dead parameter" claims here **do not apply** — re-derive from Parts
-> A–C above.
+> Parts A & B are **objective-agnostic** geometry. Part C and below are
+> **specific to the current objective `mean(|timing_offset_min|)`** — if
+> you change the objective, re-derive C from the physics.
 
-**High leverage on timing:**
-- **`moon.start_pos`** — direct, linear leverage: the Moon sweeps ~0.549°/hr,
-  so a 1° phase error ≈ **109 min of timing shift on every eclipse**.
-  Highest-leverage parameter for a constant offset. Start here.
-- **`moon.speed`** — produces a secular drift proportional to elapsed time;
-  small error becomes large over 100-year baselines. Note: in v1-original/v1
-  this appears to already be near a local minimum (empirically verified).
-- **`moon_def_a`** (rate and phase) — modulates timing by a few minutes on
-  the 8.85-yr perigee cycle; essential for fitting a multi-decade span.
-- **`moon_def_b`** — evection-scale modulation (~±1 min, ~31.8-day period)
-  relevant for per-event residuals.
+### A. Geometry (objective-agnostic)
+Tychos is **geo-heliocentric**: Earth sits near the barycenter, the Sun
+orbits Earth once per year (carrying Mercury and Venus), and the outer
+planets orbit the Sun. Earth itself is not static — it crawls along a
+large circular **PVP (Polaris–Vega–Polaris) orbit**, radius ~56.6 Mkm,
+period **25,344 years** (the "Tychos Great Year"), opposite in sense to
+the Sun. Earth's rotation + PVP translation traces a **prolate trochoid**
+on the celestial sphere. The Moon orbits Earth on a ~381,547 km-radius
+circle (sidereal 27.322 d, synodic ~29.22 d). Eclipses happen when the
+Moon's orbit crosses the Earth–Sun line; the book does not give an
+explicit eclipse-mechanics derivation, so the mechanism is inferred from
+pure moon+sun geometry around Earth.
+
+### B. Parameters & deferents (objective-agnostic)
+Each body has 8 fields: `orbit_radius`, `orbit_center_a/b/c` (Cartesian
+offsets that encode eccentricity-like displacements), `orbit_tilt_a/b`
+(two-axis inclination), `start_pos` (initial phase; **degrees** in JSON,
+radians internally), `speed` (angular rate per Tychos time unit — since
+`sun.speed = 2π`, the base unit is one year).
+
+Tychosium layers **deferent** carrier-circles on the primary orbit to
+reproduce lunar/solar corrections without Keplerian ellipses:
+- **`moon_def_a`** encodes the **8.85-year apsidal precession of the
+  Moon's perigee** (the book cites 0.1114°/day, stated as a 3:1 ratio
+  against Earth's PVP motion). Its `speed` ≈ 2π/8.85 rad/yr.
+- **`moon_def_b`** — a smaller deferent most plausibly encoding the
+  **evection** (~31.8-day, ±1.274°, ~14,070 km lateral displacement,
+  attributed in the book to PVP geometry). Mapping inferred — the book
+  doesn't name this parameter.
+- **`sun_def`** — the solar equation-of-center analogue; shifts the
+  Sun's apparent longitude by up to ±2° over the year.
+
+---
+
+### C. Leverage analysis — **objective: `mean(|timing_offset_min|)`**
+
+> ⚠️ This entire section is specific to the timing objective. If you are
+> optimizing a different metric (separation, detection rate, directional
+> error), **re-derive from Parts A–B** — the rankings below don't apply.
+
+**Sign convention (timing only):** catalog times are **Julian Date in TT**;
+`timing_offset_min = (best_jd − catalog_jd) × 1440`. Positive = tychos
+predicts alignment **later** than catalog → moon needs to be further
+along in its orbit at t=0 → **decrease** `moon.start_pos` (in degrees).
+
+**High leverage:**
+- **`moon.start_pos`** — direct linear: 1° ≈ 109 min of timing shift on
+  every eclipse. Highest per-degree leverage. Start here.
+- **`moon.speed`** — secular drift proportional to elapsed time; small
+  error becomes large over 100-yr baselines. *(Empirically at a local
+  minimum in v1-original/v1.)*
+- **`moon_def_a.{{speed,start_pos}}`** — modulates timing by a few minutes
+  on the 8.85-yr perigee cycle. Essential for multi-decade fits.
+- **`moon_def_b`** — evection-scale modulation (~±1 min, 31.8-day period).
 
 **Medium leverage:**
-- **`sun.start_pos`, `sun.speed`, `sun_def.*`** — set where the Sun is on
-  the sky, so they affect the date of syzygy (and thus which new/full moons
-  become eclipses) and the longitude of the shadow track. A 1° error in sun
-  longitude shifts eclipse timing by about 2 hours via the Moon's catch-up
-  rate (~12°/day synodic ≈ 2 hr/°). Non-trivial but smaller per-degree than
-  `moon.start_pos`.
-- **`sun.orbit_center_*` / `sun_def`** — encode the solar equation of
-  center; errors here bias timing seasonally (max near the perihelion/
-  aphelion analogue).
+- **`sun.start_pos` / `sun.speed` / `sun_def.*`** — 1° in sun longitude ≈
+  2 hr of timing shift (via ~12°/day synodic rate). Smaller per-degree
+  than `moon.start_pos` but still non-trivial.
+- **`sun.orbit_center_*`** — solar equation of center; biases timing
+  seasonally.
 
 **Low / no leverage on timing:**
-- **`earth.speed` (PVP rate)** — 25,344-year period. Over 100–200 years
-  Earth moves only a few thousand km along the PVP arc, well under the
-  Moon's orbit radius; effect on eclipse timing is **negligible**.
-  **Empirically verified: a 40% change in `earth.speed` produced zero
-  detectable change in the objective on a 20-event 1909–2100 subset.**
-  Do not waste iterations probing it.
-- **`moon.orbit_tilt_*`, `moon.orbit_radius`** — affect whether a syzygy
-  lands on or near the ecliptic (i.e. whether it *is* an eclipse) and
-  shadow geometry, but not when the closest approach happens. Expect
-  movement in `mean_separation_arcmin` but little in `objective`.
+- **`earth.speed` (PVP rate)** — 25,344-yr period; over 100–200 yr Earth
+  moves only a few thousand km along PVP. **Empirically: a 40% change
+  produced zero detectable objective change on a 20-event 1909–2100
+  subset. Do not waste iterations probing it.**
+- **`moon.orbit_tilt_*`, `moon.orbit_radius`** — mostly affect separation
+  and whether a syzygy lands on the ecliptic, not *when* closest approach
+  happens. Expect movement in `mean_separation_arcmin`, not `objective`.
 
-### Time and sign conventions — **objective: timing**
-The book itself does not specify a numerical epoch or timing sign convention.
-From the codebase: catalog times are **Julian Date in TT**, and
-**`timing_offset_min = (best_jd - catalog_jd) × 1440`**, so a **positive**
-value means tychos predicts alignment **later** than the catalog. A
-systematically positive mean signed offset means "shift the Moon forward
-in its orbit so it reaches alignment sooner" → **decrease** `moon.start_pos`
-(in degrees).
-
-### E. Empirical findings — **objective: timing, base: v1-original/v1**
-These are facts learned from hand-probing v1-original/v1 against the solar
-eclipse catalog with a 6-hour search window, optimizing
-`mean(|timing_offset_min|)`. Take them as context, not dogma — if your
-current base params differ, re-verify. **If you change the objective, these
-findings may be wrong or misleading — `earth.speed` being "insensitive" is
-a claim about timing, not about separation or detection rate.**
-- **`earth.speed` is insensitive.** See above.
-- **`moon.speed` sits near a local minimum** in v1 — moving it ±1e-4 made
-  the objective worse in both directions.
-- **`moon.start_pos` around 261.2°** has an optimum near 260.95° (−0.25°),
-  lowering the objective by ~5 min on a 20-event subset.
-- **`moon_def_a.speed` around 0.71015** responds to fine (~1e-5) positive
-  adjustments with small improvements, but +1e-4 overshoots.
-- **Residual structure after phase tuning shows a concave-down hump
-  centered near 1950** with +150 to +190 min errors in 1944/1953/1963 and
-  −105 to −109 in 1912/2044. No single parameter in the current allowlist
-  fully reshapes this hump — it may be a model-structure limitation rather
-  than a parameter-tuning target. Try **`search` with joint
-  `{{moon.start_pos, moon_def_a.speed, moon_def_a.start_pos}}`** as a
-  starting combo before reporting a structural limit.
+### D. Prior findings — base: **v1-original/v1**, window 6h
+Hand-probing results from an earlier session. Re-verify if your base
+differs. **Timing-objective-specific — see Part C warning.**
+- `moon.start_pos` optimum near **260.95** (−0.25° from 261.2).
+- `moon_def_a.speed` responds to ~**+1e-5** positive adjustments; +1e-4
+  overshoots.
+- After phase tuning, residuals show a **concave-down hump centered near
+  1950** (+150 to +190 min in 1944/53/63; −105 to −109 in 1912/2044).
+  No single parameter reshapes it. **Try `search` with joint
+  `{{moon.start_pos, moon_def_a.speed, moon_def_a.start_pos}}`** before
+  reporting a structural limit.
