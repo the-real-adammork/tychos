@@ -37,10 +37,16 @@ done
 # ── Remove ingress hostname ──────────────────────────────────
 echo "[2/4] Removing tunnel ingress for ${HOSTNAME}..."
 
-# Find tunnel
-TUNNELS_RESP=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel?is_deleted=false" \
-    -H "Authorization: Bearer ${CF_API_TOKEN}")
-TUNNEL_ID=$(echo "$TUNNELS_RESP" | jq -r '.result[0].id // empty')
+# Find tunnel from installed cloudflared service
+CF_DAEMON_PLIST="/Library/LaunchDaemons/com.cloudflare.cloudflared.plist"
+TUNNEL_ID=""
+if [ -f "$CF_DAEMON_PLIST" ]; then
+    CF_TOKEN=$(defaults read "${CF_DAEMON_PLIST%.plist}" ProgramArguments 2>/dev/null \
+        | grep -oE '[A-Za-z0-9+/=]{50,}' | head -1)
+    if [ -n "$CF_TOKEN" ]; then
+        TUNNEL_ID=$(echo "$CF_TOKEN" | base64 -d 2>/dev/null | jq -r '.t // empty')
+    fi
+fi
 
 if [ -n "$TUNNEL_ID" ]; then
     CURRENT_CONFIG=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}/configurations" \
