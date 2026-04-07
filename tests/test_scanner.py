@@ -10,11 +10,13 @@ import pytest
 # Allow imports of tychos_skyfield and helpers
 sys.path.insert(0, str(Path(__file__).parent.parent / "tychos_skyfield"))
 sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / "server" / "services"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scanner import scan_solar_eclipses, scan_lunar_eclipses, load_eclipse_catalog
+from server.services.scanner import scan_solar_eclipses, scan_lunar_eclipses
 
-_PARAMS_PATH = Path(__file__).parent.parent / "params" / "v1-original.json"
+# Param sets are now versioned directories: params/<name>/v<N>.json with the
+# raw orbital parameters under a `params` key.
+_PARAMS_PATH = Path(__file__).parent.parent / "params" / "v1-original" / "v1.json"
 
 _EXPECTED_KEYS = {
     "julian_day_tt",
@@ -30,13 +32,17 @@ _EXPECTED_KEYS = {
     "sun_dec_rad",
     "moon_ra_rad",
     "moon_dec_rad",
+    "moon_ra_vel",
+    "moon_dec_vel",
 }
 
 
 @pytest.fixture(scope="module")
 def params():
     with open(_PARAMS_PATH) as f:
-        return json.load(f)
+        version = json.load(f)
+    # Versioned param files wrap the orbital parameters under a `params` key.
+    return version["params"]
 
 
 class TestSolarScanner:
@@ -94,20 +100,3 @@ class TestLunarScanner:
     def test_empty_input(self, params):
         results = scan_lunar_eclipses(params, [])
         assert results == []
-
-
-class TestLoadEclipseCatalog:
-    def test_load_solar_catalog(self):
-        eclipses = load_eclipse_catalog("solar")
-        assert isinstance(eclipses, list)
-        assert len(eclipses) > 100
-        first = eclipses[0]
-        assert "julian_day_tt" in first
-        assert "date" in first
-        assert "type" in first
-        assert "magnitude" in first
-
-    def test_load_lunar_catalog(self):
-        eclipses = load_eclipse_catalog("lunar")
-        assert isinstance(eclipses, list)
-        assert len(eclipses) > 100

@@ -50,13 +50,29 @@ def seed():
 
 
 def _seed_admin_user():
-    admin_email = os.environ.get("TYCHOS_ADMIN_USER", "admin@tychos.local")
-    admin_password = os.environ.get("TYCHOS_ADMIN_PASSWORD", "admin")
+    """Create the initial admin user if no users exist yet.
+
+    Requires TYCHOS_ADMIN_USER and TYCHOS_ADMIN_PASSWORD environment
+    variables — there are deliberately no defaults so an unconfigured
+    deploy doesn't ship with a known password. If the admin already
+    exists, this is a no-op (env vars may be unset on subsequent runs).
+    """
+    with get_db() as conn:
+        # If any user exists at all, skip seeding so we never overwrite
+        # an admin and never re-prompt for env vars on every boot.
+        any_user = conn.execute("SELECT id FROM users LIMIT 1").fetchone()
+        if any_user:
+            return
+
+    admin_email = os.environ.get("TYCHOS_ADMIN_USER")
+    admin_password = os.environ.get("TYCHOS_ADMIN_PASSWORD")
+    if not admin_email or not admin_password:
+        raise RuntimeError(
+            "No users exist yet and TYCHOS_ADMIN_USER / TYCHOS_ADMIN_PASSWORD "
+            "are not set. Set both env vars to seed the initial admin user."
+        )
 
     with get_db() as conn:
-        existing = conn.execute("SELECT id FROM users WHERE email = ?", (admin_email,)).fetchone()
-        if existing:
-            return
         password_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
         conn.execute(
             "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
@@ -91,8 +107,9 @@ def _seed_param_sets_from_disk():
         return
 
     with get_db() as conn:
-        admin_email = os.environ.get("TYCHOS_ADMIN_USER", "admin@tychos.local")
-        user = conn.execute("SELECT id FROM users WHERE email = ?", (admin_email,)).fetchone()
+        # Assign ownership to whichever user was seeded first (the admin).
+        # If no users exist yet, skip — _seed_admin_user runs before this.
+        user = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
         if not user:
             return
 

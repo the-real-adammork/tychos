@@ -105,7 +105,7 @@ This is conditional — the `if` block only activates when `admin/dist/` exists 
 Run the server in dev mode (without `admin/dist/`). Confirm `/api/dashboard` still returns JSON and the CORS header is present for the Vite dev server.
 
 ```bash
-cd /Users/adam/Projects/tychos
+cd <repo>
 source tychos_skyfield/.venv/bin/activate
 PYTHONPATH=tychos_skyfield:tests:. uvicorn server.app:app --port 8000 &
 sleep 2
@@ -120,7 +120,7 @@ Expected: JSON response from the dashboard route.
 Build the SPA, then test that uvicorn serves it:
 
 ```bash
-cd /Users/adam/Projects/tychos/admin && npm run build && cd ..
+cd <repo>/admin && npm run build && cd ..
 source tychos_skyfield/.venv/bin/activate
 PYTHONPATH=tychos_skyfield:tests:. uvicorn server.app:app --port 8000 &
 sleep 2
@@ -653,13 +653,13 @@ Edit `local_deploy/.env` with real values:
 - `CF_DOMAIN` = your actual domain
 - `CF_SUBDOMAIN` = `tychos`
 - `CF_ACCESS_EMAIL` = `user@example.com`
-- `TYCHOS_DIR` = `/Users/adam/Projects/tychos`
+- `TYCHOS_DIR` = `<repo>`
 - `TYCHOS_PORT` = `8000`
 
 - [ ] **Step 2: Run setup**
 
 ```bash
-cd /Users/adam/Projects/tychos
+cd <repo>
 ./local_deploy/setup.sh
 ```
 

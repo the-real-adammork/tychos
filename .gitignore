@@ -11,3 +11,4 @@ admin/node_modules/
 admin/.next/
 local_deploy/.env
 logs/
+.claude/

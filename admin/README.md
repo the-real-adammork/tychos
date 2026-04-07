@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tychos Admin UI
 
-## Getting Started
+The web admin for the Tychos eclipse prediction test suite. A single-page React application that talks to the FastAPI backend in `../server/`.
 
-First, run the development server:
+## Stack
+
+- **[Vite](https://vite.dev/)** for dev server and bundling
+- **React 19** with TypeScript
+- **[React Router](https://reactrouter.com/) v7** for client-side routing
+- **[Tailwind CSS](https://tailwindcss.com/)** for styling
+- **[Base UI](https://base-ui.com/) + [shadcn/ui](https://ui.shadcn.com/)** for primitives (Card, Table, Select, Dialog, etc.) under `src/components/ui/`
+- **[date-fns](https://date-fns.org/)** for date formatting
+
+This is **not** a Next.js project despite some leftover files in `public/`.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev   # http://localhost:5173, proxies /api to localhost:8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dev server expects the FastAPI backend to be running at `http://localhost:8000`. The Vite proxy forwards `/api/*` requests to the backend, so cookies and CORS work automatically. Start everything together from the repo root with `./dev.sh`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+Produces `dist/`, which the FastAPI server picks up at startup and serves at the root path with a SPA fallback to `index.html` (see `server/app.py`). After building, you can hit the production-style URL by going through the API server alone instead of the Vite dev server.
 
-To learn more about Next.js, take a look at the following resources:
+## Project Layout
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── App.tsx                    # Router + auth provider
+├── main.tsx                   # Vite entry
+├── pages/                     # Route components
+│   ├── DashboardPage.tsx
+│   ├── ParametersPage.tsx     # /parameters
+│   ├── ParamDetailPage.tsx    # /parameters/:id
+│   ├── ParamVersionDetailPage.tsx  # /parameters/:id/versions/:versionId
+│   ├── ParamEditPage.tsx
+│   ├── RunsPage.tsx
+│   ├── ResultsPage.tsx        # /results/:runId — table view
+│   ├── ResultDetailPage.tsx   # /results/:runId/:resultId — 3-diagram view
+│   ├── DatasetsPage.tsx
+│   ├── DatasetDetailPage.tsx  # /datasets/:slug
+│   ├── EclipseCatalogDetailPage.tsx  # /datasets/:slug/:eclipseId
+│   ├── ComparePage.tsx        # /compare?a=N&b=N
+│   ├── LoginPage.tsx
+│   └── RegisterPage.tsx
+├── components/
+│   ├── ui/                    # shadcn/ui primitives
+│   ├── eclipse/               # Shared eclipse diagrams
+│   │   ├── predicted-diagram.tsx
+│   │   └── saros-context.tsx
+│   ├── results/results-table.tsx
+│   ├── runs/run-table.tsx
+│   ├── compare/{compare-view, changed-eclipses, param-diff}.tsx
+│   ├── parameters/{param-list, param-form, param-editor, param-viewer}.tsx
+│   ├── dashboard/{stats-cards, leaderboard, recent-runs, dataset-summary}.tsx
+│   └── sidebar.tsx
+└── lib/utils.ts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## URL State Conventions
 
-## Deploy on Vercel
+Most table views encode their filter and sort state in the URL via `useSearchParams`, so they're bookmarkable and survive reloads:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `/results/:runId?page=1&type=total&group=saros&sort_by=tychos_error_arcmin&sort_dir=desc&saros=145`
+- `/datasets/:slug?page=1&catalog=total&saros=145`
+- `/compare?a=1&b=2&dataset=solar_eclipse`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Auth
+
+Cookie-based sessions issued by the backend. The Vite dev server proxies through `/api`, and the SPA reads `/api/auth/me` on mount to determine the logged-in user. There is no client-side token; the cookie is `httponly`.

@@ -43,7 +43,7 @@ ALTER TABLE eclipse_results ADD COLUMN jpl_error_arcmin REAL;
 
 - [ ] **Step 2: Verify migration applies cleanly**
 
-Run: `cd /Users/adam/Projects/tychos && rm -f results/tychos_results.db && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import _run_migrations; _run_migrations()"`
+Run: `cd <repo> && rm -f results/tychos_results.db && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import _run_migrations; _run_migrations()"`
 
 Expected: No errors. All 6 migrations applied.
 
@@ -166,7 +166,7 @@ class TestApproachAngle:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:. python3 -m pytest tests/test_predicted_geometry.py -v`
+Run: `cd <repo> && PYTHONPATH=tychos_skyfield:tests:. python3 -m pytest tests/test_predicted_geometry.py -v`
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'server.services.predicted_geometry'`
 
@@ -274,7 +274,7 @@ def approach_angle_from_gamma(gamma: float) -> float:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/test_predicted_geometry.py -v`
+Run: `cd <repo> && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/test_predicted_geometry.py -v`
 
 Expected: All tests PASS.
 
@@ -356,7 +356,7 @@ class TestPredictedSeedData:
 
 - [ ] **Step 2: Run tests to verify they pass** (these test the geometry module against real catalog data)
 
-Run: `cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/test_predicted_seed.py -v`
+Run: `cd <repo> && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/test_predicted_seed.py -v`
 
 Expected: All PASS.
 
@@ -448,7 +448,7 @@ def seed():
 
 - [ ] **Step 4: Test seed with fresh DB**
 
-Run: `cd /Users/adam/Projects/tychos && rm -f results/tychos_results.db && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import init_db; init_db()"`
+Run: `cd <repo> && rm -f results/tychos_results.db && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import init_db; init_db()"`
 
 Expected: Output includes `[seed] Computed NNN predicted reference geometries` (should be ~909 — 452 solar + 457 lunar).
 
@@ -495,7 +495,7 @@ class TestErrorComputation:
 
 - [ ] **Step 2: Run tests to verify they pass**
 
-Run: `cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/test_worker_errors.py -v`
+Run: `cd <repo> && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/test_worker_errors.py -v`
 
 Expected: All PASS.
 
@@ -575,7 +575,7 @@ Update the INSERT statement to include the new columns:
 
 - [ ] **Step 4: Test with fresh DB and a queued run**
 
-Run: `cd /Users/adam/Projects/tychos && rm -f results/tychos_results.db && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import init_db; init_db()" && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.worker import _process_one; _process_one()"`
+Run: `cd <repo> && rm -f results/tychos_results.db && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import init_db; init_db()" && PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.worker import _process_one; _process_one()"`
 
 Expected: Worker processes one run, prints `[worker] Run N complete: X/Y`. Verify error columns have values:
 
@@ -767,7 +767,7 @@ async def get_result(run_id: int, result_id: int):
 
 Run: Start the server and query:
 ```bash
-cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:. python3 -m server.app &
+cd <repo> && PYTHONPATH=tychos_skyfield:tests:. python3 -m server.app &
 sleep 3
 curl -s localhost:8000/api/results/1?page=1 | python3 -m json.tool | head -30
 kill %1
@@ -1345,7 +1345,7 @@ Update `print_summary` and detection counting to show error metrics instead of p
 
 - [ ] **Step 4: Run tests**
 
-Run: `cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/ -v`
+Run: `cd <repo> && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/ -v`
 
 Expected: All tests pass. No import errors for removed constants.
 
@@ -1365,7 +1365,7 @@ git commit -m "refactor: remove threshold constants and pass/fail test logic"
 - [ ] **Step 1: Delete the database and reinitialize**
 
 ```bash
-cd /Users/adam/Projects/tychos
+cd <repo>
 rm -f results/tychos_results.db
 PYTHONPATH=tychos_skyfield:tests:. python3 -c "from server.db import init_db; init_db()"
 ```
@@ -1410,7 +1410,7 @@ Expected: ~909 predicted reference rows. Error columns populated with reasonable
 - [ ] **Step 4: Run all tests**
 
 ```bash
-cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/ -v
+cd <repo> && PYTHONPATH=tychos_skyfield:tests:server:. python3 -m pytest tests/ -v
 ```
 
 Expected: All tests pass.
@@ -1418,8 +1418,8 @@ Expected: All tests pass.
 - [ ] **Step 5: Start server and verify UI**
 
 ```bash
-cd /Users/adam/Projects/tychos/admin && npm run build
-cd /Users/adam/Projects/tychos && PYTHONPATH=tychos_skyfield:tests:. python3 -m server.app
+cd <repo>/admin && npm run build
+cd <repo> && PYTHONPATH=tychos_skyfield:tests:. python3 -m server.app
 ```
 
 Navigate to the admin UI and verify:
