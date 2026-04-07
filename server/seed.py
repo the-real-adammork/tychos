@@ -5,6 +5,7 @@ Called automatically by init_db() after migrations. Idempotent.
 import hashlib
 import json
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -74,12 +75,18 @@ def _seed_admin_user():
 
     with get_db() as conn:
         password_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
-        conn.execute(
-            "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
-            (admin_email, "Admin", password_hash),
-        )
-        conn.commit()
-        print(f"[seed] Created admin user ({admin_email})")
+        try:
+            conn.execute(
+                "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
+                (admin_email, "Admin", password_hash),
+            )
+            conn.commit()
+            print(f"[seed] Created admin user ({admin_email})")
+        except sqlite3.IntegrityError:
+            # Another process (e.g. the worker started in parallel) raced us
+            # and inserted the admin first. That's fine — the seed is meant
+            # to be idempotent.
+            pass
 
 
 def _seed_datasets():
