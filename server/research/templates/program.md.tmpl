@@ -1,0 +1,42 @@
+---
+job: {job_name}
+dataset: {dataset_slug}
+base_param_version: {base_param_version}
+allowlist:
+  - moon.*
+  - moon_def_a.*
+  - moon_def_b.*
+  - sun.*
+  - sun_def.*
+  - earth.*
+---
+
+# Research job: {job_name}
+
+## Goal
+Lower `mean(|timing_offset_min|)` on the {dataset_slug} subset by editing
+`params/research/{job_name}/current.json`. Lower is better.
+
+## The loop
+1. Form a hypothesis about which allowlisted parameter to change and why.
+2. Edit `current.json` (only keys matching the allowlist above).
+3. Run: `python -m server.research iterate {job_name}`
+   - Read stdout for `objective: <number>`.
+4. If the new objective is **lower** than the current best:
+   - Run: `python -m server.research validate {job_name}`
+   - If `validation_objective` is also lower than the previous best validation,
+     keep the edit and update your "current best" mental note.
+   - If validation got *worse*, revert the edit (subset overfit) and note it.
+5. If the objective got worse, revert `current.json` and try a different change.
+6. Repeat until I stop you or your wall-clock budget is exhausted.
+
+## Constraints
+- **Only edit `current.json`.** Never touch `baseline.json`, `subset.json`, or any other file.
+- **Only edit allowlisted keys.** The CLI will hard-fail if you don't.
+- **One change at a time** when possible — easier to attribute wins.
+
+## Background
+TODO: fill in physics context — what timing_offset_min means, how moon.speed
+relates to the lunar sidereal rate, how earth.speed affects geocentric apparent
+motion, which deferent fields shape the lunar epicycle, etc. This section is
+the main lever for making the agent productive; iterate on it over time.
