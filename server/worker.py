@@ -37,7 +37,10 @@ def _process_one() -> None:
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT r.id, r.dataset_id, d.slug AS dataset_slug, pv.params_json
+            SELECT r.id, r.dataset_id,
+                   d.slug AS dataset_slug,
+                   d.scan_window_hours AS dataset_scan_window_hours,
+                   pv.params_json
               FROM runs r
               JOIN param_versions pv ON r.param_version_id = pv.id
               JOIN datasets d ON r.dataset_id = d.id
@@ -53,6 +56,7 @@ def _process_one() -> None:
         run_id = row["id"]
         dataset_id = row["dataset_id"]
         dataset_slug = row["dataset_slug"]
+        scan_window_hours = float(row["dataset_scan_window_hours"])
         params = json.loads(row["params_json"])
 
     with get_db() as conn:
@@ -66,9 +70,13 @@ def _process_one() -> None:
         eclipses = load_eclipse_catalog(dataset_id)
 
         if dataset_slug == "solar_eclipse":
-            results = scan_solar_eclipses(params, eclipses)
+            results = scan_solar_eclipses(
+                params, eclipses, half_window_hours=scan_window_hours
+            )
         elif dataset_slug == "lunar_eclipse":
-            results = scan_lunar_eclipses(params, eclipses)
+            results = scan_lunar_eclipses(
+                params, eclipses, half_window_hours=scan_window_hours
+            )
         else:
             raise ValueError(f"Unknown dataset slug: {dataset_slug}")
 

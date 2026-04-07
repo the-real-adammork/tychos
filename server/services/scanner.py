@@ -44,15 +44,27 @@ def load_eclipse_catalog(dataset_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
-    """Run solar eclipse scan for the given params and eclipse list."""
+def scan_solar_eclipses(
+    params: dict,
+    eclipses: list[dict],
+    half_window_hours: float = 2.0,
+) -> list[dict]:
+    """Run solar eclipse scan for the given params and eclipse list.
+
+    `half_window_hours` controls the ± search window used to find each
+    eclipse's minimum Sun-Moon separation. The default of 2.0 matches the
+    production worker; research jobs may widen it to uncover true conjunctions
+    that fall outside the default window.
+    """
     system = T.TychosSystem(params=params)
     threshold_arcmin = np.degrees(SOLAR_DETECTION_THRESHOLD) * 60
     rows = []
 
     for ecl in eclipses:
         jd = ecl["julian_day_tt"]
-        min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_min_separation(system, jd)
+        min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_min_separation(
+            system, jd, half_window_hours=half_window_hours
+        )
         det = min_sep < SOLAR_DETECTION_THRESHOLD
         m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
@@ -77,14 +89,25 @@ def scan_solar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
     return rows
 
 
-def scan_lunar_eclipses(params: dict, eclipses: list[dict]) -> list[dict]:
-    """Run lunar eclipse scan for the given params and eclipse list."""
+def scan_lunar_eclipses(
+    params: dict,
+    eclipses: list[dict],
+    half_window_hours: float = 2.0,
+) -> list[dict]:
+    """Run lunar eclipse scan for the given params and eclipse list.
+
+    `half_window_hours` controls the ± search window used to find each
+    eclipse's minimum Moon-to-antisolar-point separation. See
+    `scan_solar_eclipses` for rationale.
+    """
     system = T.TychosSystem(params=params)
     rows = []
 
     for ecl in eclipses:
         jd = ecl["julian_day_tt"]
-        min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_lunar_eclipse(system, jd)
+        min_sep, best_jd, s_ra, s_dec, m_ra, m_dec = scan_lunar_eclipse(
+            system, jd, half_window_hours=half_window_hours
+        )
         threshold = _lunar_threshold(ecl["type"])
         threshold_arcmin = np.degrees(threshold) * 60
         det = min_sep < threshold
