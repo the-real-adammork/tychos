@@ -17,6 +17,7 @@ _SORTABLE_COLUMNS = {
     "tychos_error_arcmin": "er.tychos_error_arcmin",
     "jpl_error_arcmin": "er.jpl_error_arcmin",
     "timing_offset_min": "er.timing_offset_min",
+    "jpl_timing_offset_min": "er.jpl_timing_offset_min",
 }
 
 

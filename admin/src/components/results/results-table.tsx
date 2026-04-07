@@ -53,6 +53,7 @@ interface EclipseResult {
   tychosErrorArcmin: number | null
   jplErrorArcmin: number | null
   timingOffsetMin: number | null
+  jplTimingOffsetMin: number | null
 }
 
 interface ApiStats {
@@ -254,6 +255,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
           tychosErrorArcmin: r.tychos_error_arcmin,
           jplErrorArcmin: r.jpl_error_arcmin,
           timingOffsetMin: r.timing_offset_min,
+          jplTimingOffsetMin: r.jpl_timing_offset_min,
         })) as EclipseResult[]
         setResults(mapped)
         setTotal(data.total)
@@ -419,7 +421,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
               <SortHead column="min_separation_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Sep</SortHead>
               <SortHead column="tychos_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Error</SortHead>
               <SortHead column="jpl_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Error</SortHead>
-              <SortHead column="timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Timing Offset</SortHead>
+              <SortHead column="timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Offset</SortHead>
+              <SortHead column="jpl_timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Offset</SortHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -436,6 +439,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                 <TableCell className="text-right font-mono">{formatSeparation(row.tychosErrorArcmin)}</TableCell>
                 <TableCell className="text-right font-mono">{formatSeparation(row.jplErrorArcmin)}</TableCell>
                 <TableCell className="text-right font-mono">{formatTimingOffset(row.timingOffsetMin)}</TableCell>
+                <TableCell className="text-right font-mono">{formatTimingOffset(row.jplTimingOffsetMin)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

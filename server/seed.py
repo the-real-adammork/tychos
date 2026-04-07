@@ -286,12 +286,22 @@ def _seed_eclipse_catalog():
 def _seed_jpl_reference():
     """Precompute JPL/Skyfield Sun+Moon positions for all catalog eclipses.
 
-    Only runs once — skips if jpl_reference table already has data.
+    Populates (or backfills best_jd on) jpl_reference. If every row already has
+    a best_jd this is a no-op; otherwise it computes values only for the rows
+    that need them.
     """
     with get_db() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM jpl_reference").fetchone()[0]
-        if count > 0:
-            return
+        total = conn.execute("SELECT COUNT(*) FROM jpl_reference").fetchone()[0]
+        missing_best = conn.execute(
+            "SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NULL"
+        ).fetchone()[0]
+
+    if total > 0 and missing_best == 0:
+        return
+
+    if total > 0 and missing_best > 0:
+        _backfill_jpl_best_jd(missing_best)
+        return
 
     print("[seed] Computing JPL reference positions (this takes a moment)...")
 
@@ -335,18 +345,113 @@ def _seed_jpl_reference():
                 else:
                     sep = float(np.degrees(angular_separation(s_ra, s_dec, m_ra, m_dec)) * 60)
 
-                rows.append((ds["id"], jd, float(s_ra), float(s_dec), float(m_ra), float(m_dec), round(sep, 2), m_ra_vel, m_dec_vel))
+                best_jd = _scan_jpl_min_jd(earth, eph, ts, jd, is_lunar)
+
+                rows.append((ds["id"], jd, float(s_ra), float(s_dec), float(m_ra), float(m_dec), round(sep, 2), m_ra_vel, m_dec_vel, best_jd))
 
     with get_db() as conn:
         conn.executemany(
             """INSERT OR IGNORE INTO jpl_reference
-               (dataset_id, julian_day_tt, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad, separation_arcmin, moon_ra_vel, moon_dec_vel)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (dataset_id, julian_day_tt, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad, separation_arcmin, moon_ra_vel, moon_dec_vel, best_jd)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
         conn.commit()
 
     print(f"[seed] Computed {len(rows)} JPL reference positions")
+
+
+def _scan_jpl_min_jd(earth, eph, ts, center_jd: float, is_lunar: bool) -> float:
+    """Scan Skyfield for the JD of minimum Sun-Moon (or Moon-to-antisolar) separation.
+
+    Two-pass (5-minute coarse, 1-minute fine) over a +/-2h window around center_jd,
+    then a 3-point quadratic refinement. Returns the refined best JD.
+    """
+    import math
+    from helpers import angular_separation
+
+    MIN = 1.0 / 1440.0
+
+    def sep_at(jd: float) -> float:
+        t = ts.tt_jd(jd)
+        s_ra, s_dec, _ = earth.at(t).observe(eph["sun"]).radec()
+        m_ra, m_dec, _ = earth.at(t).observe(eph["moon"]).radec()
+        s_ra_r, s_dec_r = s_ra.radians, s_dec.radians
+        m_ra_r, m_dec_r = m_ra.radians, m_dec.radians
+        if is_lunar:
+            anti_ra = (s_ra_r + math.pi) % (2 * math.pi)
+            anti_dec = -s_dec_r
+            return float(angular_separation(m_ra_r, m_dec_r, anti_ra, anti_dec))
+        return float(angular_separation(s_ra_r, s_dec_r, m_ra_r, m_dec_r))
+
+    # Coarse pass: 5-minute steps across +/-2h
+    best_jd = center_jd
+    best_sep = float("inf")
+    jd = center_jd - 2.0 / 24.0
+    end = center_jd + 2.0 / 24.0 + 1e-12
+    while jd <= end:
+        s = sep_at(jd)
+        if s < best_sep:
+            best_sep = s
+            best_jd = jd
+        jd += 5 * MIN
+
+    # Fine pass: 1-minute steps within +/-10min of coarse minimum
+    jd = best_jd - 10 * MIN
+    end = best_jd + 10 * MIN + 1e-12
+    while jd <= end:
+        s = sep_at(jd)
+        if s < best_sep:
+            best_sep = s
+            best_jd = jd
+        jd += MIN
+
+    # Quadratic refinement on the 3-point bracket
+    s_a = sep_at(best_jd - MIN)
+    s_b = sep_at(best_jd)
+    s_c = sep_at(best_jd + MIN)
+    denom = s_a - 2.0 * s_b + s_c
+    if denom > 0:
+        offset = 0.5 * (s_a - s_c) / denom
+        if -1.0 <= offset <= 1.0:
+            refined_jd = best_jd + offset * MIN
+            if sep_at(refined_jd) < s_b:
+                return refined_jd
+    return best_jd
+
+
+def _backfill_jpl_best_jd(missing_count: int) -> None:
+    """Populate best_jd on existing jpl_reference rows that are missing it."""
+    print(f"[seed] Backfilling JPL best_jd for {missing_count} rows...")
+
+    from skyfield.api import load as skyfield_load
+
+    eph = skyfield_load("de440s.bsp")
+    ts = skyfield_load.timescale()
+    earth = eph["earth"]
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT j.id, j.julian_day_tt, d.slug
+                 FROM jpl_reference j
+                 JOIN datasets d ON j.dataset_id = d.id
+                WHERE j.best_jd IS NULL""",
+        ).fetchall()
+
+    updates = []
+    for row in rows:
+        is_lunar = row["slug"] == "lunar_eclipse"
+        best_jd = _scan_jpl_min_jd(earth, eph, ts, row["julian_day_tt"], is_lunar)
+        updates.append((best_jd, row["id"]))
+
+    with get_db() as conn:
+        conn.executemany(
+            "UPDATE jpl_reference SET best_jd = ? WHERE id = ?",
+            updates,
+        )
+        conn.commit()
+
+    print(f"[seed] Backfilled {len(updates)} JPL best_jd values")
 
 
 def _seed_predicted_reference():

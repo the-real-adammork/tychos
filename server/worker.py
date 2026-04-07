@@ -88,7 +88,7 @@ def _process_one() -> None:
         # Load JPL reference separations
         with get_db() as conn:
             jpl_rows = conn.execute(
-                "SELECT julian_day_tt, separation_arcmin FROM jpl_reference WHERE dataset_id = ?",
+                "SELECT julian_day_tt, separation_arcmin, best_jd FROM jpl_reference WHERE dataset_id = ?",
                 (dataset_id,),
             ).fetchall()
         jpl_by_jd = {row["julian_day_tt"]: row for row in jpl_rows}
@@ -111,6 +111,13 @@ def _process_one() -> None:
             else:
                 r["jpl_error_arcmin"] = None
 
+            if jpl and jpl["best_jd"] is not None:
+                r["jpl_timing_offset_min"] = round(
+                    (jpl["best_jd"] - r["julian_day_tt"]) * 1440.0, 1
+                )
+            else:
+                r["jpl_timing_offset_min"] = None
+
             r["moon_error_arcmin"] = None  # deprecated
 
         CHUNK_SIZE = 50
@@ -121,8 +128,8 @@ def _process_one() -> None:
                 timing_offset_min, best_jd,
                 sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
                 moon_error_arcmin, moon_ra_vel, moon_dec_vel,
-                tychos_error_arcmin, jpl_error_arcmin
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                tychos_error_arcmin, jpl_error_arcmin, jpl_timing_offset_min
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         rows = [
             (
@@ -132,7 +139,7 @@ def _process_one() -> None:
                 r["timing_offset_min"], r["best_jd"],
                 r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
                 r["moon_error_arcmin"], r.get("moon_ra_vel"), r.get("moon_dec_vel"),
-                r["tychos_error_arcmin"], r["jpl_error_arcmin"],
+                r["tychos_error_arcmin"], r["jpl_error_arcmin"], r["jpl_timing_offset_min"],
             )
             for r in results
         ]

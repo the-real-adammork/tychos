@@ -17,6 +17,7 @@ interface ResultDetail {
   threshold_arcmin: number;
   min_separation_arcmin: number | null;
   timing_offset_min: number | null;
+  jpl_timing_offset_min: number | null;
   best_jd: number | null;
   sun_ra_rad: number | null;
   sun_dec_rad: number | null;
@@ -388,6 +389,10 @@ export default function ResultDetailPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Error vs Predicted</span>
                 <span className="font-mono">{result.jpl_error_arcmin?.toFixed(2) ?? "—"} arcmin</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Timing Offset</span>
+                <span className="font-mono">{result.jpl_timing_offset_min != null ? `${result.jpl_timing_offset_min > 0 ? "+" : ""}${result.jpl_timing_offset_min.toFixed(1)} min` : "—"}</span>
               </div>
               {result.jpl_sun_ra_rad != null && (
                 <>
