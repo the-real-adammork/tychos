@@ -13,7 +13,7 @@ fi
 source "$ENV_FILE"
 
 # Validate required vars
-for var in CF_API_TOKEN CF_ACCOUNT_ID CF_ZONE_ID CF_DOMAIN CF_SUBDOMAIN CF_ACCESS_EMAIL TYCHOS_DIR TYCHOS_PORT; do
+for var in CF_API_TOKEN CF_ACCOUNT_ID CF_ZONE_ID CF_DOMAIN CF_SUBDOMAIN CF_ACCESS_EMAILS TYCHOS_DIR TYCHOS_PORT; do
     if [ -z "${!var:-}" ]; then
         echo "ERROR: $var is not set in .env"
         exit 1
@@ -38,6 +38,11 @@ for cmd in python3 node npm cloudflared jq; do
         exit 1
     fi
 done
+# OpenBLAS is required to build scipy from source (needed on Python 3.14+)
+if ! pkg-config --exists openblas 2>/dev/null; then
+    echo "ERROR: openblas not found. Install it with: brew install openblas"
+    exit 1
+fi
 echo "  All prerequisites found."
 
 # ── Python environment ───────────────────────────────────────
@@ -47,6 +52,8 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR"
 fi
 source "${VENV_DIR}/bin/activate"
+# Ensure pip can find OpenBLAS (Homebrew doesn't link it by default)
+export PKG_CONFIG_PATH="$(brew --prefix openblas)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 # Install server deps (pure Python, always fast)
 pip install -q -r "${TYCHOS_DIR}/server/requirements.txt"
 # For scientific deps, skip if already importable (avoids building scipy from source on Python 3.14)
@@ -84,13 +91,27 @@ echo "  Token valid."
 
 # ── Detect existing tunnel ───────────────────────────────────
 echo "[6/9] Detecting existing Cloudflare Tunnel..."
-TUNNELS_RESP=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel?is_deleted=false" \
-    -H "Authorization: Bearer ${CF_API_TOKEN}")
-TUNNEL_ID=$(echo "$TUNNELS_RESP" | jq -r '.result[0].id // empty')
-TUNNEL_NAME=$(echo "$TUNNELS_RESP" | jq -r '.result[0].name // empty')
+CF_DAEMON_PLIST="/Library/LaunchDaemons/com.cloudflare.cloudflared.plist"
 
-if [ -z "$TUNNEL_ID" ]; then
-    echo "  No existing tunnel found. Creating one..."
+if [ -f "$CF_DAEMON_PLIST" ]; then
+    # cloudflared is already installed — extract tunnel ID from its token
+    CF_TOKEN=$(defaults read "${CF_DAEMON_PLIST%.plist}" ProgramArguments 2>/dev/null \
+        | grep -oE '[A-Za-z0-9+/=]{50,}' | head -1)
+    if [ -n "$CF_TOKEN" ]; then
+        TUNNEL_ID=$(echo "$CF_TOKEN" | base64 -d 2>/dev/null | jq -r '.t // empty')
+    fi
+
+    if [ -z "${TUNNEL_ID:-}" ]; then
+        echo "ERROR: cloudflared is installed but could not extract tunnel ID from its token."
+        exit 1
+    fi
+
+    TUNNEL_NAME=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}" \
+        -H "Authorization: Bearer ${CF_API_TOKEN}" | jq -r '.result.name // empty')
+    echo "  Using existing tunnel: ${TUNNEL_NAME} (${TUNNEL_ID})"
+else
+    # No cloudflared service — create a new tunnel and install it
+    echo "  No cloudflared service found. Creating tunnel..."
     CREATE_RESP=$(curl -s -X POST \
         "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel" \
         -H "Authorization: Bearer ${CF_API_TOKEN}" \
@@ -105,7 +126,6 @@ if [ -z "$TUNNEL_ID" ]; then
         exit 1
     fi
 
-    # Install cloudflared service since this is a fresh tunnel
     echo "  Retrieving tunnel token..."
     TOKEN_RESP=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}/token" \
         -H "Authorization: Bearer ${CF_API_TOKEN}")
@@ -117,8 +137,6 @@ if [ -z "$TUNNEL_ID" ]; then
     echo "  Installing cloudflared service..."
     sudo cloudflared service install "$TUNNEL_TOKEN"
     echo "  Tunnel created and cloudflared installed."
-else
-    echo "  Found tunnel: ${TUNNEL_NAME} (${TUNNEL_ID})"
 fi
 
 # ── Add ingress hostname ─────────────────────────────────────
@@ -131,7 +149,7 @@ CURRENT_CONFIG=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${TUNNE
 # Build new ingress: existing rules (minus catch-all) + tychos rule + catch-all
 # Remove any existing rule for our hostname to make this idempotent
 EXISTING_RULES=$(echo "$CURRENT_CONFIG" | jq -r '[.result.config.ingress[] | select(.hostname != null and .hostname != "'"${HOSTNAME}"'")]')
-TYCHOS_RULE="{\"hostname\":\"${HOSTNAME}\",\"service\":\"http://localhost:${TYCHOS_PORT}\"}"
+TYCHOS_RULE="{\"hostname\":\"${HOSTNAME}\",\"service\":\"http://127.0.0.1:${TYCHOS_PORT}\"}"
 CATCHALL="{\"service\":\"http_status:404\"}"
 
 NEW_INGRESS=$(echo "${EXISTING_RULES}" | jq ". + [${TYCHOS_RULE}, ${CATCHALL}]")
@@ -201,12 +219,13 @@ if [ -z "$APP_ID" ]; then
         exit 1
     fi
 
-    # Create email policy
+    # Create email policy (supports comma-separated list)
+    EMAIL_INCLUDES=$(echo "$CF_ACCESS_EMAILS" | tr ',' '\n' | jq -R '{email:{email:.}}' | jq -s '.')
     curl -s -X POST \
         "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps/${APP_ID}/policies" \
         -H "Authorization: Bearer ${CF_API_TOKEN}" \
         -H "Content-Type: application/json" \
-        --data "{\"name\":\"Allow owner\",\"decision\":\"allow\",\"include\":[{\"email\":{\"email\":\"${CF_ACCESS_EMAIL}\"}}]}" > /dev/null
+        --data "$(jq -n --argjson includes "$EMAIL_INCLUDES" '{name:"Allow owners",decision:"allow",include:$includes}')" > /dev/null
     echo "  Access app and policy created."
 else
     echo "  Access app already exists."
