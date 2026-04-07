@@ -1,5 +1,6 @@
 """Background worker thread that processes queued eclipse runs."""
 import json
+import os
 import time
 import threading
 import traceback
@@ -58,6 +59,8 @@ def _process_one() -> None:
         dataset_slug = row["dataset_slug"]
         scan_window_hours = float(row["dataset_scan_window_hours"])
         params = json.loads(row["params_json"])
+        scanner_max_workers_env = os.environ.get("TYCHOS_SCANNER_MAX_WORKERS")
+        scanner_max_workers = int(scanner_max_workers_env) if scanner_max_workers_env else None
 
     with get_db() as conn:
         conn.execute(
@@ -71,11 +74,17 @@ def _process_one() -> None:
 
         if dataset_slug == "solar_eclipse":
             results = scan_solar_eclipses(
-                params, eclipses, half_window_hours=scan_window_hours
+                params,
+                eclipses,
+                half_window_hours=scan_window_hours,
+                max_workers=scanner_max_workers,
             )
         elif dataset_slug == "lunar_eclipse":
             results = scan_lunar_eclipses(
-                params, eclipses, half_window_hours=scan_window_hours
+                params,
+                eclipses,
+                half_window_hours=scan_window_hours,
+                max_workers=scanner_max_workers,
             )
         else:
             raise ValueError(f"Unknown dataset slug: {dataset_slug}")
