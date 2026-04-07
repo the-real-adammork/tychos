@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PredictedDiagram } from "@/components/eclipse/predicted-diagram";
+import { OverlayDiagram } from "@/components/eclipse/overlay-diagram";
 import { SarosContext, type SarosNeighbor } from "@/components/eclipse/saros-context";
 
 interface ResultDetail {
@@ -326,6 +327,36 @@ export default function ResultDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Tychos vs JPL overlay */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Tychos vs JPL (Overlay)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center">
+          <OverlayDiagram
+            testType={result.test_type}
+            tychosSunRa={result.sun_ra_rad}
+            tychosSunDec={result.sun_dec_rad}
+            tychosMoonRa={result.moon_ra_rad}
+            tychosMoonDec={result.moon_dec_rad}
+            tychosMoonRaVel={result.moon_ra_vel}
+            tychosMoonDecVel={result.moon_dec_vel}
+            tychosSeparationArcmin={result.min_separation_arcmin}
+            jplSunRa={result.jpl_sun_ra_rad}
+            jplSunDec={result.jpl_sun_dec_rad}
+            jplMoonRa={result.jpl_moon_ra_rad}
+            jplMoonDec={result.jpl_moon_dec_rad}
+            jplMoonRaVel={result.jpl_moon_ra_vel}
+            jplMoonDecVel={result.jpl_moon_dec_vel}
+            jplSeparationArcmin={result.jpl_separation_arcmin}
+            moonRadiusArcmin={moonR}
+            sunRadiusArcmin={result.sun_apparent_radius_arcmin}
+            umbraRadiusArcmin={result.umbra_radius_arcmin}
+            penumbraRadiusArcmin={result.penumbra_radius_arcmin}
+          />
+        </CardContent>
+      </Card>
 
       {/* Measurements */}
       <Card>
