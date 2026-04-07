@@ -14,11 +14,12 @@
 
 ## Known Facts (verified against the repo before plan was written)
 
-- `server/services/scanner.py:47` `scan_solar_eclipses(params, eclipses)` and `:80` `scan_lunar_eclipses(params, eclipses)` are already pure — no DB access. **No refactor needed on the Tychos side.**
-- JPL compute lives in `server/seed.py:286` `_seed_jpl_reference()` and its helper `:364` `_scan_jpl_min_jd(earth, eph, ts, center_jd, is_lunar)`. Both are tangled with DB reads/writes and must be extracted.
-- The local DB at `results/tychos_results.db` contains completed runs for `v1-original/v1`:
-  - `run_id=1`, dataset `solar_eclipse`, status `done`
-  - `run_id=2`, dataset `lunar_eclipse`, status `done`
+- `server/services/scanner.py:47` `scan_solar_eclipses(params, eclipses, half_window_hours=2.0)` and `:92` `scan_lunar_eclipses(params, eclipses, half_window_hours=2.0)` are already pure — no DB access. **No refactor needed on the Tychos side.** The `half_window_hours` parameter controls the ± search window; worker.py passes it per-dataset from `datasets.scan_window_hours` (currently 6.0 for both datasets).
+- JPL compute lives in `server/seed.py:286` `_seed_jpl_reference()` and its helper `:364` `_scan_jpl_min_jd(earth, eph, ts, center_jd, is_lunar)`. Both are tangled with DB reads/writes and must be extracted. **JPL `_scan_jpl_min_jd` hardcodes a ±2h window** — this was not updated when the Tychos scanner was made dataset-aware. The current asymmetry (Tychos=6h production, JPL=2h production) is intentionally preserved by this plan; aligning them is a separate future PR.
+- The local DB at `results/tychos_results.db` contains completed runs for `v1-original/v1`, but they were produced **before** the scan-window commit (`4f9f921`) and used the old 2h window:
+  - `run_id=1`, dataset `solar_eclipse`, completed 2026-04-07T05:04 UTC — **stale 2h window**
+  - `run_id=2`, dataset `lunar_eclipse`, completed 2026-04-07T05:05 UTC — **stale 2h window**
+  These runs must be re-queued (Task 0) before exporting goldens, so that Tychos goldens reflect current 6h production behavior. JPL reference data in `jpl_reference` was also produced with 2h and is still 2h today — we keep it as-is because that matches current `seed.py` behavior.
 - Tables: `runs`, `param_versions`, `param_sets`, `datasets`, `eclipse_results`, `jpl_reference`, `eclipse_catalog`.
 - Scanner-output fields (for projection from `eclipse_results` — enrichment columns `tychos_error_arcmin`, `jpl_error_arcmin`, `jpl_timing_offset_min`, `moon_error_arcmin` must be **excluded**): `julian_day_tt`, `date`, `catalog_type`, `magnitude`, `detected`, `threshold_arcmin`, `min_separation_arcmin`, `timing_offset_min`, `best_jd`, `sun_ra_rad`, `sun_dec_rad`, `moon_ra_rad`, `moon_dec_rad`, `moon_ra_vel`, `moon_dec_vel`.
 - `jpl_reference` columns (all included in JPL goldens except `id` and `dataset_id`): `julian_day_tt`, `sun_ra_rad`, `sun_dec_rad`, `moon_ra_rad`, `moon_dec_rad`, `separation_arcmin`, `moon_ra_vel`, `moon_dec_vel`, `best_jd`.
@@ -42,6 +43,96 @@
 
 **Modified files:**
 - `server/seed.py` — `_seed_jpl_reference()` and `_scan_jpl_min_jd()` become thin wrappers calling into `jpl_scanner.py`
+
+---
+
+## Task 0: Re-run v1-original/v1 worker runs at current (6h) window
+
+The existing runs in the DB are stale (2h window). Re-queue them so `eclipse_results` reflects current production behavior before exporting goldens.
+
+**Files:**
+- Modify (DB): `results/tychos_results.db` — delete stale runs, insert fresh queued rows
+- No source code changes
+
+- [ ] **Step 1: Confirm dataset scan_window_hours is 6.0**
+
+Run: `sqlite3 results/tychos_results.db "SELECT slug, scan_window_hours FROM datasets WHERE slug IN ('solar_eclipse','lunar_eclipse')"`
+Expected:
+```
+solar_eclipse|6.0
+lunar_eclipse|6.0
+```
+If either is not 6.0, stop and ask the user — something is off.
+
+- [ ] **Step 2: Delete stale run rows and any associated eclipse_results**
+
+`eclipse_results` has `ON DELETE CASCADE` for `run_id`, so deleting the run row cleans up the results.
+
+Run:
+```bash
+sqlite3 results/tychos_results.db "
+DELETE FROM runs
+ WHERE id IN (
+   SELECT r.id FROM runs r
+     JOIN param_versions pv ON r.param_version_id = pv.id
+     JOIN param_sets ps ON pv.param_set_id = ps.id
+     JOIN datasets d ON r.dataset_id = d.id
+    WHERE ps.name = 'v1-original'
+      AND pv.version_number = 1
+      AND d.slug IN ('solar_eclipse','lunar_eclipse')
+ );
+"
+```
+
+Verify: `sqlite3 results/tychos_results.db "SELECT COUNT(*) FROM runs r JOIN param_versions pv ON r.param_version_id=pv.id JOIN param_sets ps ON pv.param_set_id=ps.id WHERE ps.name='v1-original' AND pv.version_number=1"`
+Expected: `0`
+
+- [ ] **Step 3: Queue fresh runs for both datasets**
+
+```bash
+sqlite3 results/tychos_results.db "
+INSERT INTO runs (param_version_id, dataset_id, status)
+  SELECT pv.id, d.id, 'queued'
+    FROM param_versions pv
+    JOIN param_sets ps ON pv.param_set_id = ps.id
+    CROSS JOIN datasets d
+   WHERE ps.name = 'v1-original'
+     AND pv.version_number = 1
+     AND d.slug IN ('solar_eclipse','lunar_eclipse');
+"
+```
+
+Verify:
+```bash
+sqlite3 results/tychos_results.db "SELECT r.id, d.slug, r.status FROM runs r JOIN datasets d ON r.dataset_id=d.id JOIN param_versions pv ON r.param_version_id=pv.id JOIN param_sets ps ON pv.param_set_id=ps.id WHERE ps.name='v1-original' AND pv.version_number=1"
+```
+Expected: two rows, both `queued`, for solar_eclipse and lunar_eclipse.
+
+- [ ] **Step 4: Start the worker and wait for both runs to complete**
+
+If the worker is already running under `launchd` or a local process, skip the start command. Otherwise:
+
+Run (in a separate terminal or via `run_in_background`): `./start-worker.sh`
+
+Poll until both runs are `done`:
+```bash
+sqlite3 results/tychos_results.db "SELECT r.id, d.slug, r.status, r.started_at, r.completed_at FROM runs r JOIN datasets d ON r.dataset_id=d.id JOIN param_versions pv ON r.param_version_id=pv.id JOIN param_sets ps ON pv.param_set_id=ps.id WHERE ps.name='v1-original' AND pv.version_number=1"
+```
+Expected: both runs reach `status='done'` with non-null `completed_at`. Each run takes O(minutes) on a single core.
+
+**If the scanner refactor has already changed per-step cost, this Task 0 is where you'd see it — but here we're still on baseline code.**
+
+- [ ] **Step 5: Spot-check fresh Tychos output uses the wider window**
+
+Run:
+```bash
+sqlite3 results/tychos_results.db "SELECT MAX(ABS(timing_offset_min)) FROM eclipse_results er JOIN runs r ON er.run_id=r.id JOIN datasets d ON r.dataset_id=d.id JOIN param_versions pv ON r.param_version_id=pv.id JOIN param_sets ps ON pv.param_set_id=ps.id WHERE ps.name='v1-original' AND pv.version_number=1 AND d.slug='solar_eclipse'"
+```
+Expected: a value **greater than 136**. The old 2h window clamped `timing_offset_min` at ~±136; a wider 6h window should show larger offsets for at least one eclipse (per commit `4f9f921`'s description).
+
+- [ ] **Step 6: No commit — this task only changes DB state**
+
+The DB file is not in git; no commit needed.
 
 ---
 
@@ -111,6 +202,7 @@ def scan_jpl_eclipses(
     eclipses: Iterable[dict],
     ephemeris_path: str,
     is_lunar: bool,
+    half_window_hours: float = 2.0,
 ) -> list[dict]:
     """Compute JPL Sun/Moon positions and min-separation for a catalog.
 
@@ -118,6 +210,10 @@ def scan_jpl_eclipses(
     not touch any database or global mutable state. Returns one dict per
     input eclipse with keys matching the jpl_reference table columns
     (minus id/dataset_id).
+
+    `half_window_hours` controls the ± search window used by the
+    min-separation scan. Default 2.0 matches the current seed.py behavior
+    (which the existing jpl_reference rows were produced with).
     """
     eph = skyfield_load(ephemeris_path)
     ts = skyfield_load.timescale()
@@ -145,7 +241,7 @@ def scan_jpl_eclipses(
         else:
             sep = float(np.degrees(angular_separation(s_ra, s_dec, m_ra, m_dec)) * 60)
 
-        best_jd = _scan_jpl_min_jd(earth, eph, ts, jd, is_lunar)
+        best_jd = _scan_jpl_min_jd(earth, eph, ts, jd, is_lunar, half_window_hours)
 
         rows.append({
             "julian_day_tt": jd,
@@ -162,12 +258,21 @@ def scan_jpl_eclipses(
     return rows
 
 
-def _scan_jpl_min_jd(earth, eph, ts, center_jd: float, is_lunar: bool) -> float:
+def _scan_jpl_min_jd(
+    earth,
+    eph,
+    ts,
+    center_jd: float,
+    is_lunar: bool,
+    half_window_hours: float = 2.0,
+) -> float:
     """Scan Skyfield for the JD of minimum separation.
 
-    Two-pass (5-minute coarse, 1-minute fine) over +/-2h around center_jd,
-    then a 3-point quadratic refinement. Verbatim copy of the logic
-    previously in server/seed.py::_scan_jpl_min_jd.
+    Two-pass (5-minute coarse, 1-minute fine) over ±half_window_hours around
+    center_jd, then a 3-point quadratic refinement. Verbatim copy of the
+    logic previously in server/seed.py::_scan_jpl_min_jd, with the
+    previously-hardcoded 2h window lifted to a parameter (default 2.0
+    preserves legacy behavior).
     """
     def sep_at(jd: float) -> float:
         t = ts.tt_jd(jd)
@@ -181,11 +286,12 @@ def _scan_jpl_min_jd(earth, eph, ts, center_jd: float, is_lunar: bool) -> float:
             return float(angular_separation(m_ra_r, m_dec_r, anti_ra, anti_dec))
         return float(angular_separation(s_ra_r, s_dec_r, m_ra_r, m_dec_r))
 
-    # Coarse pass: 5-minute steps across +/-2h
+    # Coarse pass: 5-minute steps across ±half_window_hours
+    half_window_days = half_window_hours / 24.0
     best_jd = center_jd
     best_sep = float("inf")
-    jd = center_jd - 2.0 / 24.0
-    end = center_jd + 2.0 / 24.0 + 1e-12
+    jd = center_jd - half_window_days
+    end = center_jd + half_window_days + 1e-12
     while jd <= end:
         s = sep_at(jd)
         if s < best_sep:
@@ -590,6 +696,12 @@ _SOLAR_CATALOG = Path(__file__).parent / "data" / "solar_eclipses.json"
 _LUNAR_CATALOG = Path(__file__).parent / "data" / "lunar_eclipses.json"
 _GOLDENS = Path(__file__).parent / "data" / "goldens"
 
+# Production window values as of 2026-04-07 (see plan + spec). These are
+# deliberately hardcoded so the tests remain offline and do not depend on
+# whatever datasets.scan_window_hours happens to be in the local DB.
+_TYCHOS_HALF_WINDOW_HOURS = 6.0
+_JPL_HALF_WINDOW_HOURS = 2.0  # seed.py has not been updated to per-dataset
+
 
 @pytest.fixture(scope="module")
 def params():
@@ -645,14 +757,18 @@ def _assert_rows_equal(actual: list[dict], expected: list[dict], label: str) -> 
 @pytest.mark.slow
 def test_solar_tychos_matches_golden(params, solar_catalog):
     expected = _load_golden("solar_tychos_v1.json")
-    actual = scan_solar_eclipses(params, solar_catalog)
+    actual = scan_solar_eclipses(
+        params, solar_catalog, half_window_hours=_TYCHOS_HALF_WINDOW_HOURS
+    )
     _assert_rows_equal(actual, expected, "solar tychos")
 
 
 @pytest.mark.slow
 def test_lunar_tychos_matches_golden(params, lunar_catalog):
     expected = _load_golden("lunar_tychos_v1.json")
-    actual = scan_lunar_eclipses(params, lunar_catalog)
+    actual = scan_lunar_eclipses(
+        params, lunar_catalog, half_window_hours=_TYCHOS_HALF_WINDOW_HOURS
+    )
     _assert_rows_equal(actual, expected, "lunar tychos")
 
 
@@ -660,14 +776,24 @@ def test_lunar_tychos_matches_golden(params, lunar_catalog):
 def test_solar_jpl_matches_golden(solar_catalog):
     expected = _load_golden("solar_jpl_v1.json")
     # scan_jpl_eclipses only needs julian_day_tt from each entry
-    actual = scan_jpl_eclipses(solar_catalog, _EPHEMERIS, is_lunar=False)
+    actual = scan_jpl_eclipses(
+        solar_catalog,
+        _EPHEMERIS,
+        is_lunar=False,
+        half_window_hours=_JPL_HALF_WINDOW_HOURS,
+    )
     _assert_rows_equal(actual, expected, "solar jpl")
 
 
 @pytest.mark.slow
 def test_lunar_jpl_matches_golden(lunar_catalog):
     expected = _load_golden("lunar_jpl_v1.json")
-    actual = scan_jpl_eclipses(lunar_catalog, _EPHEMERIS, is_lunar=True)
+    actual = scan_jpl_eclipses(
+        lunar_catalog,
+        _EPHEMERIS,
+        is_lunar=True,
+        half_window_hours=_JPL_HALF_WINDOW_HOURS,
+    )
     _assert_rows_equal(actual, expected, "lunar jpl")
 ```
 
@@ -729,7 +855,8 @@ No file change. Just confirm mentally:
 
 ## Self-Review Notes
 
-- **Spec coverage:** Export script (spec §Architecture → "Export script") = Task 3. JPL extraction (spec §"Current State") = Task 2. Four goldens (spec §"File Changes Summary") = Task 3 step 2. Four golden tests (spec §"Golden tests") = Task 4. Pytest slow marker (spec §"Golden tests") = Task 1. Tychos scanner untouched (spec §"Current State") — no task needed, verified.
+- **Spec coverage:** Worker re-run (plan addendum after rebase onto autoresearch work) = Task 0. Pytest slow marker (spec §"Golden tests") = Task 1. JPL extraction (spec §"Current State") = Task 2. Export script (spec §Architecture → "Export script") = Task 3. Four goldens (spec §"File Changes Summary") = Task 3 step 2. Four golden tests (spec §"Golden tests") = Task 4. Tychos scanner untouched (spec §"Current State") — no task needed, verified.
+- **Scan window asymmetry:** Production Tychos uses 6h (per-dataset, via `datasets.scan_window_hours`); production JPL uses 2h (hardcoded in `seed.py`, not updated by commit `4f9f921`). This plan freezes the current asymmetric behavior: Task 0 re-runs Tychos at 6h, and `jpl_reference` is left at 2h. Tests pass explicit window values (`_TYCHOS_HALF_WINDOW_HOURS=6.0`, `_JPL_HALF_WINDOW_HOURS=2.0`) to keep the test offline and deterministic. Aligning JPL to dataset-driven windows is out of scope.
 - **Enrichment exclusion:** Task 3's `TYCHOS_COLUMNS` list explicitly excludes enrichment fields per the spec addendum.
 - **Purity:** All functions exercised by golden tests take dicts/lists and return lists of dicts. Test file loads everything from JSON + `de440s.bsp` (static file, spec-approved).
 - **Float precision:** Using `json.dump` default float formatting. Python's `json` module round-trips floats exactly via `repr()` since Python 3.1, so `loads(dumps(x)) == x` holds for all finite floats. Exact equality comparison is safe.
