@@ -13,7 +13,11 @@ from server.research.sandbox import (
     read_log_tail,
 )
 from server.research.program_md import render_template, parse_frontmatter
-from server.research.subset import select_subset, load_eclipses_for_dataset
+from server.research.subset import (
+    select_subset,
+    load_eclipses_for_dataset,
+    get_dataset_scan_window,
+)
 from server.research.allowlist import (
     check_diff_against_allowlist,
     AllowlistViolation,
@@ -71,10 +75,17 @@ def cmd_init(args) -> int:
         print(f"error: no eclipses found for dataset {dataset_slug}", file=sys.stderr)
         return 3
     chosen = select_subset(catalog, n=args.subset_size, seed=args.seed)
+
+    # Scan window: CLI override wins, otherwise use the dataset's stored default.
+    scan_window_hours = args.scan_window_hours
+    if scan_window_hours is None:
+        scan_window_hours = get_dataset_scan_window(dataset_slug)
+
     write_json(paths.subset_json, {
         "dataset_slug": dataset_slug,
         "n_requested": args.subset_size,
         "seed": args.seed,
+        "scan_window_hours": scan_window_hours,
         "selected_at": _now_iso(),
         "events": chosen,
     })
@@ -95,6 +106,7 @@ def cmd_init(args) -> int:
     print(f"  dataset: {dataset_slug}")
     print(f"  base:    {args.base}")
     print(f"  subset:  {len(chosen)} events (seed={args.seed})")
+    print(f"  window:  ±{scan_window_hours}h")
     print()
     print(f"Next: open `claude` in this repo and point it at:")
     print(f"  {paths.program_md}")
@@ -116,13 +128,18 @@ def _load_job_state(job_name: str):
     return paths, current, baseline, frontmatter, subset_blob
 
 
-def _run_scan(dataset_slug: str, params: dict, eclipses: list[dict]) -> list[dict]:
+def _run_scan(
+    dataset_slug: str,
+    params: dict,
+    eclipses: list[dict],
+    half_window_hours: float = 2.0,
+) -> list[dict]:
     """Dispatch to the right scanner for the dataset."""
     from server.services.scanner import scan_solar_eclipses, scan_lunar_eclipses
     if dataset_slug == "solar_eclipse":
-        return scan_solar_eclipses(params, eclipses)
+        return scan_solar_eclipses(params, eclipses, half_window_hours=half_window_hours)
     if dataset_slug == "lunar_eclipse":
-        return scan_lunar_eclipses(params, eclipses)
+        return scan_lunar_eclipses(params, eclipses, half_window_hours=half_window_hours)
     raise ValueError(f"Unknown dataset_slug: {dataset_slug}")
 
 
@@ -165,9 +182,10 @@ def cmd_iterate(args) -> int:
 
     dataset_slug = subset_blob["dataset_slug"]
     eclipses = subset_blob["events"]
+    window = float(subset_blob.get("scan_window_hours", 2.0))
 
     try:
-        results = _run_scan(dataset_slug, current, eclipses)
+        results = _run_scan(dataset_slug, current, eclipses, half_window_hours=window)
         objective = compute_objective(results)
     except EmptyResults as e:
         print(f"error: {e}", file=sys.stderr)
@@ -211,13 +229,14 @@ def cmd_validate(args) -> int:
         return 4
 
     dataset_slug = subset_blob["dataset_slug"]
+    window = float(subset_blob.get("scan_window_hours", 2.0))
     full_catalog = load_eclipses_for_dataset(dataset_slug)
     if not full_catalog:
         print(f"error: no eclipses found for dataset {dataset_slug}", file=sys.stderr)
         return 3
 
     try:
-        results = _run_scan(dataset_slug, current, full_catalog)
+        results = _run_scan(dataset_slug, current, full_catalog, half_window_hours=window)
         objective = compute_objective(results)
     except EmptyResults as e:
         print(f"error: {e}", file=sys.stderr)

@@ -95,3 +95,14 @@ def load_eclipses_for_dataset(dataset_slug: str) -> list[dict]:
             (dataset_id,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_dataset_scan_window(dataset_slug: str) -> float:
+    """Return the stored scan_window_hours for a dataset (± half-window)."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT scan_window_hours FROM datasets WHERE slug = ?", (dataset_slug,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Unknown dataset slug: {dataset_slug}")
+        return float(row["scan_window_hours"])

@@ -6,7 +6,10 @@ from server.research import cli
 
 def _init_args(job, base="v1-original/v1", dataset="solar"):
     return SimpleNamespace(
-        job=job, base=base, dataset=dataset, subset_size=3, seed=42
+        job=job, base=base, dataset=dataset, subset_size=3, seed=42,
+        # Explicit override avoids the dataset-default DB lookup path so
+        # smoke tests stay isolated from the live datasets table.
+        scan_window_hours=2.0,
     )
 
 
@@ -23,8 +26,9 @@ def test_init_creates_all_sandbox_files(
     assert job_root.exists()
     for name in ("baseline.json", "current.json", "subset.json", "program.md", "log.jsonl"):
         assert (job_root / name).exists(), f"missing {name}"
-    # Sanity: subset has the requested 3 events
+    # Sanity: subset has the requested 3 events + the explicit window override.
     subset = json.loads((job_root / "subset.json").read_text())
+    assert subset["scan_window_hours"] == 2.0
     assert len(subset["events"]) == 3
 
 
@@ -99,3 +103,22 @@ def test_iterate_rejects_disallowed_param_change(
     assert rc == 4
     err = capsys.readouterr().err
     assert "mars.speed" in err
+
+
+def test_init_falls_back_to_dataset_scan_window(
+    isolated_research_root, patched_catalog_loader, monkeypatch, capsys
+):
+    """When --scan-window-hours is None, init reads from get_dataset_scan_window."""
+    from server.research import cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "get_dataset_scan_window", lambda slug: 7.5)
+
+    args = SimpleNamespace(
+        job="smoke-6", base="v1-original/v1", dataset="solar",
+        subset_size=3, seed=42, scan_window_hours=None,
+    )
+    rc = cli.cmd_init(args)
+    assert rc == 0
+
+    subset = json.loads((isolated_research_root / "smoke-6" / "subset.json").read_text())
+    assert subset["scan_window_hours"] == 7.5

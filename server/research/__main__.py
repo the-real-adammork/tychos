@@ -13,6 +13,15 @@ def main(argv=None):
     p_init.add_argument("--dataset", required=True, choices=["solar", "lunar"])
     p_init.add_argument("--subset-size", type=int, default=25)
     p_init.add_argument("--seed", type=int, default=42)
+    p_init.add_argument(
+        "--scan-window-hours",
+        type=float,
+        default=None,
+        help="± half-window for the min-separation search (hours). "
+             "Defaults to the dataset's stored scan_window_hours. Override "
+             "per-job when you want to try a wider/narrower window without "
+             "changing the dataset default.",
+    )
 
     p_iter = sub.add_parser("iterate", help="Run one subset experiment")
     p_iter.add_argument("job")
