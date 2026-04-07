@@ -23,11 +23,12 @@ def _row_to_dict(row) -> dict:
 
 
 async def auto_queue_runs(conn, param_version_id: int):
-    """Queue solar and lunar runs for a new param version."""
-    for test_type in ("solar", "lunar"):
+    """Queue a run for each dataset for a new param version."""
+    ds_rows = await (await conn.execute("SELECT id FROM datasets ORDER BY id")).fetchall()
+    for ds in ds_rows:
         await conn.execute(
-            "INSERT INTO runs (param_version_id, test_type, status) VALUES (?, ?, 'queued')",
-            (param_version_id, test_type),
+            "INSERT INTO runs (param_version_id, dataset_id, status) VALUES (?, ?, 'queued')",
+            (param_version_id, ds["id"]),
         )
     await conn.commit()
 
@@ -78,10 +79,11 @@ async def list_param_sets():
                 # Latest done runs for latest version (one per test_type)
                 run_cursor = await conn.execute(
                     """
-                    SELECT id, test_type, status, total_eclipses, detected, completed_at
-                    FROM runs
-                    WHERE param_version_id = ? AND status = 'done'
-                    ORDER BY completed_at DESC
+                    SELECT r.id, r.dataset_id, d.slug AS dataset_slug, r.status, r.total_eclipses, r.detected, r.completed_at
+                    FROM runs r
+                    JOIN datasets d ON r.dataset_id = d.id
+                    WHERE r.param_version_id = ? AND r.status = 'done'
+                    ORDER BY r.completed_at DESC
                     """,
                     (latest_version_id,),
                 )
@@ -212,8 +214,8 @@ async def get_param_set(param_set_id: int):
         if version_ids:
             placeholders = ",".join("?" * len(version_ids))
 
-            for test_type in ("solar", "lunar"):
-                # Find best overall pass rate across all versions
+            ds_rows = await (await conn.execute("SELECT id, slug FROM datasets ORDER BY id")).fetchall()
+            for ds in ds_rows:
                 best_cursor = await conn.execute(
                     f"""
                     SELECT r.id AS run_id, r.total_eclipses, pv.version_number,
@@ -222,32 +224,34 @@ async def get_param_set(param_set_id: int):
                     JOIN param_versions pv ON r.param_version_id = pv.id
                     JOIN eclipse_results er ON er.run_id = r.id
                     WHERE r.param_version_id IN ({placeholders})
-                      AND r.test_type = ? AND r.status = 'done'
+                      AND r.dataset_id = ? AND r.status = 'done'
                       AND r.total_eclipses > 0
                     GROUP BY r.id
                     ORDER BY CAST(overall_pass AS REAL) / r.total_eclipses DESC
                     LIMIT 1
                     """,
-                    (*version_ids, test_type),
+                    (*version_ids, ds["id"]),
                 )
                 best_row = await best_cursor.fetchone()
                 if best_row:
-                    item[f"{test_type}_stats"] = {
+                    item[f"{ds['slug']}_stats"] = {
                         "overall_pass": best_row["overall_pass"],
                         "total_eclipses": best_row["total_eclipses"],
                         "version_number": best_row["version_number"],
                     }
                 else:
-                    item[f"{test_type}_stats"] = None
+                    item[f"{ds['slug']}_stats"] = None
 
             # All runs for latest version
             latest_version_id = versions[0]["id"]
             runs_cursor = await conn.execute(
                 """
-                SELECT id, test_type, status, total_eclipses, detected, created_at, completed_at
-                FROM runs
-                WHERE param_version_id = ?
-                ORDER BY created_at DESC
+                SELECT r.id, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name,
+                       r.status, r.total_eclipses, r.detected, r.created_at, r.completed_at
+                FROM runs r
+                JOIN datasets d ON r.dataset_id = d.id
+                WHERE r.param_version_id = ?
+                ORDER BY r.created_at DESC
                 """,
                 (latest_version_id,),
             )
@@ -255,8 +259,8 @@ async def get_param_set(param_set_id: int):
                 _row_to_dict(r) for r in await runs_cursor.fetchall()
             ]
         else:
-            item["solar_stats"] = None
-            item["lunar_stats"] = None
+            item["solar_eclipse_stats"] = None
+            item["lunar_eclipse_stats"] = None
             item["latest_version_runs"] = []
 
     return item
@@ -517,10 +521,12 @@ async def get_version(param_set_id: int, version_id: int):
 
         runs_cursor = await conn.execute(
             """
-            SELECT id, test_type, status, total_eclipses, detected, created_at, completed_at
-            FROM runs
-            WHERE param_version_id = ?
-            ORDER BY created_at DESC
+            SELECT r.id, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name,
+                   r.status, r.total_eclipses, r.detected, r.created_at, r.completed_at
+            FROM runs r
+            JOIN datasets d ON r.dataset_id = d.id
+            WHERE r.param_version_id = ?
+            ORDER BY r.created_at DESC
             """,
             (version_id,),
         )
@@ -563,22 +569,23 @@ async def get_version(param_set_id: int, version_id: int):
             anc = _row_to_dict(anc_row)
 
             # Get detection stats for this ancestor
-            for test_type in ("solar", "lunar"):
+            ds_rows2 = await (await conn.execute("SELECT id, slug FROM datasets ORDER BY id")).fetchall()
+            for ds in ds_rows2:
                 stat_cursor = await conn.execute(
                     """
                     SELECT detected, total_eclipses FROM runs
-                    WHERE param_version_id = ? AND test_type = ? AND status = 'done'
+                    WHERE param_version_id = ? AND dataset_id = ? AND status = 'done'
                     ORDER BY completed_at DESC LIMIT 1
                     """,
-                    (current_parent_id, test_type),
+                    (current_parent_id, ds["id"]),
                 )
                 stat_row = await stat_cursor.fetchone()
                 if stat_row:
-                    anc[f"{test_type}_detected"] = stat_row["detected"]
-                    anc[f"{test_type}_total"] = stat_row["total_eclipses"]
+                    anc[f"{ds['slug']}_detected"] = stat_row["detected"]
+                    anc[f"{ds['slug']}_total"] = stat_row["total_eclipses"]
                 else:
-                    anc[f"{test_type}_detected"] = None
-                    anc[f"{test_type}_total"] = None
+                    anc[f"{ds['slug']}_detected"] = None
+                    anc[f"{ds['slug']}_total"] = None
 
             ancestors.append(anc)
             current_parent_id = anc_row["parent_version_id"]

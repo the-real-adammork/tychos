@@ -10,8 +10,8 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-async def _get_latest_done_run(conn, param_set_id: int, test_type: str):
-    """Return the latest done run for a param_set + test_type via param_versions, or None."""
+async def _get_latest_done_run(conn, param_set_id: int, dataset_id: int):
+    """Return the latest done run for a param_set + dataset via param_versions, or None."""
     cursor = await conn.execute(
         """
         SELECT r.id, r.total_eclipses, r.detected, ps.name AS param_set_name,
@@ -20,11 +20,11 @@ async def _get_latest_done_run(conn, param_set_id: int, test_type: str):
         JOIN param_versions pv ON r.param_version_id = pv.id
         JOIN param_sets ps ON pv.param_set_id = ps.id
         JOIN users u ON ps.owner_id = u.id
-        WHERE pv.param_set_id = ? AND r.test_type = ? AND r.status = 'done'
+        WHERE pv.param_set_id = ? AND r.dataset_id = ? AND r.status = 'done'
         ORDER BY r.completed_at DESC
         LIMIT 1
         """,
-        (param_set_id, test_type),
+        (param_set_id, dataset_id),
     )
     return await cursor.fetchone()
 
@@ -33,22 +33,28 @@ async def _get_latest_done_run(conn, param_set_id: int, test_type: str):
 async def compare(
     a: int = Query(..., description="Param set id A"),
     b: int = Query(..., description="Param set id B"),
-    type: str = Query(default="solar", description="Test type (solar or lunar)"),
+    dataset: str = Query(default="solar_eclipse", description="Dataset slug"),
 ):
     """Compare latest done runs for two param sets."""
     async with get_async_db() as conn:
-        run_a = await _get_latest_done_run(conn, a, type)
+        ds_cursor = await conn.execute("SELECT id FROM datasets WHERE slug = ?", (dataset,))
+        ds_row = await ds_cursor.fetchone()
+        if ds_row is None:
+            raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
+        dataset_id = ds_row["id"]
+
+        run_a = await _get_latest_done_run(conn, a, dataset_id)
         if run_a is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"No completed '{type}' run found for param_set {a}",
+                detail=f"No completed run found for dataset '{dataset}' and param_set {a}",
             )
 
-        run_b = await _get_latest_done_run(conn, b, type)
+        run_b = await _get_latest_done_run(conn, b, dataset_id)
         if run_b is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"No completed '{type}' run found for param_set {b}",
+                detail=f"No completed run found for dataset '{dataset}' and param_set {b}",
             )
 
         # Fetch all eclipse results for both runs indexed by julian_day_tt + catalog_type

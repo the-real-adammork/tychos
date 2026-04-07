@@ -7,8 +7,6 @@ from server.db import get_async_db
 
 router = APIRouter(prefix="/api/runs")
 
-VALID_TEST_TYPES = {"solar", "lunar"}
-
 
 def _row_to_dict(row) -> dict:
     return dict(row)
@@ -19,7 +17,7 @@ async def list_runs(
     param_set_id: int | None = Query(default=None),
     status: str | None = Query(default=None),
 ):
-    """List runs with param set info. Filterable by param_set_id and status. Limit 100."""
+    """List runs with param set and dataset info."""
     conditions = []
     values: list = []
 
@@ -35,11 +33,13 @@ async def list_runs(
     async with get_async_db() as conn:
         cursor = await conn.execute(
             f"""
-            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name,
+                   u.name AS owner_name, d.slug AS dataset_slug, d.name AS dataset_name
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
+            JOIN datasets d ON r.dataset_id = d.id
             {where_clause}
             ORDER BY r.created_at DESC
             LIMIT 100
@@ -70,22 +70,19 @@ async def list_runs(
 
 class CreateRunBody(BaseModel):
     param_set_id: int
-    test_type: str
+    dataset_id: int
 
 
 @router.post("", status_code=201)
 async def create_run(body: CreateRunBody, request: Request):
-    """Force-queue a new run for the latest version of a param set. Auth required."""
+    """Queue a new run for the latest version of a param set + dataset. Auth required."""
     user = await require_user(request)
 
-    if body.test_type not in VALID_TEST_TYPES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"test_type must be one of: {', '.join(sorted(VALID_TEST_TYPES))}",
-        )
-
     async with get_async_db() as conn:
-        # Find latest version for this param set
+        ds_cursor = await conn.execute("SELECT id FROM datasets WHERE id = ?", (body.dataset_id,))
+        if await ds_cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
         ver_cursor = await conn.execute(
             """
             SELECT id FROM param_versions
@@ -103,20 +100,22 @@ async def create_run(body: CreateRunBody, request: Request):
 
         cursor = await conn.execute(
             """
-            INSERT INTO runs (param_version_id, test_type, status)
+            INSERT INTO runs (param_version_id, dataset_id, status)
             VALUES (?, ?, 'queued')
             """,
-            (param_version_id, body.test_type),
+            (param_version_id, body.dataset_id),
         )
         await conn.commit()
 
         row_cursor = await conn.execute(
             """
-            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name,
+                   u.name AS owner_name, d.slug AS dataset_slug, d.name AS dataset_name
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
+            JOIN datasets d ON r.dataset_id = d.id
             WHERE r.id = ?
             """,
             (cursor.lastrowid,),
@@ -128,15 +127,17 @@ async def create_run(body: CreateRunBody, request: Request):
 
 @router.get("/{run_id}")
 async def get_run(run_id: int):
-    """Get a single run with param set info."""
+    """Get a single run with param set and dataset info."""
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name, u.name AS owner_name
+            SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name,
+                   u.name AS owner_name, d.slug AS dataset_slug, d.name AS dataset_name
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
+            JOIN datasets d ON r.dataset_id = d.id
             WHERE r.id = ?
             """,
             (run_id,),

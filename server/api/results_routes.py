@@ -46,7 +46,7 @@ async def list_results(
     """Paginated eclipse results for a run."""
     async with get_async_db() as conn:
         run_cursor = await conn.execute(
-            "SELECT id, test_type FROM runs WHERE id = ?", (run_id,)
+            "SELECT id, dataset_id FROM runs WHERE id = ?", (run_id,)
         )
         run_row = await run_cursor.fetchone()
         if run_row is None:
@@ -138,7 +138,7 @@ async def get_result(run_id: int, result_id: int):
     async with get_async_db() as conn:
         cursor = await conn.execute(
             """
-            SELECT er.*, r.test_type, pv.version_number,
+            SELECT er.*, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name, pv.version_number,
                    ps.id AS param_set_id, ps.name AS param_set_name,
                    jpl.sun_ra_rad AS jpl_sun_ra_rad, jpl.sun_dec_rad AS jpl_sun_dec_rad,
                    jpl.moon_ra_rad AS jpl_moon_ra_rad, jpl.moon_dec_rad AS jpl_moon_dec_rad,
@@ -146,10 +146,11 @@ async def get_result(run_id: int, result_id: int):
                    jpl.moon_ra_vel AS jpl_moon_ra_vel, jpl.moon_dec_vel AS jpl_moon_dec_vel
             FROM eclipse_results er
             JOIN runs r ON er.run_id = r.id
+            JOIN datasets d ON r.dataset_id = d.id
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
             LEFT JOIN jpl_reference jpl ON jpl.julian_day_tt = er.julian_day_tt
-                AND jpl.test_type = r.test_type
+                AND jpl.dataset_id = r.dataset_id
             WHERE er.id = ? AND er.run_id = ?
             """,
             (result_id, run_id),

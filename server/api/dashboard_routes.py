@@ -17,59 +17,42 @@ async def dashboard():
         total_cursor = await conn.execute("SELECT COUNT(*) FROM param_sets")
         total_param_sets = (await total_cursor.fetchone())[0]
 
-        # Best solar: highest overall_pass rate (threshold + JPL rescued)
-        best_solar_cursor = await conn.execute(
-            """
-            SELECT ps.name, pv.version_number,
-                   SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS overall_pass,
-                   COUNT(*) AS total,
-                   CAST(SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate
-            FROM runs r
-            JOIN param_versions pv ON r.param_version_id = pv.id
-            JOIN param_sets ps ON pv.param_set_id = ps.id
-            JOIN eclipse_results er ON er.run_id = r.id
-            WHERE r.test_type = 'solar' AND r.status = 'done' AND r.total_eclipses > 0
-            GROUP BY r.id
-            ORDER BY rate DESC
-            LIMIT 1
-            """
-        )
-        best_solar_row = await best_solar_cursor.fetchone()
-        best_solar = (
-            {"name": f"{best_solar_row['name']} v{best_solar_row['version_number']}", "rate": best_solar_row["rate"]}
-            if best_solar_row else None
-        )
+        ds_cursor = await conn.execute("SELECT id, slug, name FROM datasets ORDER BY id")
+        datasets = await ds_cursor.fetchall()
 
-        # Best lunar
-        best_lunar_cursor = await conn.execute(
-            """
-            SELECT ps.name, pv.version_number,
-                   CAST(SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate
-            FROM runs r
-            JOIN param_versions pv ON r.param_version_id = pv.id
-            JOIN param_sets ps ON pv.param_set_id = ps.id
-            JOIN eclipse_results er ON er.run_id = r.id
-            WHERE r.test_type = 'lunar' AND r.status = 'done' AND r.total_eclipses > 0
-            GROUP BY r.id
-            ORDER BY rate DESC
-            LIMIT 1
-            """
-        )
-        best_lunar_row = await best_lunar_cursor.fetchone()
-        best_lunar = (
-            {"name": f"{best_lunar_row['name']} v{best_lunar_row['version_number']}", "rate": best_lunar_row["rate"]}
-            if best_lunar_row else None
-        )
+        best_by_dataset = {}
+        for ds in datasets:
+            best_cursor = await conn.execute(
+                """
+                SELECT ps.name, pv.version_number,
+                       CAST(SUM(CASE WHEN er.detected = 1 OR (er.moon_error_arcmin IS NOT NULL AND er.moon_error_arcmin < 60) THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate
+                FROM runs r
+                JOIN param_versions pv ON r.param_version_id = pv.id
+                JOIN param_sets ps ON pv.param_set_id = ps.id
+                JOIN eclipse_results er ON er.run_id = r.id
+                WHERE r.dataset_id = ? AND r.status = 'done' AND r.total_eclipses > 0
+                GROUP BY r.id
+                ORDER BY rate DESC
+                LIMIT 1
+                """,
+                (ds["id"],),
+            )
+            best_row = await best_cursor.fetchone()
+            best_by_dataset[ds["slug"]] = (
+                {"name": f"{best_row['name']} v{best_row['version_number']}", "rate": best_row["rate"]}
+                if best_row else None
+            )
 
-        # Recent runs with overall_pass
         recent_cursor = await conn.execute(
             """
             SELECT r.id, ps.name AS param_set_name, pv.version_number, u.name AS owner_name,
-                   r.test_type, r.status, r.total_eclipses, r.detected, r.created_at
+                   d.slug AS dataset_slug, d.name AS dataset_name,
+                   r.status, r.total_eclipses, r.detected, r.created_at
             FROM runs r
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
+            JOIN datasets d ON r.dataset_id = d.id
             ORDER BY r.created_at DESC
             LIMIT 10
             """
@@ -92,7 +75,6 @@ async def dashboard():
                 d["overall_pass"] = None
             recent_runs.append(d)
 
-        # Leaderboard: param sets ordered by avg overall pass rate
         leader_cursor = await conn.execute(
             """
             SELECT ps.name AS param_set_name, u.name AS owner_name,
@@ -120,8 +102,8 @@ async def dashboard():
 
     return {
         "total_param_sets": total_param_sets,
-        "best_solar": best_solar,
-        "best_lunar": best_lunar,
+        "best_solar": best_by_dataset.get("solar_eclipse"),
+        "best_lunar": best_by_dataset.get("lunar_eclipse"),
         "recent_runs": recent_runs,
         "leaderboard": leaderboard,
     }
