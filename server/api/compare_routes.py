@@ -132,3 +132,120 @@ async def compare(
         },
         "changed": changed,
     }
+
+
+async def _saros_groups_for_run(conn, run_id: int, dataset_id: int) -> list[dict]:
+    """Compute Saros groups for a run by joining results with the catalog."""
+    cursor = await conn.execute(
+        """
+        SELECT
+            ec.saros_num,
+            COUNT(*) AS count,
+            MIN(SUBSTR(er.date, 1, 4)) AS year_start,
+            MAX(SUBSTR(er.date, 1, 4)) AS year_end,
+            AVG(er.tychos_error_arcmin) AS mean_tychos_error,
+            AVG(er.jpl_error_arcmin) AS mean_jpl_error
+        FROM eclipse_results er
+        JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = ?
+        WHERE er.run_id = ? AND ec.saros_num IS NOT NULL
+        GROUP BY ec.saros_num
+        ORDER BY ec.saros_num
+        """,
+        (dataset_id, run_id),
+    )
+    rows = await cursor.fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        for k in ("mean_tychos_error", "mean_jpl_error"):
+            if d[k] is not None:
+                d[k] = round(d[k], 2)
+        out.append(d)
+    return out
+
+
+@router.get("/saros")
+async def compare_saros(
+    a: int = Query(..., description="Param set id A (primary)"),
+    b: int | None = Query(default=None, description="Param set id B (optional comparison)"),
+    dataset: str = Query(default="solar_eclipse", description="Dataset slug"),
+):
+    """Saros-grouped error comparison.
+
+    If `b` is omitted, returns Saros groups for A only (single-run analysis).
+    If `b` is given, returns groups from both runs joined by saros_num with delta.
+    """
+    async with get_async_db() as conn:
+        ds_cursor = await conn.execute("SELECT id FROM datasets WHERE slug = ?", (dataset,))
+        ds_row = await ds_cursor.fetchone()
+        if ds_row is None:
+            raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
+        dataset_id = ds_row["id"]
+
+        run_a = await _get_latest_done_run(conn, a, dataset_id)
+        if run_a is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No completed run found for dataset '{dataset}' and param_set {a}",
+            )
+
+        groups_a = await _saros_groups_for_run(conn, run_a["id"], dataset_id)
+
+        if b is None:
+            return {
+                "run_a": {
+                    "id": run_a["id"],
+                    "param_set_name": run_a["param_set_name"],
+                    "owner_name": run_a["owner_name"],
+                },
+                "run_b": None,
+                "groups": [
+                    {**g, "a_mean_tychos_error": g["mean_tychos_error"]}
+                    for g in groups_a
+                ],
+            }
+
+        run_b = await _get_latest_done_run(conn, b, dataset_id)
+        if run_b is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No completed run found for dataset '{dataset}' and param_set {b}",
+            )
+
+        groups_b = await _saros_groups_for_run(conn, run_b["id"], dataset_id)
+        b_by_saros = {g["saros_num"]: g for g in groups_b}
+
+        merged = []
+        for ga in groups_a:
+            saros = ga["saros_num"]
+            gb = b_by_saros.get(saros)
+            a_err = ga["mean_tychos_error"]
+            b_err = gb["mean_tychos_error"] if gb else None
+            delta = (
+                round(b_err - a_err, 2)
+                if a_err is not None and b_err is not None
+                else None
+            )
+            merged.append({
+                "saros_num": saros,
+                "count": ga["count"],
+                "year_start": ga["year_start"],
+                "year_end": ga["year_end"],
+                "a_mean_tychos_error": a_err,
+                "b_mean_tychos_error": b_err,
+                "delta": delta,
+            })
+
+        return {
+            "run_a": {
+                "id": run_a["id"],
+                "param_set_name": run_a["param_set_name"],
+                "owner_name": run_a["owner_name"],
+            },
+            "run_b": {
+                "id": run_b["id"],
+                "param_set_name": run_b["param_set_name"],
+                "owner_name": run_b["owner_name"],
+            },
+            "groups": merged,
+        }

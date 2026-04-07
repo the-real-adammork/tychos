@@ -15,6 +15,7 @@ async def list_results(
     catalog_type: str | None = Query(default=None),
     min_tychos_error: float | None = Query(default=None),
     max_tychos_error: float | None = Query(default=None),
+    saros: int | None = Query(default=None),
 ):
     """Paginated eclipse results for a run with error metrics."""
     async with get_async_db() as conn:
@@ -24,6 +25,7 @@ async def list_results(
         run_row = await run_cursor.fetchone()
         if run_row is None:
             raise HTTPException(status_code=404, detail="Run not found")
+        dataset_id = run_row["dataset_id"]
 
         conditions = ["er.run_id = ?"]
         values: list = [run_id]
@@ -39,6 +41,13 @@ async def list_results(
         if max_tychos_error is not None:
             conditions.append("er.tychos_error_arcmin <= ?")
             values.append(max_tychos_error)
+
+        if saros is not None:
+            conditions.append(
+                "er.julian_day_tt IN (SELECT julian_day_tt FROM eclipse_catalog WHERE dataset_id = ? AND saros_num = ?)"
+            )
+            values.append(dataset_id)
+            values.append(saros)
 
         where_clause = "WHERE " + " AND ".join(conditions)
 
@@ -113,6 +122,77 @@ async def list_results(
     }
 
 
+@router.get("/{run_id}/saros")
+async def list_saros_groups(
+    run_id: int,
+    catalog_type: str | None = Query(default=None),
+    min_tychos_error: float | None = Query(default=None),
+    max_tychos_error: float | None = Query(default=None),
+):
+    """Aggregate eclipse results by Saros series for a single run.
+
+    Returns one row per Saros series with count, year span, and mean errors.
+    Filters apply, but `saros` itself is not filtered (this endpoint IS the
+    grouping). Series are sorted by mean Tychos error descending (worst first).
+    """
+    async with get_async_db() as conn:
+        run_cursor = await conn.execute(
+            "SELECT id, dataset_id FROM runs WHERE id = ?", (run_id,)
+        )
+        run_row = await run_cursor.fetchone()
+        if run_row is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        dataset_id = run_row["dataset_id"]
+
+        conditions = ["er.run_id = ?", "ec.dataset_id = ?", "ec.saros_num IS NOT NULL"]
+        values: list = [run_id, dataset_id]
+
+        if catalog_type is not None:
+            conditions.append("er.catalog_type = ?")
+            values.append(catalog_type)
+
+        if min_tychos_error is not None:
+            conditions.append("er.tychos_error_arcmin >= ?")
+            values.append(min_tychos_error)
+
+        if max_tychos_error is not None:
+            conditions.append("er.tychos_error_arcmin <= ?")
+            values.append(max_tychos_error)
+
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+        cursor = await conn.execute(
+            f"""
+            SELECT
+                ec.saros_num,
+                COUNT(*) AS count,
+                MIN(SUBSTR(er.date, 1, 4)) AS year_start,
+                MAX(SUBSTR(er.date, 1, 4)) AS year_end,
+                AVG(er.tychos_error_arcmin) AS mean_tychos_error,
+                AVG(er.jpl_error_arcmin) AS mean_jpl_error,
+                MAX(er.tychos_error_arcmin) AS max_tychos_error,
+                MAX(er.jpl_error_arcmin) AS max_jpl_error
+            FROM eclipse_results er
+            JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = ?
+            {where_clause}
+            GROUP BY ec.saros_num
+            ORDER BY mean_tychos_error DESC
+            """,
+            [dataset_id] + values,
+        )
+        rows = await cursor.fetchall()
+
+        groups = []
+        for r in rows:
+            d = dict(r)
+            for k in ("mean_tychos_error", "mean_jpl_error", "max_tychos_error", "max_jpl_error"):
+                if d[k] is not None:
+                    d[k] = round(d[k], 2)
+            groups.append(d)
+
+    return {"groups": groups}
+
+
 @router.get("/{run_id}/{result_id}")
 async def get_result(run_id: int, result_id: int):
     """Get a single eclipse result with run context, JPL and predicted reference data."""
@@ -122,6 +202,7 @@ async def get_result(run_id: int, result_id: int):
             SELECT er.*, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name,
                    REPLACE(d.slug, '_eclipse', '') AS test_type, pv.version_number,
                    ps.id AS param_set_id, ps.name AS param_set_name,
+                   ec.saros_num,
                    jpl.sun_ra_rad AS jpl_sun_ra_rad, jpl.sun_dec_rad AS jpl_sun_dec_rad,
                    jpl.moon_ra_rad AS jpl_moon_ra_rad, jpl.moon_dec_rad AS jpl_moon_dec_rad,
                    jpl.separation_arcmin AS jpl_separation_arcmin,
@@ -139,6 +220,8 @@ async def get_result(run_id: int, result_id: int):
             JOIN datasets d ON r.dataset_id = d.id
             JOIN param_versions pv ON r.param_version_id = pv.id
             JOIN param_sets ps ON pv.param_set_id = ps.id
+            LEFT JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt
+                AND ec.dataset_id = r.dataset_id
             LEFT JOIN jpl_reference jpl ON jpl.julian_day_tt = er.julian_day_tt
                 AND jpl.dataset_id = r.dataset_id
             LEFT JOIN predicted_reference pred ON pred.julian_day_tt = er.julian_day_tt
@@ -150,4 +233,53 @@ async def get_result(run_id: int, result_id: int):
         row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Result not found")
-    return dict(row)
+
+        result = dict(row)
+
+        # Saros context: position in series + neighbors
+        saros_num = result.get("saros_num")
+        if saros_num is not None:
+            dataset_id = result["dataset_id"]
+            series_cursor = await conn.execute(
+                """
+                SELECT er.id, er.julian_day_tt, er.date, er.catalog_type,
+                       er.tychos_error_arcmin, er.jpl_error_arcmin
+                FROM eclipse_results er
+                JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = ?
+                WHERE er.run_id = ? AND ec.saros_num = ?
+                ORDER BY er.julian_day_tt
+                """,
+                (dataset_id, run_id, saros_num),
+            )
+            series = [dict(r) for r in await series_cursor.fetchall()]
+            position = next((i for i, s in enumerate(series) if s["id"] == result_id), 0)
+
+            result["saros_total"] = len(series)
+            result["saros_position"] = position + 1
+            result["saros_year_start"] = series[0]["date"][:4] if series else None
+            result["saros_year_end"] = series[-1]["date"][:4] if series else None
+
+            # ±5 neighbors
+            start = max(0, position - 5)
+            end = min(len(series), position + 6)
+            neighbors = []
+            for i in range(start, end):
+                s = series[i]
+                neighbors.append({
+                    "id": s["id"],
+                    "date": s["date"],
+                    "catalog_type": s["catalog_type"],
+                    "position": i + 1,
+                    "tychos_error_arcmin": round(s["tychos_error_arcmin"], 2) if s["tychos_error_arcmin"] is not None else None,
+                    "jpl_error_arcmin": round(s["jpl_error_arcmin"], 2) if s["jpl_error_arcmin"] is not None else None,
+                    "is_self": s["id"] == result_id,
+                })
+            result["saros_neighbors"] = neighbors
+        else:
+            result["saros_total"] = None
+            result["saros_position"] = None
+            result["saros_year_start"] = None
+            result["saros_year_end"] = None
+            result["saros_neighbors"] = []
+
+    return result

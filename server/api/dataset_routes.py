@@ -53,6 +53,7 @@ async def get_dataset_catalog(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     catalog_type: str | None = Query(default=None),
+    saros: int | None = Query(default=None),
 ):
     """Return paginated catalog data for a dataset by slug."""
     async with get_async_db() as conn:
@@ -74,6 +75,10 @@ async def get_dataset_catalog(
         if catalog_type:
             conditions.append("type = ?")
             values.append(catalog_type)
+
+        if saros is not None:
+            conditions.append("saros_num = ?")
+            values.append(saros)
 
         where = " AND ".join(conditions)
 
@@ -157,6 +162,48 @@ async def get_dataset_eclipse(slug: str, eclipse_id: int):
         if row is None:
             raise HTTPException(status_code=404, detail="Eclipse not found")
 
+        eclipse = dict(row)
+        saros_num = eclipse.get("saros_num")
+
+        saros_context = {
+            "saros_total": None,
+            "saros_position": None,
+            "saros_year_start": None,
+            "saros_year_end": None,
+            "saros_neighbors": [],
+        }
+        if saros_num is not None:
+            series_cursor = await conn.execute(
+                """
+                SELECT id, julian_day_tt, date, type
+                FROM eclipse_catalog
+                WHERE dataset_id = ? AND saros_num = ?
+                ORDER BY julian_day_tt
+                """,
+                (dataset_id, saros_num),
+            )
+            series = [dict(r) for r in await series_cursor.fetchall()]
+            position = next((i for i, s in enumerate(series) if s["id"] == eclipse_id), 0)
+
+            saros_context["saros_total"] = len(series)
+            saros_context["saros_position"] = position + 1
+            saros_context["saros_year_start"] = series[0]["date"][:4] if series else None
+            saros_context["saros_year_end"] = series[-1]["date"][:4] if series else None
+
+            start = max(0, position - 5)
+            end = min(len(series), position + 6)
+            for i in range(start, end):
+                s = series[i]
+                saros_context["saros_neighbors"].append({
+                    "id": s["id"],
+                    "date": s["date"],
+                    "catalog_type": s["type"],
+                    "position": i + 1,
+                    "is_self": s["id"] == eclipse_id,
+                })
+
+        eclipse.update(saros_context)
+
     return {
         "dataset": {
             "name": ds_dict["name"],
@@ -164,5 +211,5 @@ async def get_dataset_eclipse(slug: str, eclipse_id: int):
             "event_type": event_type,
         },
         "test_type": test_type,
-        "eclipse": dict(row),
+        "eclipse": eclipse,
     }
