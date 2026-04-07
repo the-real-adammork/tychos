@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -84,12 +85,24 @@ const emptyStats: ApiStats = {
   max_jpl_error: null,
 }
 
+interface SarosGroup {
+  saros_num: number
+  count: number
+  year_start: string
+  year_end: string
+  mean_tychos_error: number | null
+  mean_jpl_error: number | null
+  max_tychos_error: number | null
+  max_jpl_error: number | null
+}
+
 export function ResultsTable({ runId }: ResultsTableProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [results, setResults] = useState<EclipseResult[]>([])
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState<ApiStats>(emptyStats)
+  const [sarosGroups, setSarosGroups] = useState<SarosGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -99,6 +112,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   const typeFilter = searchParams.get("type") || "all"
   const minError = searchParams.get("min_error") || ""
   const maxError = searchParams.get("max_error") || ""
+  const sarosFilter = searchParams.get("saros") || ""
+  const groupBySaros = searchParams.get("group") === "saros"
 
   function setPage(p: number) {
     setSearchParams(prev => { prev.set("page", String(p)); return prev }, { replace: true })
@@ -120,6 +135,20 @@ export function ResultsTable({ runId }: ResultsTableProps) {
       return prev
     }, { replace: true })
   }
+  function setGroupBySaros(on: boolean) {
+    setSearchParams(prev => {
+      if (on) prev.set("group", "saros"); else prev.delete("group")
+      prev.set("page", "1")
+      return prev
+    }, { replace: true })
+  }
+  function clearSarosFilter() {
+    setSearchParams(prev => {
+      prev.delete("saros")
+      prev.set("page", "1")
+      return prev
+    }, { replace: true })
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -128,10 +157,31 @@ export function ResultsTable({ runId }: ResultsTableProps) {
     setError(null)
 
     const params = new URLSearchParams()
-    params.set("page", String(page))
     if (typeFilter !== "all") params.set("catalog_type", typeFilter)
     if (minError) params.set("min_tychos_error", minError)
     if (maxError) params.set("max_tychos_error", maxError)
+
+    if (groupBySaros) {
+      // Saros grouped view
+      fetch(`/api/results/${runId}/saros?${params.toString()}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch saros groups")
+          return res.json() as Promise<{ groups: SarosGroup[] }>
+        })
+        .then((data) => {
+          setSarosGroups(data.groups)
+          setTotal(data.groups.length)
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "Unknown error")
+        })
+        .finally(() => setLoading(false))
+      return
+    }
+
+    // Per-eclipse view
+    params.set("page", String(page))
+    if (sarosFilter) params.set("saros", sarosFilter)
 
     fetch(`/api/results/${runId}?${params.toString()}`)
       .then((res) => {
@@ -158,21 +208,43 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         setError(err instanceof Error ? err.message : "Unknown error")
       })
       .finally(() => setLoading(false))
-  }, [runId, page, typeFilter, minError, maxError])
+  }, [runId, page, typeFilter, minError, maxError, sarosFilter, groupBySaros])
 
   function handleTypeChange(value: string | null) {
     setTypeFilter(value ?? "all")
   }
 
+  function openSarosSeries(saros: number) {
+    setSearchParams(prev => {
+      prev.set("saros", String(saros))
+      prev.delete("group")
+      prev.set("page", "1")
+      return prev
+    }, { replace: true })
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Stats bar */}
-      {!loading && !error && stats.total > 0 && (
+      {!loading && !error && !groupBySaros && stats.total > 0 && (
         <ErrorStatsBar stats={stats} />
       )}
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">View</span>
+          <Select value={groupBySaros ? "saros" : "eclipses"} onValueChange={(v) => setGroupBySaros(v === "saros")}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="eclipses">Per eclipse</SelectItem>
+              <SelectItem value="saros">Group by Saros</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Type</span>
           <Select value={typeFilter} onValueChange={handleTypeChange}>
@@ -211,8 +283,17 @@ export function ResultsTable({ runId }: ResultsTableProps) {
           />
         </div>
 
+        {sarosFilter && !groupBySaros && (
+          <Badge
+            className="cursor-pointer bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30"
+            onClick={clearSarosFilter}
+          >
+            Saros {sarosFilter} ✕
+          </Badge>
+        )}
+
         <span className="ml-auto text-sm text-muted-foreground">
-          {total} eclipse{total !== 1 ? "s" : ""}
+          {groupBySaros ? `${total} series` : `${total} eclipse${total !== 1 ? "s" : ""}`}
         </span>
       </div>
 
@@ -221,6 +302,41 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         <p className="text-sm text-destructive">{error}</p>
       ) : loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : groupBySaros ? (
+        sarosGroups.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Saros series found.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Saros #</TableHead>
+                <TableHead className="text-right">Eclipses</TableHead>
+                <TableHead>Year Span</TableHead>
+                <TableHead className="text-right">Mean Tychos Error</TableHead>
+                <TableHead className="text-right">Max Tychos Error</TableHead>
+                <TableHead className="text-right">Mean JPL Error</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sarosGroups.map((g) => (
+                <TableRow
+                  key={g.saros_num}
+                  className="cursor-pointer"
+                  onClick={() => openSarosSeries(g.saros_num)}
+                >
+                  <TableCell className="font-mono">{g.saros_num}</TableCell>
+                  <TableCell className="text-right tabular-nums">{g.count}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground text-sm">
+                    {g.year_start}–{g.year_end}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{formatSeparation(g.mean_tychos_error)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatSeparation(g.max_tychos_error)}</TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">{formatSeparation(g.mean_jpl_error)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
       ) : results.length === 0 ? (
         <p className="text-sm text-muted-foreground">No results found.</p>
       ) : (
@@ -256,8 +372,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         </Table>
       )}
 
-      {/* Pagination */}
-      {!loading && !error && results.length > 0 && (
+      {/* Pagination — only for per-eclipse view */}
+      {!loading && !error && !groupBySaros && results.length > 0 && (
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
