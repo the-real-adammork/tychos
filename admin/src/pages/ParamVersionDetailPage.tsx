@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ParamViewer } from "@/components/parameters/param-viewer";
 
 type RunStatus = "queued" | "running" | "done" | "failed";
 
@@ -365,6 +366,12 @@ export default function ParamVersionDetailPage() {
           </div>
         </section>
       )}
+
+      {/* Full parameter values, grouped by body */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Parameters</h2>
+        <ParamViewer paramsJson={data.params_json} />
+      </section>
     </div>
   );
 }
