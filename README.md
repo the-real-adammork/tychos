@@ -20,6 +20,16 @@ This project tests the [Tychos model](https://www.tychos.space/)'s ability to pr
 
 6. **Store and visualize.** Results go into a SQLite database. The [admin dashboard](docs/visualizations.md#admin-dashboard) provides per-eclipse [geometry diagrams](docs/visualizations.md) (predicted / tychos / jpl side-by-side), error-based filtering, [Saros-series grouping](docs/visualizations.md#saros-analysis), and dataset browsing.
 
+## Documentation
+
+| Doc | Topic |
+|---|---|
+| [Methodology](docs/methodology.md) | Predicted reference geometry, eclipse detection scan, error metrics |
+| [Datasets](docs/datasets.md) | NASA Five Millennium Canon catalogs and JPL DE440s ephemeris |
+| [Architecture & Dependencies](docs/architecture.md) | tychos_skyfield, Skyfield, NumPy, SciPy, FastAPI |
+| [Visualizations & Dashboard](docs/visualizations.md) | Eclipse diagrams, Saros analysis, admin UI walkthrough |
+| [Roadmap](docs/roadmap.md) | Open questions and future goals |
+
 ## Quick Start
 
 Local development (FastAPI server + worker + admin SPA dev server):
@@ -57,16 +67,6 @@ For deploying as a long-lived service behind Cloudflare Tunnel + Access, see [`l
 | [`local_deploy/`](local_deploy/README.md) | Cloudflare Tunnel + Access deploy scripts and launchd plists |
 | [`params/`](params/README.md) | On-disk parameter sets that get seeded into the database on first boot |
 | [`docs/`](docs/) | Methodology, architecture, datasets, visualizations, and roadmap |
-
-## Documentation
-
-| Doc | Topic |
-|---|---|
-| [Methodology](docs/methodology.md) | Predicted reference geometry, eclipse detection scan, error metrics |
-| [Datasets](docs/datasets.md) | NASA Five Millennium Canon catalogs and JPL DE440s ephemeris |
-| [Architecture & Dependencies](docs/architecture.md) | tychos_skyfield, Skyfield, NumPy, SciPy, FastAPI |
-| [Visualizations & Dashboard](docs/visualizations.md) | Eclipse diagrams, Saros analysis, admin UI walkthrough |
-| [Roadmap](docs/roadmap.md) | Open questions and future goals |
 
 ## License
 
