@@ -42,7 +42,7 @@ This project tests the [Tychos model](https://www.tychos.space/)'s ability to pr
 
 The core Tychos model implementation in Python. Included as a git submodule at `tychos_skyfield/`.
 
-- **`baselib.py`** — The complete Tychos solar system model. Implements `TychosSystem`, which positions all planets (Sun, Moon, Mercury through Neptune, and several minor bodies) using the Tychos geometric model with deferent/epicycle-style orbital mechanics. Computes RA/Dec in the ICRF/J2000 frame. Orbital parameters are loaded from `orbital_params.json`, which is synced from the TSN (Tychosium) JavaScript 3D simulator's `celestial-settings.json`.
+- **`baselib.py`** — The complete Tychos solar system model. Implements `TychosSystem`, which positions all planets (Sun, Moon, Mercury through Neptune, and several minor bodies) using the Tychos geometric model with deferent/epicycle-style orbital mechanics. Computes RA/Dec in the ICRF/J2000 frame. Orbital parameters are loaded from `orbital_params.json`, which was originally derived from the [Tychosium](https://www.tychos.space/tychosium/) JavaScript 3D simulator's `celestial-settings.json`.
 
 - **`skyfieldlib.py`** — An adapter that wraps Tychos objects as [Skyfield](https://rhodesmill.org/skyfield/) `VectorFunction` objects, allowing Tychos-computed positions to be used interchangeably with JPL ephemeris data within the Skyfield API. This enables direct RA/Dec comparisons between Tychos and the standard (heliocentric) model.
 
