@@ -18,6 +18,31 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+type SortDir = "asc" | "desc"
+
+interface SortHeadProps {
+  column: string
+  active: string
+  direction: SortDir
+  onSort: (column: string) => void
+  className?: string
+  children: React.ReactNode
+}
+
+function SortHead({ column, active, direction, onSort, className, children }: SortHeadProps) {
+  const isActive = active === column
+  const arrow = isActive ? (direction === "asc" ? " ↑" : " ↓") : ""
+  return (
+    <TableHead
+      className={`cursor-pointer select-none hover:text-foreground ${className ?? ""}`}
+      onClick={() => onSort(column)}
+    >
+      {children}
+      <span className="text-muted-foreground">{arrow}</span>
+    </TableHead>
+  )
+}
+
 interface EclipseResult {
   id: number
   julianDayTt: number
@@ -114,6 +139,12 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   const maxError = searchParams.get("max_error") || ""
   const sarosFilter = searchParams.get("saros") || ""
   const groupBySaros = searchParams.get("group") === "saros"
+  const sortBy = searchParams.get("sort_by") || "date"
+  const sortDir = (searchParams.get("sort_dir") || "asc") as SortDir
+
+  // Saros view sort state (client-side, separate from per-eclipse sort)
+  const [sarosSortBy, setSarosSortBy] = useState<string>("mean_tychos_error")
+  const [sarosSortDir, setSarosSortDir] = useState<SortDir>("desc")
 
   function setPage(p: number) {
     setSearchParams(prev => { prev.set("page", String(p)); return prev }, { replace: true })
@@ -149,6 +180,28 @@ export function ResultsTable({ runId }: ResultsTableProps) {
       return prev
     }, { replace: true })
   }
+  function handleEclipseSort(column: string) {
+    setSearchParams(prev => {
+      const currentBy = prev.get("sort_by") || "date"
+      const currentDir = prev.get("sort_dir") || "asc"
+      if (currentBy === column) {
+        prev.set("sort_dir", currentDir === "asc" ? "desc" : "asc")
+      } else {
+        prev.set("sort_by", column)
+        prev.set("sort_dir", "asc")
+      }
+      prev.set("page", "1")
+      return prev
+    }, { replace: true })
+  }
+  function handleSarosSort(column: string) {
+    if (sarosSortBy === column) {
+      setSarosSortDir(sarosSortDir === "asc" ? "desc" : "asc")
+    } else {
+      setSarosSortBy(column)
+      setSarosSortDir("desc")
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -182,6 +235,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
     // Per-eclipse view
     params.set("page", String(page))
     if (sarosFilter) params.set("saros", sarosFilter)
+    params.set("sort_by", sortBy)
+    params.set("sort_dir", sortDir)
 
     fetch(`/api/results/${runId}?${params.toString()}`)
       .then((res) => {
@@ -208,7 +263,22 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         setError(err instanceof Error ? err.message : "Unknown error")
       })
       .finally(() => setLoading(false))
-  }, [runId, page, typeFilter, minError, maxError, sarosFilter, groupBySaros])
+  }, [runId, page, typeFilter, minError, maxError, sarosFilter, groupBySaros, sortBy, sortDir])
+
+  // Client-side sorted Saros groups
+  const sortedSarosGroups = [...sarosGroups].sort((a, b) => {
+    const av = (a as unknown as Record<string, unknown>)[sarosSortBy]
+    const bv = (b as unknown as Record<string, unknown>)[sarosSortBy]
+    if (av == null && bv == null) return 0
+    if (av == null) return 1
+    if (bv == null) return -1
+    if (typeof av === "number" && typeof bv === "number") {
+      return sarosSortDir === "asc" ? av - bv : bv - av
+    }
+    const as = String(av)
+    const bs = String(bv)
+    return sarosSortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as)
+  })
 
   function handleTypeChange(value: string | null) {
     setTypeFilter(value ?? "all")
@@ -303,22 +373,22 @@ export function ResultsTable({ runId }: ResultsTableProps) {
       ) : loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : groupBySaros ? (
-        sarosGroups.length === 0 ? (
+        sortedSarosGroups.length === 0 ? (
           <p className="text-sm text-muted-foreground">No Saros series found.</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Saros #</TableHead>
-                <TableHead className="text-right">Eclipses</TableHead>
-                <TableHead>Year Span</TableHead>
-                <TableHead className="text-right">Mean Tychos Error</TableHead>
-                <TableHead className="text-right">Max Tychos Error</TableHead>
-                <TableHead className="text-right">Mean JPL Error</TableHead>
+                <SortHead column="saros_num" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort}>Saros #</SortHead>
+                <SortHead column="count" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Eclipses</SortHead>
+                <SortHead column="year_start" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort}>Year Span</SortHead>
+                <SortHead column="mean_tychos_error" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Mean Tychos Error</SortHead>
+                <SortHead column="max_tychos_error" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Max Tychos Error</SortHead>
+                <SortHead column="mean_jpl_error" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Mean JPL Error</SortHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sarosGroups.map((g) => (
+              {sortedSarosGroups.map((g) => (
                 <TableRow
                   key={g.saros_num}
                   className="cursor-pointer"
@@ -343,13 +413,13 @@ export function ResultsTable({ runId }: ResultsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Magnitude</TableHead>
-              <TableHead className="text-right">Tychos Sep</TableHead>
-              <TableHead className="text-right">Tychos Error</TableHead>
-              <TableHead className="text-right">JPL Error</TableHead>
-              <TableHead className="text-right">Timing Offset</TableHead>
+              <SortHead column="date" active={sortBy} direction={sortDir} onSort={handleEclipseSort}>Date</SortHead>
+              <SortHead column="catalog_type" active={sortBy} direction={sortDir} onSort={handleEclipseSort}>Type</SortHead>
+              <SortHead column="magnitude" active={sortBy} direction={sortDir} onSort={handleEclipseSort}>Magnitude</SortHead>
+              <SortHead column="min_separation_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Sep</SortHead>
+              <SortHead column="tychos_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Error</SortHead>
+              <SortHead column="jpl_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Error</SortHead>
+              <SortHead column="timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Timing Offset</SortHead>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -8,6 +8,18 @@ router = APIRouter(prefix="/api/results")
 PAGE_SIZE = 50
 
 
+# Allowed sort columns mapped to safe SQL column names
+_SORTABLE_COLUMNS = {
+    "date": "er.julian_day_tt",
+    "catalog_type": "er.catalog_type",
+    "magnitude": "er.magnitude",
+    "min_separation_arcmin": "er.min_separation_arcmin",
+    "tychos_error_arcmin": "er.tychos_error_arcmin",
+    "jpl_error_arcmin": "er.jpl_error_arcmin",
+    "timing_offset_min": "er.timing_offset_min",
+}
+
+
 @router.get("/{run_id}")
 async def list_results(
     run_id: int,
@@ -16,6 +28,8 @@ async def list_results(
     min_tychos_error: float | None = Query(default=None),
     max_tychos_error: float | None = Query(default=None),
     saros: int | None = Query(default=None),
+    sort_by: str = Query(default="date"),
+    sort_dir: str = Query(default="asc"),
 ):
     """Paginated eclipse results for a run with error metrics."""
     async with get_async_db() as conn:
@@ -91,14 +105,16 @@ async def list_results(
                 return (vals[n // 2 - 1] + vals[n // 2]) / 2
             return vals[n // 2]
 
-        # Paginated results
+        # Paginated results — validate sort args
+        sort_col = _SORTABLE_COLUMNS.get(sort_by, "er.julian_day_tt")
+        sort_dir_sql = "DESC" if sort_dir.lower() == "desc" else "ASC"
         offset = (page - 1) * PAGE_SIZE
         rows_cursor = await conn.execute(
             f"""
             SELECT er.*
             FROM eclipse_results er
             {where_clause}
-            ORDER BY er.julian_day_tt ASC
+            ORDER BY {sort_col} {sort_dir_sql} NULLS LAST, er.julian_day_tt ASC
             LIMIT ? OFFSET ?
             """,
             values + [PAGE_SIZE, offset],
