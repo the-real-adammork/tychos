@@ -13,6 +13,8 @@ import RunsPage from "@/pages/RunsPage";
 import ResultsPage from "@/pages/ResultsPage";
 import ResultDetailPage from "@/pages/ResultDetailPage";
 import ComparePage from "@/pages/ComparePage";
+import DatasetsPage from "@/pages/DatasetsPage";
+import DatasetDetailPage from "@/pages/DatasetDetailPage";
 
 type User = { id: number; email: string; name: string } | null;
 
@@ -59,6 +61,8 @@ export default function App() {
                     <Route path="/runs" element={<RunsPage />} />
                     <Route path="/results/:runId" element={<ResultsPage />} />
                     <Route path="/results/:runId/:resultId" element={<ResultDetailPage />} />
+                    <Route path="/datasets" element={<DatasetsPage />} />
+                    <Route path="/datasets/:slug" element={<DatasetDetailPage />} />
                     <Route path="/compare" element={<ComparePage />} />
                   </Routes>
                 </main>

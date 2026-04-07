@@ -2,6 +2,17 @@ import { useState, useEffect } from "react";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { RecentRuns } from "@/components/dashboard/recent-runs";
 import { Leaderboard } from "@/components/dashboard/leaderboard";
+import { DatasetSummary } from "@/components/dashboard/dataset-summary";
+
+interface DatasetBreakdown {
+  catalog_type: string;
+  count: number;
+}
+
+interface DatasetSummaryData {
+  total: number;
+  breakdown: DatasetBreakdown[];
+}
 
 interface DashboardData {
   total_param_sets: number;
@@ -9,10 +20,13 @@ interface DashboardData {
   best_lunar: { name: string; rate: number } | null;
   recent_runs: Array<{
     id: number;
-    test_type: string;
+    dataset_slug: string;
+    dataset_name: string;
     status: string;
     total_eclipses: number | null;
     detected: number | null;
+    overall_pass: number | null;
+    version_number: number | null;
     param_set_name: string;
   }>;
   leaderboard: Array<{
@@ -24,11 +38,15 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [datasetSummary, setDatasetSummary] = useState<Record<string, DatasetSummaryData> | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard")
       .then((r) => r.json())
       .then(setData);
+    fetch("/api/datasets/summary")
+      .then((r) => r.json())
+      .then(setDatasetSummary);
   }, []);
 
   if (!data) return null;
@@ -43,11 +61,15 @@ export default function DashboardPage() {
         bestLunar={data.best_lunar}
       />
 
+      {datasetSummary && (
+        <DatasetSummary datasets={datasetSummary} />
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <RecentRuns
           runs={data.recent_runs.map((r) => ({
             id: r.id,
-            testType: r.test_type,
+            testType: r.dataset_name,
             status: r.status,
             totalEclipses: r.total_eclipses,
             detected: r.overall_pass ?? r.detected,

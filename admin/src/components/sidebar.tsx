@@ -4,6 +4,7 @@ import {
   Settings2,
   Play,
   GitCompare,
+  Database,
   LogOut,
 } from "lucide-react";
 
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/parameters", label: "Parameters", icon: Settings2 },
   { href: "/runs", label: "Runs", icon: Play },
+  { href: "/datasets", label: "Datasets", icon: Database },
   { href: "/compare", label: "Compare", icon: GitCompare },
 ];
 
@@ -33,7 +35,7 @@ export function Sidebar({ userName, userEmail }: SidebarProps) {
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="flex flex-col gap-1 px-2">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href;
+            const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
                 key={href}
