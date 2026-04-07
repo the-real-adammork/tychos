@@ -76,7 +76,7 @@ async def list_param_sets():
 
             if ver_row:
                 latest_version_id = ver_row["id"]
-                # Latest done runs for latest version (one per test_type)
+                # Latest done runs for latest version (one per dataset)
                 run_cursor = await conn.execute(
                     """
                     SELECT r.id, r.dataset_id, d.slug AS dataset_slug, r.status, r.total_eclipses, r.detected, r.completed_at
