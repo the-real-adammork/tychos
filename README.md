@@ -26,6 +26,7 @@ This project tests the [Tychos model](https://www.tychos.space/)'s ability to pr
 - [Admin Dashboard](#admin-dashboard)
 - [Running the Tests](#running-the-tests)
 - [Open Questions](#open-questions)
+- [Future Goals](#future-goals)
 
 ---
 
@@ -288,6 +289,20 @@ python -m server.app
 
 7. **J2000 quaternion hardcoding.** The `baselib.py` RA/Dec calculation uses a hardcoded quaternion (`[-0.1420..., 0.6927..., -0.1451..., 0.6919...]`) for the J2000 epoch frame transformation. The code comments state this was "obtained by manually getting rotation quaternion of polar axis for the date 2000/01/01 12:00." The derivation of this quaternion and its sensitivity to the polar axis model parameters have not been independently verified.
 
-8. **Moon velocity computation.** Moon RA/Dec velocities are computed as a simple finite difference over 1 hour (`jd + 1/24`). For the velocity arrows in the visualization this is fine, but if velocities are ever used for interpolation or refined scanning, the 1-hour step may be too coarse near eclipse mid-point where the Moon's apparent motion can change direction.
+8. **Parameter sensitivity.** The system supports multiple parameter sets, but the relationship between individual orbital parameters (orbit radius, tilt, speed, center offsets) and eclipse detection accuracy has not been systematically mapped. Small changes to Moon deferent parameters likely dominate eclipse detection, but this hasn't been quantified.
 
-9. **Parameter sensitivity.** The system supports multiple parameter sets, but the relationship between individual orbital parameters (orbit radius, tilt, speed, center offsets) and eclipse detection accuracy has not been systematically mapped. Small changes to Moon deferent parameters likely dominate eclipse detection, but this hasn't been quantified.
+---
+
+## Future Goals
+
+1. **Verify Skyfield and tychos_skyfield accuracy.** Confirm that both the Skyfield/JPL pipeline and the tychos_skyfield Python model produce positions with sufficient accuracy for meaningful comparison. This means validating Skyfield output against known reference positions and ensuring tychos_skyfield faithfully reproduces the Tychosium JavaScript simulator's results.
+
+2. **Verify eclipse catalog data.** Audit the NASA Five Millennium Canon eclipse data to confirm it is reliable and high-accuracy — that the eclipse times, types, and magnitudes we are testing against are themselves trustworthy. Cross-reference against independent sources (e.g., Meeus's tables, USNO data) where possible.
+
+3. **Define the primary accuracy metric.** Decide whether the project's success criterion should be threshold-based detection (Sun-Moon separation below a geometric cutoff) or positional agreement with JPL (how close the Tychos Moon is to the JPL Moon). These measure different things and the choice affects how parameter tuning is evaluated. We need a well-defined, quantitative success criterion before automated optimization is meaningful.
+
+4. **Automated parameter optimization.** Use [autoresearch](https://github.com/karpathy/autoresearch) to brute-force search for Tychos orbital parameters that maximize eclipse detection accuracy. This requires well-defined success criteria (from goal #3) and a fast-enough evaluation loop to make large parameter sweeps practical.
+
+5. **Test against additional celestial events.** Extend beyond eclipses to other observable phenomena that constrain the model: planetary conjunctions, oppositions, transits of Mercury and Venus, lunar occultations of bright stars, and solstice/equinox timing.
+
+6. **Live Tychosium preview with modified parameters.** Add a way to load modified parameter sets into the Tychosium 3D simulator so that the visual effect of parameter changes can be inspected interactively, not just measured numerically.
