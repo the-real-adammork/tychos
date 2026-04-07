@@ -48,26 +48,26 @@ async def list_results(
         )
         total = (await total_cursor.fetchone())[0]
 
-        # Stats for full run (unfiltered)
+        # Stats with the same filters applied as the row query
         stats_cursor = await conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS total,
                 AVG(tychos_error_arcmin) AS mean_tychos_error,
                 AVG(jpl_error_arcmin) AS mean_jpl_error,
                 MAX(tychos_error_arcmin) AS max_tychos_error,
                 MAX(jpl_error_arcmin) AS max_jpl_error
-            FROM eclipse_results
-            WHERE run_id = ?
+            FROM eclipse_results er
+            {where_clause}
             """,
-            (run_id,),
+            values,
         )
         s = await stats_cursor.fetchone()
 
-        # Median (SQLite doesn't have MEDIAN, compute in Python)
+        # Median (SQLite doesn't have MEDIAN, compute in Python) — also filtered
         median_cursor = await conn.execute(
-            "SELECT tychos_error_arcmin, jpl_error_arcmin FROM eclipse_results WHERE run_id = ? ORDER BY tychos_error_arcmin",
-            (run_id,),
+            f"SELECT tychos_error_arcmin, jpl_error_arcmin FROM eclipse_results er {where_clause} ORDER BY tychos_error_arcmin",
+            values,
         )
         all_errors = await median_cursor.fetchall()
         tychos_errors = [r["tychos_error_arcmin"] for r in all_errors if r["tychos_error_arcmin"] is not None]
