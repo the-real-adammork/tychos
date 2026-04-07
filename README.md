@@ -1,5 +1,7 @@
 # Tychos Eclipse Prediction Test Suite
 
+![Eclipse geometry detail page showing Tychos vs JPL side-by-side diagrams for a solar eclipse](docs/images/eclipse-geometry-detail.png)
+
 This project tests the [Tychos model](https://www.tychos.space/)'s ability to predict historical solar and lunar eclipses. It computes Sun and Moon positions using the Tychos geometric model, compares them against NASA's authoritative eclipse catalogs, and cross-references results with JPL ephemeris data to evaluate model accuracy.
 
 ## How It Works
@@ -179,11 +181,12 @@ The admin dashboard provides two types of eclipse geometry diagrams for each ind
 
 ### Eclipse Geometry Diagram (per-result detail page)
 
-![Eclipse geometry detail page showing Tychos vs JPL side-by-side diagrams for the 1901-05-18 total solar eclipse](docs/images/eclipse-geometry-detail.png)
-
 Each eclipse result page shows two side-by-side diagrams: **Tychos** (left) and **JPL** (right).
 
 **Solar eclipses** are centered on the Sun:
+
+![Solar eclipse geometry diagram](docs/images/solar-diagram.png)
+
 - A yellow circle represents the Sun's disk (16 arcminute radius)
 - A gray circle represents the Moon's disk (15.55 arcminute radius)
 - A dashed yellow circle shows the detection threshold (48 arcminute radius)
@@ -192,6 +195,9 @@ Each eclipse result page shows two side-by-side diagrams: **Tychos** (left) and 
 - Grid lines at 10-arcminute intervals provide scale
 
 **Lunar eclipses** are centered on the anti-solar point (Earth's shadow):
+
+![Lunar eclipse geometry diagram](docs/images/lunar-diagram.png)
+
 - A dark gray filled circle represents the umbral shadow (42 arcminute radius)
 - A lighter gray circle represents the penumbral shadow (78 arcminute radius)
 - The Moon disk, threshold, separation line, and velocity arrow are drawn identically
