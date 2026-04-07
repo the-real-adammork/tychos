@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+FULL=false
+if [ "${1:-}" = "--full" ]; then
+    FULL=true
+fi
+
 # ── Load config ──────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
@@ -17,6 +22,9 @@ CF_API="https://api.cloudflare.com/client/v4"
 
 echo "=== Tychos Local Teardown ==="
 echo "  Removing: ${HOSTNAME}"
+if $FULL; then
+    echo "  Mode: FULL (will also uninstall cloudflared and delete tunnel)"
+fi
 echo ""
 
 # ── Unload launchd services ──────────────────────────────────
@@ -81,7 +89,29 @@ else
     echo "  No Access app found (skipped)."
 fi
 
+# ── Full: delete tunnel and uninstall cloudflared ───────────
+if $FULL; then
+    echo "[5/5] Uninstalling cloudflared and deleting tunnel..."
+
+    if [ -n "$TUNNEL_ID" ]; then
+        # Clean all connections first
+        curl -s -X DELETE \
+            "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}/connections" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" > /dev/null
+
+        # Delete the tunnel
+        curl -s -X DELETE \
+            "${CF_API}/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" > /dev/null
+        echo "  Tunnel deleted."
+    fi
+
+    sudo cloudflared service uninstall 2>/dev/null && echo "  cloudflared service uninstalled." || echo "  cloudflared service not installed (skipped)."
+fi
+
 echo ""
 echo "=== Teardown complete ==="
-echo "  Note: cloudflared service was NOT removed (shared with other apps)."
+if ! $FULL; then
+    echo "  Note: cloudflared service was NOT removed. Use --full to also uninstall cloudflared and delete the tunnel."
+fi
 echo "  Note: Database was NOT deleted (${TYCHOS_DIR}/results/)."

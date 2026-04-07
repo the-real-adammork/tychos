@@ -187,6 +187,12 @@ EXISTING_APPS=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps" \
     -H "Authorization: Bearer ${CF_API_TOKEN}")
 APP_ID=$(echo "$EXISTING_APPS" | jq -r ".result[] | select(.domain == \"${HOSTNAME}\") | .id" 2>/dev/null || echo "")
 
+# Build email include rules from comma-separated CF_ACCESS_EMAIL
+EMAIL_RULES=$(echo "$CF_ACCESS_EMAIL" | tr ',' '\n' | while read -r email; do
+    email=$(echo "$email" | xargs)  # trim whitespace
+    echo "{\"email\":{\"email\":\"${email}\"}}"
+done | paste -sd ',' -)
+
 if [ -z "$APP_ID" ]; then
     APP_RESP=$(curl -s -X POST \
         "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps" \
@@ -206,10 +212,31 @@ if [ -z "$APP_ID" ]; then
         "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps/${APP_ID}/policies" \
         -H "Authorization: Bearer ${CF_API_TOKEN}" \
         -H "Content-Type: application/json" \
-        --data "{\"name\":\"Allow owner\",\"decision\":\"allow\",\"include\":[{\"email\":{\"email\":\"${CF_ACCESS_EMAIL}\"}}]}" > /dev/null
+        --data "{\"name\":\"Allow owner\",\"decision\":\"allow\",\"include\":[${EMAIL_RULES}]}" > /dev/null
     echo "  Access app and policy created."
 else
-    echo "  Access app already exists."
+    echo "  Access app already exists. Updating access policy..."
+
+    # Find existing policy ID
+    POLICIES_RESP=$(curl -s "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps/${APP_ID}/policies" \
+        -H "Authorization: Bearer ${CF_API_TOKEN}")
+    POLICY_ID=$(echo "$POLICIES_RESP" | jq -r '.result[0].id // empty')
+
+    if [ -n "$POLICY_ID" ]; then
+        curl -s -X PUT \
+            "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps/${APP_ID}/policies/${POLICY_ID}" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"name\":\"Allow owner\",\"decision\":\"allow\",\"include\":[${EMAIL_RULES}]}" > /dev/null
+        echo "  Access policy updated."
+    else
+        curl -s -X POST \
+            "${CF_API}/accounts/${CF_ACCOUNT_ID}/access/apps/${APP_ID}/policies" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"name\":\"Allow owner\",\"decision\":\"allow\",\"include\":[${EMAIL_RULES}]}" > /dev/null
+        echo "  Access policy created."
+    fi
 fi
 
 # ── Install launchd plists ───────────────────────────────────
