@@ -65,6 +65,9 @@ def scan_solar_eclipses(
     params: dict,
     eclipses: list[dict],
     half_window_hours: float = 2.0,
+    *,
+    max_workers: Optional[int] = None,
+    parallel_threshold: int = 8,
 ) -> list[dict]:
     """Run solar eclipse scan for the given params and eclipse list.
 
@@ -72,7 +75,26 @@ def scan_solar_eclipses(
     eclipse's minimum Sun-Moon separation. The default of 2.0 matches the
     production worker; research jobs may widen it to uncover true conjunctions
     that fall outside the default window.
+
+    `max_workers` controls process pool size. None (default) uses
+    max(1, cpu_count() - 1). Pass 1 to force serial execution in-process.
+
+    `parallel_threshold` is the smallest input length that triggers the
+    process pool. Below this, the scan runs serially in-process to avoid
+    pool spawn overhead. Default 8.
     """
+    resolved_workers = _resolve_max_workers(max_workers)
+    if resolved_workers == 1 or len(eclipses) < parallel_threshold:
+        return _scan_solar_eclipses_serial(params, eclipses, half_window_hours)
+    return _scan_solar_eclipses_parallel(
+        params, eclipses, half_window_hours, resolved_workers
+    )
+
+
+def _scan_solar_eclipses_serial(
+    params: dict, eclipses: list[dict], half_window_hours: float
+) -> list[dict]:
+    """In-process serial path. Used for small inputs and max_workers=1."""
     system = T.TychosSystem(params=params)
     threshold_arcmin = np.degrees(SOLAR_DETECTION_THRESHOLD) * 60
     rows = []
@@ -106,17 +128,43 @@ def scan_solar_eclipses(
     return rows
 
 
+def _scan_solar_eclipses_parallel(
+    params: dict,
+    eclipses: list[dict],
+    half_window_hours: float,
+    max_workers: int,
+) -> list[dict]:
+    """Parallel path: ship (params, eclipse) tasks to a persistent process pool."""
+    pool = _get_or_create_pool(max_workers, half_window_hours)
+    tasks = [(params, ecl) for ecl in eclipses]
+    return list(pool.map(_scan_one_solar_eclipse, tasks))
+
+
 def scan_lunar_eclipses(
     params: dict,
     eclipses: list[dict],
     half_window_hours: float = 2.0,
+    *,
+    max_workers: Optional[int] = None,
+    parallel_threshold: int = 8,
 ) -> list[dict]:
     """Run lunar eclipse scan for the given params and eclipse list.
 
-    `half_window_hours` controls the ± search window used to find each
-    eclipse's minimum Moon-to-antisolar-point separation. See
-    `scan_solar_eclipses` for rationale.
+    See `scan_solar_eclipses` for the meaning of `half_window_hours`,
+    `max_workers`, and `parallel_threshold`.
     """
+    resolved_workers = _resolve_max_workers(max_workers)
+    if resolved_workers == 1 or len(eclipses) < parallel_threshold:
+        return _scan_lunar_eclipses_serial(params, eclipses, half_window_hours)
+    return _scan_lunar_eclipses_parallel(
+        params, eclipses, half_window_hours, resolved_workers
+    )
+
+
+def _scan_lunar_eclipses_serial(
+    params: dict, eclipses: list[dict], half_window_hours: float
+) -> list[dict]:
+    """In-process serial path. Used for small inputs and max_workers=1."""
     system = T.TychosSystem(params=params)
     rows = []
 
@@ -149,6 +197,18 @@ def scan_lunar_eclipses(
         })
 
     return rows
+
+
+def _scan_lunar_eclipses_parallel(
+    params: dict,
+    eclipses: list[dict],
+    half_window_hours: float,
+    max_workers: int,
+) -> list[dict]:
+    """Parallel path: ship (params, eclipse) tasks to a persistent process pool."""
+    pool = _get_or_create_pool(max_workers, half_window_hours)
+    tasks = [(params, ecl) for ecl in eclipses]
+    return list(pool.map(_scan_one_lunar_eclipse, tasks))
 
 
 # ---------------------------------------------------------------------------
