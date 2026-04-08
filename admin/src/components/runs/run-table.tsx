@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 
 type RunStatus = "queued" | "running" | "done" | "failed"
 
@@ -78,8 +79,17 @@ export default function RunTable() {
   const [runs, setRuns] = useState<Run[]>([])
   const [filter, setFilter] = useState<FilterStatus>("all")
   const [loading, setLoading] = useState(true)
+  const [rerunningId, setRerunningId] = useState<number | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null)
 
   useEffect(() => {
+    if (openMenuId === null) return
+    const close = () => setOpenMenuId(null)
+    window.addEventListener("click", close)
+    return () => window.removeEventListener("click", close)
+  }, [openMenuId])
+
+  const loadRuns = () => {
     fetch("/api/runs")
       .then((r) => r.json())
       .then((data: any[]) => {
@@ -101,7 +111,27 @@ export default function RunTable() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadRuns()
   }, [])
+
+  async function handleRerun(runId: number) {
+    if (!window.confirm(
+      "Force re-run this run? This will delete the existing eclipse results and re-queue the run with the same param version + dataset."
+    )) return
+    setRerunningId(runId)
+    try {
+      const res = await fetch(`/api/runs/${runId}/rerun`, { method: "POST" })
+      if (!res.ok) throw new Error(await res.text())
+      loadRuns()
+    } catch (e) {
+      window.alert(`Re-run failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setRerunningId(null)
+    }
+  }
 
   const filtered =
     filter === "all" ? runs : runs.filter((r) => r.status === filter)
@@ -141,6 +171,7 @@ export default function RunTable() {
               <TableHead>Status</TableHead>
               <TableHead>Mean Error</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead className="w-24"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -178,6 +209,44 @@ export default function RunTable() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {format(new Date(run.createdAt), "MMM d, yyyy HH:mm")}
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <div className="relative inline-block">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Row actions"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenMenuId(openMenuId === run.id ? null : run.id)
+                      }}
+                    >
+                      ⋯
+                    </Button>
+                    {openMenuId === run.id && (
+                      <div
+                        className="absolute right-0 z-20 mt-1 w-44 rounded-md border bg-popover text-popover-foreground shadow-md"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={
+                            rerunningId === run.id ||
+                            run.status === "queued" ||
+                            run.status === "running"
+                          }
+                          onClick={() => {
+                            setOpenMenuId(null)
+                            handleRerun(run.id)
+                          }}
+                        >
+                          {rerunningId === run.id ? "Re-running…" : "Force re-run"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

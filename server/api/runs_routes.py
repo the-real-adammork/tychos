@@ -122,6 +122,38 @@ async def create_run(body: CreateRunBody, request: Request):
     return _row_to_dict(row)
 
 
+@router.post("/{run_id}/rerun", status_code=202)
+async def rerun_run(run_id: int, request: Request):
+    """Force re-run: delete old eclipse_results and re-queue the run.
+
+    Keeps the same run row (same param_version + dataset) so that history
+    references remain stable. Worker will pick it up on the next poll.
+    """
+    await require_user(request)
+
+    async with get_async_db() as conn:
+        cursor = await conn.execute("SELECT id FROM runs WHERE id = ?", (run_id,))
+        if await cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        await conn.execute("DELETE FROM eclipse_results WHERE run_id = ?", (run_id,))
+        await conn.execute(
+            """
+            UPDATE runs
+               SET status = 'queued',
+                   total_eclipses = NULL,
+                   detected = NULL,
+                   started_at = NULL,
+                   completed_at = NULL
+             WHERE id = ?
+            """,
+            (run_id,),
+        )
+        await conn.commit()
+
+    return {"id": run_id, "status": "queued"}
+
+
 @router.get("/{run_id}")
 async def get_run(run_id: int):
     """Get a single run with param set and dataset info."""
