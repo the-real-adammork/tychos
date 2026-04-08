@@ -22,7 +22,12 @@ from server.research.allowlist import (
     check_diff_against_allowlist,
     AllowlistViolation,
 )
-from server.research.objective import compute_objective, aux_stats, EmptyResults
+from server.research.objective import (
+    compute_objective,
+    aux_stats,
+    EmptyResults,
+    NoScorableResults,
+)
 from server.research.search import run_search, SearchResult
 
 # Map short --dataset arg to the dataset slug used in the DB and in scanner dispatch.
@@ -129,6 +134,70 @@ def _load_job_state(job_name: str):
     return paths, current, baseline, frontmatter, subset_blob
 
 
+def _load_jpl_reference_for_subset(dataset_slug: str, eclipses: list[dict]) -> dict:
+    """Return {catalog_jd: jpl_row} for the given subset events.
+
+    Needed so the scanner can sample Tychos body positions at JPL's best_jd,
+    and so the enrichment step can compute per-body positional deltas.
+    """
+    from server.db import get_db
+
+    jds = [ecl["julian_day_tt"] for ecl in eclipses]
+    if not jds:
+        return {}
+    placeholders = ",".join(["?"] * len(jds))
+    with get_db() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT jr.julian_day_tt, jr.best_jd,
+                   jr.sun_ra_rad, jr.sun_dec_rad, jr.moon_ra_rad, jr.moon_dec_rad
+              FROM jpl_reference jr
+              JOIN datasets d ON d.id = jr.dataset_id
+             WHERE d.slug = ? AND jr.julian_day_tt IN ({placeholders})
+            """,
+            (dataset_slug, *jds),
+        ).fetchall()
+    return {row["julian_day_tt"]: dict(row) for row in rows}
+
+
+def _enrich_with_deltas(results: list[dict], jpl_by_jd: dict) -> None:
+    """Mutate `results` in place to add sun_/moon_delta_ra/dec_arcmin fields.
+
+    Uses the tychos_*_at_jpl_rad values the scanner already produced and the
+    JPL Sun/Moon RA/Dec at that same JD. Rows without a matching JPL entry
+    get None for all four fields.
+    """
+    import math
+    k = (180.0 / math.pi) * 60.0
+    for r in results:
+        jpl = jpl_by_jd.get(r["julian_day_tt"])
+        if (
+            jpl
+            and r.get("tychos_sun_ra_at_jpl_rad") is not None
+            and jpl.get("sun_ra_rad") is not None
+            and jpl.get("moon_ra_rad") is not None
+        ):
+            cos_s = math.cos(jpl["sun_dec_rad"])
+            cos_m = math.cos(jpl["moon_dec_rad"])
+            r["sun_delta_ra_arcmin"] = round(
+                (r["tychos_sun_ra_at_jpl_rad"] - jpl["sun_ra_rad"]) * cos_s * k, 4
+            )
+            r["sun_delta_dec_arcmin"] = round(
+                (r["tychos_sun_dec_at_jpl_rad"] - jpl["sun_dec_rad"]) * k, 4
+            )
+            r["moon_delta_ra_arcmin"] = round(
+                (r["tychos_moon_ra_at_jpl_rad"] - jpl["moon_ra_rad"]) * cos_m * k, 4
+            )
+            r["moon_delta_dec_arcmin"] = round(
+                (r["tychos_moon_dec_at_jpl_rad"] - jpl["moon_dec_rad"]) * k, 4
+            )
+        else:
+            r["sun_delta_ra_arcmin"] = None
+            r["sun_delta_dec_arcmin"] = None
+            r["moon_delta_ra_arcmin"] = None
+            r["moon_delta_dec_arcmin"] = None
+
+
 def _run_scan(
     dataset_slug: str,
     params: dict,
@@ -137,11 +206,27 @@ def _run_scan(
 ) -> list[dict]:
     """Dispatch to the right scanner for the dataset."""
     from server.services.scanner import scan_solar_eclipses, scan_lunar_eclipses
+
+    jpl_by_jd = _load_jpl_reference_for_subset(dataset_slug, eclipses)
+    jpl_best_lookup = {
+        jd: row["best_jd"] for jd, row in jpl_by_jd.items() if row["best_jd"] is not None
+    }
+
     if dataset_slug == "solar_eclipse":
-        return scan_solar_eclipses(params, eclipses, half_window_hours=half_window_hours)
-    if dataset_slug == "lunar_eclipse":
-        return scan_lunar_eclipses(params, eclipses, half_window_hours=half_window_hours)
-    raise ValueError(f"Unknown dataset_slug: {dataset_slug}")
+        results = scan_solar_eclipses(
+            params, eclipses, half_window_hours=half_window_hours,
+            jpl_best_jd_by_catalog_jd=jpl_best_lookup,
+        )
+    elif dataset_slug == "lunar_eclipse":
+        results = scan_lunar_eclipses(
+            params, eclipses, half_window_hours=half_window_hours,
+            jpl_best_jd_by_catalog_jd=jpl_best_lookup,
+        )
+    else:
+        raise ValueError(f"Unknown dataset_slug: {dataset_slug}")
+
+    _enrich_with_deltas(results, jpl_by_jd)
+    return results
 
 
 def _next_iter_number(log_path) -> int:
@@ -176,7 +261,8 @@ def cmd_iterate(args) -> int:
     if tail and tail[0].get("params_hash") == h and tail[0].get("kind") == "iterate":
         cached = tail[0]
         print(f"objective: {cached['objective']}")
-        print(f"mean_separation_arcmin: {cached.get('mean_separation_arcmin')}")
+        print(f"mean_sun_error_arcmin: {cached.get('mean_sun_error_arcmin')}")
+        print(f"mean_moon_error_arcmin: {cached.get('mean_moon_error_arcmin')}")
         print(f"n_total: {cached.get('n_total')}")
         print("(cached — current.json identical to last iterate)")
         return 0
@@ -188,7 +274,7 @@ def cmd_iterate(args) -> int:
     try:
         results = _run_scan(dataset_slug, current, eclipses, half_window_hours=window)
         objective = compute_objective(results)
-    except EmptyResults as e:
+    except (EmptyResults, NoScorableResults) as e:
         print(f"error: {e}", file=sys.stderr)
         return 5
 
@@ -205,7 +291,8 @@ def cmd_iterate(args) -> int:
     append_log(paths.log_jsonl, entry)
 
     print(f"objective: {entry['objective']}")
-    print(f"mean_separation_arcmin: {aux['mean_separation_arcmin']}")
+    print(f"mean_sun_error_arcmin: {aux['mean_sun_error_arcmin']}")
+    print(f"mean_moon_error_arcmin: {aux['mean_moon_error_arcmin']}")
     print(f"n_total: {aux['n_total']}")
     return 0
 
@@ -239,7 +326,7 @@ def cmd_validate(args) -> int:
     try:
         results = _run_scan(dataset_slug, current, full_catalog, half_window_hours=window)
         objective = compute_objective(results)
-    except EmptyResults as e:
+    except (EmptyResults, NoScorableResults) as e:
         print(f"error: {e}", file=sys.stderr)
         return 5
 
@@ -256,7 +343,8 @@ def cmd_validate(args) -> int:
     append_log(paths.log_jsonl, entry)
 
     print(f"validation_objective: {entry['validation_objective']}")
-    print(f"mean_separation_arcmin: {aux['mean_separation_arcmin']}")
+    print(f"mean_sun_error_arcmin: {aux['mean_sun_error_arcmin']}")
+    print(f"mean_moon_error_arcmin: {aux['mean_moon_error_arcmin']}")
     print(f"n_total: {aux['n_total']}")
     return 0
 
@@ -367,7 +455,8 @@ def cmd_search(args) -> int:
         print(f"best_objective:     {round(result.best_objective, 4)}")
         print(f"delta:              {round(delta, 4)}  (improved)")
         print(f"n_evals:            {result.n_evals}")
-        print(f"mean_separation_arcmin: {best_aux['mean_separation_arcmin']}")
+        print(f"mean_sun_error_arcmin: {best_aux['mean_sun_error_arcmin']}")
+        print(f"mean_moon_error_arcmin: {best_aux['mean_moon_error_arcmin']}")
         print(f"n_total: {best_aux['n_total']}")
         print(f"current.json updated with best found state.")
     else:

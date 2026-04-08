@@ -145,14 +145,18 @@ def test_search_improves_on_quadratic(
     def _fake_scan(dataset_slug, params, eclipses, half_window_hours=2.0):
         a = params["moon"]["start_pos"] - target_start_pos
         b = params["moon_def_a"]["speed"] - target_moon_def_speed
-        # Synthetic "timing offset" — scaled so the objective is exactly
-        # the quadratic distance from the target point.
+        # Synthetic positional error stuffed entirely into sun_delta_ra so
+        # the objective magnitude sqrt(dRA^2 + ...) equals `err` at this point.
         err = (a * a * 100.0) + (b * b * 1e8) + 10.0
         return [
             {
                 "timing_offset_min": err,
                 "min_separation_arcmin": 20.0,
                 "detected": 1,
+                "sun_delta_ra_arcmin": err,
+                "sun_delta_dec_arcmin": 0.0,
+                "moon_delta_ra_arcmin": 0.0,
+                "moon_delta_dec_arcmin": 0.0,
             }
         ]
 

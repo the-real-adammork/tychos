@@ -42,6 +42,10 @@ interface ResultDetail {
   pred_gamma: number | null;
   pred_catalog_magnitude: number | null;
   tychos_error_arcmin: number | null;
+  sun_delta_ra_arcmin: number | null;
+  sun_delta_dec_arcmin: number | null;
+  moon_delta_ra_arcmin: number | null;
+  moon_delta_dec_arcmin: number | null;
   jpl_error_arcmin: number | null;
   dataset_slug: string;
   dataset_name: string;
@@ -398,6 +402,34 @@ export default function ResultDetailPage() {
                 <span className="text-muted-foreground">Timing Offset</span>
                 <span className="font-mono">{result.timing_offset_min != null ? `${result.timing_offset_min > 0 ? "+" : ""}${result.timing_offset_min.toFixed(1)} min` : "—"}</span>
               </div>
+              {result.sun_delta_ra_arcmin != null && result.sun_delta_dec_arcmin != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sun Error</span>
+                  <span className="font-mono">
+                    <span className="font-semibold">
+                      {Math.sqrt(result.sun_delta_ra_arcmin ** 2 + result.sun_delta_dec_arcmin ** 2).toFixed(2)}'
+                    </span>
+                    <span className="text-muted-foreground">
+                      {" "}ΔRA {result.sun_delta_ra_arcmin >= 0 ? "+" : ""}{result.sun_delta_ra_arcmin.toFixed(2)}'{" "}
+                      ΔDec {result.sun_delta_dec_arcmin >= 0 ? "+" : ""}{result.sun_delta_dec_arcmin.toFixed(2)}'
+                    </span>
+                  </span>
+                </div>
+              )}
+              {result.moon_delta_ra_arcmin != null && result.moon_delta_dec_arcmin != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Moon Error</span>
+                  <span className="font-mono">
+                    <span className="font-semibold">
+                      {Math.sqrt(result.moon_delta_ra_arcmin ** 2 + result.moon_delta_dec_arcmin ** 2).toFixed(2)}'
+                    </span>
+                    <span className="text-muted-foreground">
+                      {" "}ΔRA {result.moon_delta_ra_arcmin >= 0 ? "+" : ""}{result.moon_delta_ra_arcmin.toFixed(2)}'{" "}
+                      ΔDec {result.moon_delta_dec_arcmin >= 0 ? "+" : ""}{result.moon_delta_dec_arcmin.toFixed(2)}'
+                    </span>
+                  </span>
+                </div>
+              )}
               {result.sun_ra_rad != null && (
                 <>
                   <div className="flex justify-between font-mono text-xs">

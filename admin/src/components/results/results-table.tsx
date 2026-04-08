@@ -54,6 +54,13 @@ interface EclipseResult {
   jplErrorArcmin: number | null
   timingOffsetMin: number | null
   jplTimingOffsetMin: number | null
+  sunErrorArcmin: number | null
+  moonErrorArcmin: number | null
+}
+
+function magnitude(ra: number | null, dec: number | null): number | null {
+  if (ra === null || dec === null) return null
+  return Math.sqrt(ra * ra + dec * dec)
 }
 
 interface ApiStats {
@@ -70,6 +77,12 @@ interface ApiStats {
   mean_jpl_timing_error: number | null
   median_jpl_timing_error: number | null
   max_jpl_timing_error: number | null
+  mean_sun_error: number | null
+  median_sun_error: number | null
+  max_sun_error: number | null
+  mean_moon_error: number | null
+  median_moon_error: number | null
+  max_moon_error: number | null
 }
 
 interface ResultsTableProps {
@@ -94,25 +107,25 @@ function ErrorStatsBar({ stats }: { stats: ApiStats }) {
     <div className="grid grid-cols-2 gap-4 text-sm">
       <div className="space-y-3">
         <div className="space-y-1">
-          <div className="text-muted-foreground font-medium">Tychos Error</div>
-          <div className="font-mono">
-            Mean: {fmt(stats.mean_tychos_error)} · Median: {fmt(stats.median_tychos_error)} · Max: {fmt(stats.max_tychos_error)}
-          </div>
-        </div>
-        <div className="space-y-1">
           <div className="text-muted-foreground font-medium">Tychos Timing Error</div>
           <div className="font-mono">
             Mean: {fmtMin(stats.mean_tychos_timing_error)} · Median: {fmtMin(stats.median_tychos_timing_error)} · Max: {fmtMin(stats.max_tychos_timing_error)}
           </div>
         </div>
-      </div>
-      <div className="space-y-3">
         <div className="space-y-1">
-          <div className="text-muted-foreground font-medium">JPL Error</div>
+          <div className="text-muted-foreground font-medium">Sun Error</div>
           <div className="font-mono">
-            Mean: {fmt(stats.mean_jpl_error)} · Median: {fmt(stats.median_jpl_error)} · Max: {fmt(stats.max_jpl_error)}
+            Mean: {fmt(stats.mean_sun_error)} · Median: {fmt(stats.median_sun_error)} · Max: {fmt(stats.max_sun_error)}
           </div>
         </div>
+        <div className="space-y-1">
+          <div className="text-muted-foreground font-medium">Moon Error</div>
+          <div className="font-mono">
+            Mean: {fmt(stats.mean_moon_error)} · Median: {fmt(stats.median_moon_error)} · Max: {fmt(stats.max_moon_error)}
+          </div>
+        </div>
+      </div>
+      <div className="space-y-3">
         <div className="space-y-1">
           <div className="text-muted-foreground font-medium">JPL Timing Error</div>
           <div className="font-mono">
@@ -132,6 +145,18 @@ const emptyStats: ApiStats = {
   median_jpl_error: null,
   max_tychos_error: null,
   max_jpl_error: null,
+  mean_tychos_timing_error: null,
+  median_tychos_timing_error: null,
+  max_tychos_timing_error: null,
+  mean_jpl_timing_error: null,
+  median_jpl_timing_error: null,
+  max_jpl_timing_error: null,
+  mean_sun_error: null,
+  median_sun_error: null,
+  max_sun_error: null,
+  mean_moon_error: null,
+  median_moon_error: null,
+  max_moon_error: null,
 }
 
 interface SarosGroup {
@@ -279,6 +304,14 @@ export function ResultsTable({ runId }: ResultsTableProps) {
           jplErrorArcmin: r.jpl_error_arcmin,
           timingOffsetMin: r.timing_offset_min,
           jplTimingOffsetMin: r.jpl_timing_offset_min,
+          sunErrorArcmin: magnitude(
+            r.sun_delta_ra_arcmin as number | null,
+            r.sun_delta_dec_arcmin as number | null,
+          ),
+          moonErrorArcmin: magnitude(
+            r.moon_delta_ra_arcmin as number | null,
+            r.moon_delta_dec_arcmin as number | null,
+          ),
         })) as EclipseResult[]
         setResults(mapped)
         setTotal(data.total)
@@ -441,11 +474,11 @@ export function ResultsTable({ runId }: ResultsTableProps) {
               <SortHead column="date" active={sortBy} direction={sortDir} onSort={handleEclipseSort}>Date</SortHead>
               <SortHead column="catalog_type" active={sortBy} direction={sortDir} onSort={handleEclipseSort}>Type</SortHead>
               <SortHead column="magnitude" active={sortBy} direction={sortDir} onSort={handleEclipseSort}>Magnitude</SortHead>
+              <SortHead column="timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Offset (min)</SortHead>
+              <SortHead column="jpl_timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Offset (min)</SortHead>
               <SortHead column="min_separation_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Sep</SortHead>
-              <SortHead column="tychos_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Error</SortHead>
-              <SortHead column="jpl_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Error</SortHead>
-              <SortHead column="timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Offset</SortHead>
-              <SortHead column="jpl_timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Offset</SortHead>
+              <SortHead column="sun_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Sun Err</SortHead>
+              <SortHead column="moon_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Moon Err</SortHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -458,11 +491,11 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                 <TableCell>{row.date}</TableCell>
                 <TableCell className="capitalize">{row.catalogType}</TableCell>
                 <TableCell>{row.magnitude.toFixed(2)}</TableCell>
-                <TableCell className="text-right font-mono">{formatSeparation(row.minSeparationArcmin)}</TableCell>
-                <TableCell className="text-right font-mono">{formatSeparation(row.tychosErrorArcmin)}</TableCell>
-                <TableCell className="text-right font-mono">{formatSeparation(row.jplErrorArcmin)}</TableCell>
                 <TableCell className="text-right font-mono">{formatTimingOffset(row.timingOffsetMin)}</TableCell>
                 <TableCell className="text-right font-mono">{formatTimingOffset(row.jplTimingOffsetMin)}</TableCell>
+                <TableCell className="text-right font-mono">{formatSeparation(row.minSeparationArcmin)}</TableCell>
+                <TableCell className="text-right font-mono">{formatSeparation(row.sunErrorArcmin)}</TableCell>
+                <TableCell className="text-right font-mono">{formatSeparation(row.moonErrorArcmin)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

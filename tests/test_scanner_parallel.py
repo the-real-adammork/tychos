@@ -36,6 +36,10 @@ _EXPECTED_KEYS = {
     "moon_dec_rad",
     "moon_ra_vel",
     "moon_dec_vel",
+    "tychos_sun_ra_at_jpl_rad",
+    "tychos_sun_dec_at_jpl_rad",
+    "tychos_moon_ra_at_jpl_rad",
+    "tychos_moon_dec_at_jpl_rad",
 }
 
 

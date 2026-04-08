@@ -43,6 +43,29 @@ def _lunar_threshold(catalog_type):
     return LUNAR_UMBRAL_RADIUS + MOON_MEAN_ANGULAR_RADIUS
 
 
+def _sample_bodies_at(system, jd):
+    """Move system to `jd` and return (sun_ra, sun_dec, moon_ra, moon_dec) in radians."""
+    system.move_system(jd)
+    s_ra, s_dec, _ = system['sun'].radec_direct(system['earth'], epoch='j2000', formatted=False)
+    m_ra, m_dec, _ = system['moon'].radec_direct(system['earth'], epoch='j2000', formatted=False)
+    return float(s_ra), float(s_dec), float(m_ra), float(m_dec)
+
+
+def _add_jpl_sample(row, system, jpl_best_jd):
+    """Populate tychos_*_at_jpl_rad fields on `row`. If jpl_best_jd is None, set all four to None."""
+    if jpl_best_jd is None:
+        row["tychos_sun_ra_at_jpl_rad"] = None
+        row["tychos_sun_dec_at_jpl_rad"] = None
+        row["tychos_moon_ra_at_jpl_rad"] = None
+        row["tychos_moon_dec_at_jpl_rad"] = None
+        return
+    s_ra, s_dec, m_ra, m_dec = _sample_bodies_at(system, jpl_best_jd)
+    row["tychos_sun_ra_at_jpl_rad"] = s_ra
+    row["tychos_sun_dec_at_jpl_rad"] = s_dec
+    row["tychos_moon_ra_at_jpl_rad"] = m_ra
+    row["tychos_moon_dec_at_jpl_rad"] = m_dec
+
+
 def _tychos_moon_velocity(system, jd, m_ra, m_dec):
     """Compute Moon RA/Dec velocity (radians per hour) at the given JD."""
     system.move_system(jd + HOUR_IN_DAYS)
@@ -66,6 +89,7 @@ def scan_solar_eclipses(
     eclipses: list[dict],
     half_window_hours: float = 2.0,
     *,
+    jpl_best_jd_by_catalog_jd: Optional[dict] = None,
     max_workers: Optional[int] = None,
     parallel_threshold: int = 8,
 ) -> list[dict]:
@@ -85,14 +109,17 @@ def scan_solar_eclipses(
     """
     resolved_workers = _resolve_max_workers(max_workers)
     if resolved_workers == 1 or len(eclipses) < parallel_threshold:
-        return _scan_solar_eclipses_serial(params, eclipses, half_window_hours)
+        return _scan_solar_eclipses_serial(
+            params, eclipses, half_window_hours, jpl_best_jd_by_catalog_jd
+        )
     return _scan_solar_eclipses_parallel(
-        params, eclipses, half_window_hours, resolved_workers
+        params, eclipses, half_window_hours, resolved_workers, jpl_best_jd_by_catalog_jd
     )
 
 
 def _scan_solar_eclipses_serial(
-    params: dict, eclipses: list[dict], half_window_hours: float
+    params: dict, eclipses: list[dict], half_window_hours: float,
+    jpl_best_jd_by_catalog_jd: Optional[dict] = None,
 ) -> list[dict]:
     """In-process serial path. Used for small inputs and max_workers=1."""
     system = T.TychosSystem(params=params)
@@ -107,7 +134,7 @@ def _scan_solar_eclipses_serial(
         det = min_sep < SOLAR_DETECTION_THRESHOLD
         m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
-        rows.append({
+        row = {
             "julian_day_tt": jd,
             "date": ecl["date"],
             "catalog_type": ecl["type"],
@@ -123,7 +150,10 @@ def _scan_solar_eclipses_serial(
             "moon_dec_rad": float(m_dec),
             "moon_ra_vel": m_ra_vel,
             "moon_dec_vel": m_dec_vel,
-        })
+        }
+        jpl_best = (jpl_best_jd_by_catalog_jd or {}).get(jd)
+        _add_jpl_sample(row, system, jpl_best)
+        rows.append(row)
 
     return rows
 
@@ -133,10 +163,12 @@ def _scan_solar_eclipses_parallel(
     eclipses: list[dict],
     half_window_hours: float,
     max_workers: int,
+    jpl_best_jd_by_catalog_jd: Optional[dict] = None,
 ) -> list[dict]:
     """Parallel path: ship (params, eclipse) tasks to a persistent process pool."""
     pool = _get_or_create_pool(max_workers, half_window_hours)
-    tasks = [(params, ecl) for ecl in eclipses]
+    lookup = jpl_best_jd_by_catalog_jd or {}
+    tasks = [(params, ecl, lookup.get(ecl["julian_day_tt"])) for ecl in eclipses]
     return list(pool.map(_scan_one_solar_eclipse, tasks))
 
 
@@ -145,6 +177,7 @@ def scan_lunar_eclipses(
     eclipses: list[dict],
     half_window_hours: float = 2.0,
     *,
+    jpl_best_jd_by_catalog_jd: Optional[dict] = None,
     max_workers: Optional[int] = None,
     parallel_threshold: int = 8,
 ) -> list[dict]:
@@ -155,14 +188,17 @@ def scan_lunar_eclipses(
     """
     resolved_workers = _resolve_max_workers(max_workers)
     if resolved_workers == 1 or len(eclipses) < parallel_threshold:
-        return _scan_lunar_eclipses_serial(params, eclipses, half_window_hours)
+        return _scan_lunar_eclipses_serial(
+            params, eclipses, half_window_hours, jpl_best_jd_by_catalog_jd
+        )
     return _scan_lunar_eclipses_parallel(
-        params, eclipses, half_window_hours, resolved_workers
+        params, eclipses, half_window_hours, resolved_workers, jpl_best_jd_by_catalog_jd
     )
 
 
 def _scan_lunar_eclipses_serial(
-    params: dict, eclipses: list[dict], half_window_hours: float
+    params: dict, eclipses: list[dict], half_window_hours: float,
+    jpl_best_jd_by_catalog_jd: Optional[dict] = None,
 ) -> list[dict]:
     """In-process serial path. Used for small inputs and max_workers=1."""
     system = T.TychosSystem(params=params)
@@ -178,7 +214,7 @@ def _scan_lunar_eclipses_serial(
         det = min_sep < threshold
         m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
-        rows.append({
+        row = {
             "julian_day_tt": jd,
             "date": ecl["date"],
             "catalog_type": ecl["type"],
@@ -194,7 +230,10 @@ def _scan_lunar_eclipses_serial(
             "moon_dec_rad": float(m_dec),
             "moon_ra_vel": m_ra_vel,
             "moon_dec_vel": m_dec_vel,
-        })
+        }
+        jpl_best = (jpl_best_jd_by_catalog_jd or {}).get(jd)
+        _add_jpl_sample(row, system, jpl_best)
+        rows.append(row)
 
     return rows
 
@@ -204,10 +243,12 @@ def _scan_lunar_eclipses_parallel(
     eclipses: list[dict],
     half_window_hours: float,
     max_workers: int,
+    jpl_best_jd_by_catalog_jd: Optional[dict] = None,
 ) -> list[dict]:
     """Parallel path: ship (params, eclipse) tasks to a persistent process pool."""
     pool = _get_or_create_pool(max_workers, half_window_hours)
-    tasks = [(params, ecl) for ecl in eclipses]
+    lookup = jpl_best_jd_by_catalog_jd or {}
+    tasks = [(params, ecl, lookup.get(ecl["julian_day_tt"])) for ecl in eclipses]
     return list(pool.map(_scan_one_lunar_eclipse, tasks))
 
 
@@ -244,10 +285,10 @@ def _get_worker_system(params: dict):
 def _scan_one_solar_eclipse(task: tuple) -> dict:
     """Per-eclipse worker function for solar scans.
 
-    `task` is (params, eclipse_dict). Returns the same row dict shape that
-    scan_solar_eclipses produces in its serial loop.
+    `task` is (params, eclipse_dict, jpl_best_jd_or_none). Returns the same
+    row dict shape that scan_solar_eclipses produces in its serial loop.
     """
-    params, ecl = task
+    params, ecl, jpl_best = task
     system = _get_worker_system(params)
     half_window = _WORKER_HALF_WINDOW
     threshold_arcmin = np.degrees(SOLAR_DETECTION_THRESHOLD) * 60
@@ -259,7 +300,7 @@ def _scan_one_solar_eclipse(task: tuple) -> dict:
     det = min_sep < SOLAR_DETECTION_THRESHOLD
     m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
-    return {
+    row = {
         "julian_day_tt": jd,
         "date": ecl["date"],
         "catalog_type": ecl["type"],
@@ -276,15 +317,17 @@ def _scan_one_solar_eclipse(task: tuple) -> dict:
         "moon_ra_vel": m_ra_vel,
         "moon_dec_vel": m_dec_vel,
     }
+    _add_jpl_sample(row, system, jpl_best)
+    return row
 
 
 def _scan_one_lunar_eclipse(task: tuple) -> dict:
     """Per-eclipse worker function for lunar scans.
 
-    `task` is (params, eclipse_dict). Returns the same row dict shape that
-    scan_lunar_eclipses produces in its serial loop.
+    `task` is (params, eclipse_dict, jpl_best_jd_or_none). Returns the same
+    row dict shape that scan_lunar_eclipses produces in its serial loop.
     """
-    params, ecl = task
+    params, ecl, jpl_best = task
     system = _get_worker_system(params)
     half_window = _WORKER_HALF_WINDOW
 
@@ -297,7 +340,7 @@ def _scan_one_lunar_eclipse(task: tuple) -> dict:
     det = min_sep < threshold
     m_ra_vel, m_dec_vel = _tychos_moon_velocity(system, best_jd, float(m_ra), float(m_dec))
 
-    return {
+    row = {
         "julian_day_tt": jd,
         "date": ecl["date"],
         "catalog_type": ecl["type"],
@@ -314,6 +357,8 @@ def _scan_one_lunar_eclipse(task: tuple) -> dict:
         "moon_ra_vel": m_ra_vel,
         "moon_dec_vel": m_dec_vel,
     }
+    _add_jpl_sample(row, system, jpl_best)
+    return row
 
 
 def _get_or_create_pool(max_workers: int, half_window_hours: float) -> ProcessPoolExecutor:

@@ -1,5 +1,6 @@
 """Background worker thread that processes queued eclipse runs."""
 import json
+import math
 import os
 import time
 import threading
@@ -72,11 +73,28 @@ def _process_one() -> None:
     try:
         eclipses = load_eclipse_catalog(dataset_id)
 
+        # Load JPL reference up front so we can pass best_jd lookup to the scanner,
+        # which samples Tychos body positions at JPL's moment of minimum separation.
+        with get_db() as conn:
+            jpl_rows = conn.execute(
+                """
+                SELECT julian_day_tt, separation_arcmin, best_jd,
+                       sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad
+                  FROM jpl_reference WHERE dataset_id = ?
+                """,
+                (dataset_id,),
+            ).fetchall()
+        jpl_by_jd = {row["julian_day_tt"]: row for row in jpl_rows}
+        jpl_best_lookup = {
+            jd: row["best_jd"] for jd, row in jpl_by_jd.items() if row["best_jd"] is not None
+        }
+
         if dataset_slug == "solar_eclipse":
             results = scan_solar_eclipses(
                 params,
                 eclipses,
                 half_window_hours=scan_window_hours,
+                jpl_best_jd_by_catalog_jd=jpl_best_lookup,
                 max_workers=scanner_max_workers,
             )
         elif dataset_slug == "lunar_eclipse":
@@ -84,6 +102,7 @@ def _process_one() -> None:
                 params,
                 eclipses,
                 half_window_hours=scan_window_hours,
+                jpl_best_jd_by_catalog_jd=jpl_best_lookup,
                 max_workers=scanner_max_workers,
             )
         else:
@@ -102,13 +121,7 @@ def _process_one() -> None:
             ).fetchall()
         pred_by_jd = {row["julian_day_tt"]: row for row in pred_rows}
 
-        # Load JPL reference separations
-        with get_db() as conn:
-            jpl_rows = conn.execute(
-                "SELECT julian_day_tt, separation_arcmin, best_jd FROM jpl_reference WHERE dataset_id = ?",
-                (dataset_id,),
-            ).fetchall()
-        jpl_by_jd = {row["julian_day_tt"]: row for row in jpl_rows}
+        RAD_TO_ARCMIN = (180.0 / math.pi) * 60.0
 
         for r in results:
             pred = pred_by_jd.get(r["julian_day_tt"])
@@ -137,6 +150,35 @@ def _process_one() -> None:
 
             r["moon_error_arcmin"] = None  # deprecated
 
+            # Per-body positional deltas: Tychos Sun/Moon at JPL's best_jd vs JPL's
+            # Sun/Moon at the same instant. RA delta is scaled by cos(dec) so that
+            # magnitude sqrt(dRA^2 + dDec^2) is a true on-sky angle.
+            if (
+                jpl
+                and r.get("tychos_sun_ra_at_jpl_rad") is not None
+                and jpl["sun_ra_rad"] is not None
+                and jpl["moon_ra_rad"] is not None
+            ):
+                cos_s = math.cos(jpl["sun_dec_rad"])
+                cos_m = math.cos(jpl["moon_dec_rad"])
+                r["sun_delta_ra_arcmin"] = round(
+                    (r["tychos_sun_ra_at_jpl_rad"] - jpl["sun_ra_rad"]) * cos_s * RAD_TO_ARCMIN, 4
+                )
+                r["sun_delta_dec_arcmin"] = round(
+                    (r["tychos_sun_dec_at_jpl_rad"] - jpl["sun_dec_rad"]) * RAD_TO_ARCMIN, 4
+                )
+                r["moon_delta_ra_arcmin"] = round(
+                    (r["tychos_moon_ra_at_jpl_rad"] - jpl["moon_ra_rad"]) * cos_m * RAD_TO_ARCMIN, 4
+                )
+                r["moon_delta_dec_arcmin"] = round(
+                    (r["tychos_moon_dec_at_jpl_rad"] - jpl["moon_dec_rad"]) * RAD_TO_ARCMIN, 4
+                )
+            else:
+                r["sun_delta_ra_arcmin"] = None
+                r["sun_delta_dec_arcmin"] = None
+                r["moon_delta_ra_arcmin"] = None
+                r["moon_delta_dec_arcmin"] = None
+
         CHUNK_SIZE = 50
         insert_sql = """
             INSERT INTO eclipse_results (
@@ -145,8 +187,10 @@ def _process_one() -> None:
                 timing_offset_min, best_jd,
                 sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
                 moon_error_arcmin, moon_ra_vel, moon_dec_vel,
-                tychos_error_arcmin, jpl_error_arcmin, jpl_timing_offset_min
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                tychos_error_arcmin, jpl_error_arcmin, jpl_timing_offset_min,
+                sun_delta_ra_arcmin, sun_delta_dec_arcmin,
+                moon_delta_ra_arcmin, moon_delta_dec_arcmin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         rows = [
             (
@@ -157,6 +201,8 @@ def _process_one() -> None:
                 r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
                 r["moon_error_arcmin"], r.get("moon_ra_vel"), r.get("moon_dec_vel"),
                 r["tychos_error_arcmin"], r["jpl_error_arcmin"], r["jpl_timing_offset_min"],
+                r["sun_delta_ra_arcmin"], r["sun_delta_dec_arcmin"],
+                r["moon_delta_ra_arcmin"], r["moon_delta_dec_arcmin"],
             )
             for r in results
         ]

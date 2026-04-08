@@ -18,6 +18,15 @@ _SORTABLE_COLUMNS = {
     "jpl_error_arcmin": "er.jpl_error_arcmin",
     "timing_offset_min": "er.timing_offset_min",
     "jpl_timing_offset_min": "er.jpl_timing_offset_min",
+    # Sort by squared-magnitude (monotonic with sqrt, avoids SQLite SQRT)
+    "sun_error_arcmin": (
+        "(er.sun_delta_ra_arcmin * er.sun_delta_ra_arcmin + "
+        "er.sun_delta_dec_arcmin * er.sun_delta_dec_arcmin)"
+    ),
+    "moon_error_arcmin": (
+        "(er.moon_delta_ra_arcmin * er.moon_delta_ra_arcmin + "
+        "er.moon_delta_dec_arcmin * er.moon_delta_dec_arcmin)"
+    ),
 }
 
 
@@ -94,7 +103,14 @@ async def list_results(
 
         # Median (SQLite doesn't have MEDIAN, compute in Python) — also filtered
         median_cursor = await conn.execute(
-            f"SELECT tychos_error_arcmin, jpl_error_arcmin, timing_offset_min, jpl_timing_offset_min FROM eclipse_results er {where_clause} ORDER BY tychos_error_arcmin",
+            f"""
+            SELECT tychos_error_arcmin, jpl_error_arcmin,
+                   timing_offset_min, jpl_timing_offset_min,
+                   sun_delta_ra_arcmin, sun_delta_dec_arcmin,
+                   moon_delta_ra_arcmin, moon_delta_dec_arcmin
+              FROM eclipse_results er {where_clause}
+             ORDER BY tychos_error_arcmin
+            """,
             values,
         )
         all_errors = await median_cursor.fetchall()
@@ -102,6 +118,17 @@ async def list_results(
         jpl_errors = [r["jpl_error_arcmin"] for r in all_errors if r["jpl_error_arcmin"] is not None]
         tychos_timing_abs = [abs(r["timing_offset_min"]) for r in all_errors if r["timing_offset_min"] is not None]
         jpl_timing_abs = [abs(r["jpl_timing_offset_min"]) for r in all_errors if r["jpl_timing_offset_min"] is not None]
+
+        import math as _math
+        sun_mags = []
+        moon_mags = []
+        for r in all_errors:
+            sra, sdec = r["sun_delta_ra_arcmin"], r["sun_delta_dec_arcmin"]
+            mra, mdec = r["moon_delta_ra_arcmin"], r["moon_delta_dec_arcmin"]
+            if sra is not None and sdec is not None:
+                sun_mags.append(_math.sqrt(sra * sra + sdec * sdec))
+            if mra is not None and mdec is not None:
+                moon_mags.append(_math.sqrt(mra * mra + mdec * mdec))
 
         def median(vals):
             if not vals:
@@ -147,6 +174,12 @@ async def list_results(
             "mean_jpl_timing_error": round(s["mean_jpl_timing_error"], 2) if s["mean_jpl_timing_error"] else None,
             "median_jpl_timing_error": round(median(jpl_timing_abs), 2) if jpl_timing_abs else None,
             "max_jpl_timing_error": round(s["max_jpl_timing_error"], 2) if s["max_jpl_timing_error"] else None,
+            "mean_sun_error": round(sum(sun_mags) / len(sun_mags), 2) if sun_mags else None,
+            "median_sun_error": round(median(sun_mags), 2) if sun_mags else None,
+            "max_sun_error": round(max(sun_mags), 2) if sun_mags else None,
+            "mean_moon_error": round(sum(moon_mags) / len(moon_mags), 2) if moon_mags else None,
+            "median_moon_error": round(median(moon_mags), 2) if moon_mags else None,
+            "max_moon_error": round(max(moon_mags), 2) if moon_mags else None,
         },
     }
 
