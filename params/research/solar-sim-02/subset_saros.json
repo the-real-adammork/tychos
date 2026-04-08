@@ -1,0 +1,96 @@
+{
+  "dataset_slug": "solar_eclipse",
+  "kind": "saros_series",
+  "saros_num": 136,
+  "notes": "Single Saros series \u2014 isolates secular rate params (moon.speed, moon_def_a.speed). Geometry held near-constant across events.",
+  "n_requested": 12,
+  "seed": null,
+  "scan_window_hours": 6.0,
+  "selected_at": "2026-04-08T01:48:36.430270+00:00",
+  "events": [
+    {
+      "date": "1901-05-18T05:33:48",
+      "julian_day_tt": 2415522.731806,
+      "magnitude": 1.068,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "1919-05-29T13:08:55",
+      "julian_day_tt": 2422108.047859,
+      "magnitude": 1.0719,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "1937-06-08T20:41:02",
+      "julian_day_tt": 2428693.361829,
+      "magnitude": 1.0751,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "1955-06-20T04:10:42",
+      "julian_day_tt": 2435278.674097,
+      "magnitude": 1.0776,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "1973-06-30T11:38:41",
+      "julian_day_tt": 2441863.985197,
+      "magnitude": 1.0792,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "1991-07-11T19:07:01",
+      "julian_day_tt": 2448449.296539,
+      "magnitude": 1.08,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "2009-07-22T02:36:25",
+      "julian_day_tt": 2455034.608623,
+      "magnitude": 1.0799,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "2027-08-02T10:07:50",
+      "julian_day_tt": 2461619.922106,
+      "magnitude": 1.079,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "2045-08-12T17:42:39",
+      "julian_day_tt": 2468205.237951,
+      "magnitude": 1.0774,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "2063-08-24T01:22:11",
+      "julian_day_tt": 2474790.557072,
+      "magnitude": 1.075,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "2081-09-03T09:07:31",
+      "julian_day_tt": 2481375.88022,
+      "magnitude": 1.072,
+      "type": "total",
+      "saros_num": 136
+    },
+    {
+      "date": "2099-09-14T16:57:53",
+      "julian_day_tt": 2487961.206863,
+      "magnitude": 1.0684,
+      "type": "total",
+      "saros_num": 136
+    }
+  ]
+}

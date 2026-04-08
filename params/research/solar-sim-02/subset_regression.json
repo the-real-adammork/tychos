@@ -1,0 +1,186 @@
+{
+  "dataset_slug": "solar_eclipse",
+  "kind": "random_regression",
+  "notes": "Verbatim copy of solar-sim-01 seed-42 subset. Kept as a frozen regression cohort so sim-01 and sim-02 objectives remain directly comparable.",
+  "n_requested": 25,
+  "seed": 42,
+  "scan_window_hours": 6.0,
+  "selected_at": "2026-04-07T21:36:52.842970+00:00",
+  "events": [
+    {
+      "date": "1902-05-07T22:34:16",
+      "julian_day_tt": 2415877.440463,
+      "magnitude": 0.8593,
+      "type": "partial",
+      "saros_num": 146
+    },
+    {
+      "date": "1909-06-17T23:18:38",
+      "julian_day_tt": 2418475.471273,
+      "magnitude": 1.0065,
+      "type": "hybrid",
+      "saros_num": 145
+    },
+    {
+      "date": "1925-01-24T14:54:03",
+      "julian_day_tt": 2424175.120868,
+      "magnitude": 1.0304,
+      "type": "total",
+      "saros_num": 120
+    },
+    {
+      "date": "1927-01-03T20:22:53",
+      "julian_day_tt": 2424884.349225,
+      "magnitude": 0.9995,
+      "type": "annular",
+      "saros_num": 140
+    },
+    {
+      "date": "1935-12-25T17:59:52",
+      "julian_day_tt": 2428162.249907,
+      "magnitude": 0.9752,
+      "type": "annular",
+      "saros_num": 121
+    },
+    {
+      "date": "1942-09-10T15:39:32",
+      "julian_day_tt": 2430613.152454,
+      "magnitude": 0.523,
+      "type": "partial",
+      "saros_num": 153
+    },
+    {
+      "date": "1952-02-25T09:11:35",
+      "julian_day_tt": 2434067.883044,
+      "magnitude": 1.0366,
+      "type": "total",
+      "saros_num": 139
+    },
+    {
+      "date": "1958-10-12T20:55:28",
+      "julian_day_tt": 2436489.371852,
+      "magnitude": 1.0608,
+      "type": "total",
+      "saros_num": 133
+    },
+    {
+      "date": "1972-01-16T11:03:22",
+      "julian_day_tt": 2441332.960671,
+      "magnitude": 0.9692,
+      "type": "annular",
+      "saros_num": 121
+    },
+    {
+      "date": "1978-10-02T06:28:43",
+      "julian_day_tt": 2443783.769942,
+      "magnitude": 0.6905,
+      "type": "partial",
+      "saros_num": 153
+    },
+    {
+      "date": "1986-10-03T19:06:15",
+      "julian_day_tt": 2446707.296007,
+      "magnitude": 1.0,
+      "type": "hybrid",
+      "saros_num": 124
+    },
+    {
+      "date": "1995-04-29T17:33:21",
+      "julian_day_tt": 2449837.231493,
+      "magnitude": 0.9497,
+      "type": "annular",
+      "saros_num": 138
+    },
+    {
+      "date": "1997-03-09T01:24:51",
+      "julian_day_tt": 2450516.558924,
+      "magnitude": 1.042,
+      "type": "total",
+      "saros_num": 120
+    },
+    {
+      "date": "2005-04-08T20:36:51",
+      "julian_day_tt": 2453469.358924,
+      "magnitude": 1.0074,
+      "type": "hybrid",
+      "saros_num": 129
+    },
+    {
+      "date": "2013-11-03T12:47:36",
+      "julian_day_tt": 2456600.033056,
+      "magnitude": 1.0159,
+      "type": "hybrid",
+      "saros_num": 143
+    },
+    {
+      "date": "2022-10-25T11:01:20",
+      "julian_day_tt": 2459877.959259,
+      "magnitude": 0.8619,
+      "type": "partial",
+      "saros_num": 124
+    },
+    {
+      "date": "2031-11-14T21:07:31",
+      "julian_day_tt": 2463185.38022,
+      "magnitude": 1.0106,
+      "type": "hybrid",
+      "saros_num": 143
+    },
+    {
+      "date": "2044-08-23T01:17:02",
+      "julian_day_tt": 2467850.553495,
+      "magnitude": 1.0364,
+      "type": "total",
+      "saros_num": 126
+    },
+    {
+      "date": "2051-04-11T02:10:39",
+      "julian_day_tt": 2470272.590729,
+      "magnitude": 0.9849,
+      "type": "partial",
+      "saros_num": 120
+    },
+    {
+      "date": "2053-03-20T07:08:19",
+      "julian_day_tt": 2470981.797442,
+      "magnitude": 0.9919,
+      "type": "annular",
+      "saros_num": 140
+    },
+    {
+      "date": "2064-02-17T07:00:23",
+      "julian_day_tt": 2474967.791933,
+      "magnitude": 0.9262,
+      "type": "annular",
+      "saros_num": 141
+    },
+    {
+      "date": "2076-01-06T10:07:27",
+      "julian_day_tt": 2479308.92184,
+      "magnitude": 1.0342,
+      "type": "total",
+      "saros_num": 152
+    },
+    {
+      "date": "2083-08-13T12:34:41",
+      "julian_day_tt": 2482085.024086,
+      "magnitude": 0.6146,
+      "type": "partial",
+      "saros_num": 156
+    },
+    {
+      "date": "2092-08-03T09:59:33",
+      "julian_day_tt": 2485362.916354,
+      "magnitude": 0.9794,
+      "type": "annular",
+      "saros_num": 137
+    },
+    {
+      "date": "2096-05-22T01:37:14",
+      "julian_day_tt": 2486750.567523,
+      "magnitude": 1.0737,
+      "type": "total",
+      "saros_num": 139
+    }
+  ]
+}

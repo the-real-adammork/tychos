@@ -1,0 +1,95 @@
+{
+  "dataset_slug": "solar_eclipse",
+  "kind": "phase_sampler",
+  "notes": "One event per distinct Saros series within 1990-2010. Secular drift is nearly constant across this ~15yr window, so differences between events probe phase/geometry parameters (moon.start_pos, moon_def_a.start_pos, sun.start_pos, moon_def_b.*).",
+  "n_requested": 12,
+  "seed": null,
+  "scan_window_hours": 6.0,
+  "selected_at": "2026-04-08T01:48:36.430270+00:00",
+  "events": [
+    {
+      "date": "1990-01-26T19:31:24",
+      "julian_day_tt": 2447918.313472,
+      "magnitude": 0.967,
+      "type": "annular",
+      "saros_num": 121
+    },
+    {
+      "date": "1990-07-22T03:03:07",
+      "julian_day_tt": 2448094.627164,
+      "magnitude": 1.0391,
+      "type": "total",
+      "saros_num": 126
+    },
+    {
+      "date": "1994-11-03T13:40:06",
+      "julian_day_tt": 2449660.069514,
+      "magnitude": 1.0535,
+      "type": "total",
+      "saros_num": 133
+    },
+    {
+      "date": "1995-04-29T17:33:21",
+      "julian_day_tt": 2449837.231493,
+      "magnitude": 0.9497,
+      "type": "annular",
+      "saros_num": 138
+    },
+    {
+      "date": "1996-04-17T22:38:12",
+      "julian_day_tt": 2450191.443194,
+      "magnitude": 0.8799,
+      "type": "partial",
+      "saros_num": 148
+    },
+    {
+      "date": "1996-10-12T14:03:04",
+      "julian_day_tt": 2450369.085463,
+      "magnitude": 0.7575,
+      "type": "partial",
+      "saros_num": 153
+    },
+    {
+      "date": "1997-03-09T01:24:51",
+      "julian_day_tt": 2450516.558924,
+      "magnitude": 1.042,
+      "type": "total",
+      "saros_num": 120
+    },
+    {
+      "date": "1999-08-11T11:04:09",
+      "julian_day_tt": 2451401.961215,
+      "magnitude": 1.0286,
+      "type": "total",
+      "saros_num": 145
+    },
+    {
+      "date": "2001-06-21T12:04:46",
+      "julian_day_tt": 2452082.00331,
+      "magnitude": 1.0495,
+      "type": "total",
+      "saros_num": 127
+    },
+    {
+      "date": "2001-12-14T20:53:01",
+      "julian_day_tt": 2452258.37015,
+      "magnitude": 0.9681,
+      "type": "annular",
+      "saros_num": 132
+    },
+    {
+      "date": "2004-10-14T03:00:23",
+      "julian_day_tt": 2453292.625266,
+      "magnitude": 0.9282,
+      "type": "partial",
+      "saros_num": 124
+    },
+    {
+      "date": "2005-04-08T20:36:51",
+      "julian_day_tt": 2453469.358924,
+      "magnitude": 1.0074,
+      "type": "hybrid",
+      "saros_num": 129
+    }
+  ]
+}
