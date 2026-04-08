@@ -122,3 +122,5 @@
 {"iter": 122, "ts": "2026-04-08T02:52:18.076798+00:00", "kind": "iterate", "params_hash": "1f5d8aecd7fb968c", "objective": 48.8934, "mean_separation_arcmin": 27.938, "n_total": 457}
 {"iter": 123, "ts": "2026-04-08T02:52:49.826193+00:00", "kind": "validate", "params_hash": "1f5d8aecd7fb968c", "validation_objective": 13.7405, "mean_separation_arcmin": 28.151, "n_total": 452}
 {"iter": 124, "ts": "2026-04-08T02:53:07.229098+00:00", "kind": "iterate", "params_hash": "1f5d8aecd7fb968c", "objective": 13.672, "mean_separation_arcmin": 30.544, "n_total": 50}
+{"iter": 125, "ts": "2026-04-08T03:26:21.762589+00:00", "kind": "validate", "params_hash": "1f5d8aecd7fb968c", "validation_objective": 13.7405, "mean_separation_arcmin": 28.151, "n_total": 452}
+{"iter": 126, "ts": "2026-04-08T03:26:26.471295+00:00", "kind": "iterate", "params_hash": "1f5d8aecd7fb968c", "objective": 9.7, "mean_separation_arcmin": 23.612, "n_total": 12}
