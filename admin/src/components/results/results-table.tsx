@@ -64,6 +64,12 @@ interface ApiStats {
   median_jpl_error: number | null
   max_tychos_error: number | null
   max_jpl_error: number | null
+  mean_tychos_timing_error: number | null
+  median_tychos_timing_error: number | null
+  max_tychos_timing_error: number | null
+  mean_jpl_timing_error: number | null
+  median_jpl_timing_error: number | null
+  max_jpl_timing_error: number | null
 }
 
 interface ResultsTableProps {
@@ -83,18 +89,35 @@ function formatSeparation(val: number | null): string {
 function ErrorStatsBar({ stats }: { stats: ApiStats }) {
   if (stats.total === 0) return null
   const fmt = (v: number | null) => (v != null ? `${v.toFixed(1)}'` : "—")
+  const fmtMin = (v: number | null) => (v != null ? `${v.toFixed(1)} min` : "—")
   return (
     <div className="grid grid-cols-2 gap-4 text-sm">
-      <div className="space-y-1">
-        <div className="text-muted-foreground font-medium">Tychos Error</div>
-        <div className="font-mono">
-          Mean: {fmt(stats.mean_tychos_error)} · Median: {fmt(stats.median_tychos_error)} · Max: {fmt(stats.max_tychos_error)}
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <div className="text-muted-foreground font-medium">Tychos Error</div>
+          <div className="font-mono">
+            Mean: {fmt(stats.mean_tychos_error)} · Median: {fmt(stats.median_tychos_error)} · Max: {fmt(stats.max_tychos_error)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-muted-foreground font-medium">Tychos Timing Error</div>
+          <div className="font-mono">
+            Mean: {fmtMin(stats.mean_tychos_timing_error)} · Median: {fmtMin(stats.median_tychos_timing_error)} · Max: {fmtMin(stats.max_tychos_timing_error)}
+          </div>
         </div>
       </div>
-      <div className="space-y-1">
-        <div className="text-muted-foreground font-medium">JPL Error</div>
-        <div className="font-mono">
-          Mean: {fmt(stats.mean_jpl_error)} · Median: {fmt(stats.median_jpl_error)} · Max: {fmt(stats.max_jpl_error)}
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <div className="text-muted-foreground font-medium">JPL Error</div>
+          <div className="font-mono">
+            Mean: {fmt(stats.mean_jpl_error)} · Median: {fmt(stats.median_jpl_error)} · Max: {fmt(stats.max_jpl_error)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-muted-foreground font-medium">JPL Timing Error</div>
+          <div className="font-mono">
+            Mean: {fmtMin(stats.mean_jpl_timing_error)} · Median: {fmtMin(stats.median_jpl_timing_error)} · Max: {fmtMin(stats.max_jpl_timing_error)}
+          </div>
         </div>
       </div>
     </div>

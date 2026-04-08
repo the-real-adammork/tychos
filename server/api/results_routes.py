@@ -80,7 +80,11 @@ async def list_results(
                 AVG(tychos_error_arcmin) AS mean_tychos_error,
                 AVG(jpl_error_arcmin) AS mean_jpl_error,
                 MAX(tychos_error_arcmin) AS max_tychos_error,
-                MAX(jpl_error_arcmin) AS max_jpl_error
+                MAX(jpl_error_arcmin) AS max_jpl_error,
+                AVG(ABS(timing_offset_min)) AS mean_tychos_timing_error,
+                MAX(ABS(timing_offset_min)) AS max_tychos_timing_error,
+                AVG(ABS(jpl_timing_offset_min)) AS mean_jpl_timing_error,
+                MAX(ABS(jpl_timing_offset_min)) AS max_jpl_timing_error
             FROM eclipse_results er
             {where_clause}
             """,
@@ -90,12 +94,14 @@ async def list_results(
 
         # Median (SQLite doesn't have MEDIAN, compute in Python) — also filtered
         median_cursor = await conn.execute(
-            f"SELECT tychos_error_arcmin, jpl_error_arcmin FROM eclipse_results er {where_clause} ORDER BY tychos_error_arcmin",
+            f"SELECT tychos_error_arcmin, jpl_error_arcmin, timing_offset_min, jpl_timing_offset_min FROM eclipse_results er {where_clause} ORDER BY tychos_error_arcmin",
             values,
         )
         all_errors = await median_cursor.fetchall()
         tychos_errors = [r["tychos_error_arcmin"] for r in all_errors if r["tychos_error_arcmin"] is not None]
         jpl_errors = [r["jpl_error_arcmin"] for r in all_errors if r["jpl_error_arcmin"] is not None]
+        tychos_timing_abs = [abs(r["timing_offset_min"]) for r in all_errors if r["timing_offset_min"] is not None]
+        jpl_timing_abs = [abs(r["jpl_timing_offset_min"]) for r in all_errors if r["jpl_timing_offset_min"] is not None]
 
         def median(vals):
             if not vals:
@@ -135,6 +141,12 @@ async def list_results(
             "median_jpl_error": round(median(jpl_errors), 2) if jpl_errors else None,
             "max_tychos_error": round(s["max_tychos_error"], 2) if s["max_tychos_error"] else None,
             "max_jpl_error": round(s["max_jpl_error"], 2) if s["max_jpl_error"] else None,
+            "mean_tychos_timing_error": round(s["mean_tychos_timing_error"], 2) if s["mean_tychos_timing_error"] else None,
+            "median_tychos_timing_error": round(median(tychos_timing_abs), 2) if tychos_timing_abs else None,
+            "max_tychos_timing_error": round(s["max_tychos_timing_error"], 2) if s["max_tychos_timing_error"] else None,
+            "mean_jpl_timing_error": round(s["mean_jpl_timing_error"], 2) if s["mean_jpl_timing_error"] else None,
+            "median_jpl_timing_error": round(median(jpl_timing_abs), 2) if jpl_timing_abs else None,
+            "max_jpl_timing_error": round(s["max_jpl_timing_error"], 2) if s["max_jpl_timing_error"] else None,
         },
     }
 
