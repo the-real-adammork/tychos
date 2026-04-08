@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# Convenience wrapper for `python -m server.research` from this worktree.
+#
+# Sets PYTHONPATH (so the vendored tychos_skyfield submodule and the
+# tests/helpers shim are importable) and points at the shared venv in
+# the original repo — worktrees don't get their own venv.
+#
+# Usage:
+#   ./research init my-job --base v1-original/v1 --dataset solar
+#   ./research iterate my-job
+#   ./research validate my-job
+#   ./research search my-job --params moon.start_pos,moon_def_a.speed --budget 60
+#
+set -e
+cd "$(dirname "$0")"
+
+PYTHON="/Users/adam/Projects/tychos/tychos_skyfield/.venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+    echo "error: python venv not found at $PYTHON" >&2
+    echo "edit this script to point at your venv." >&2
+    exit 1
+fi
+
+PYTHONPATH="tychos_skyfield:tests:." exec "$PYTHON" -m server.research "$@"

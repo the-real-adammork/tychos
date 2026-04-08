@@ -18,6 +18,3 @@ logs/
 .DS_Store
 .idea/
 .vscode/
-
-# autoresearch scratch dirs
-params/research/

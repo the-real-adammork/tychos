@@ -177,7 +177,7 @@ def cmd_iterate(args) -> int:
         cached = tail[0]
         print(f"objective: {cached['objective']}")
         print(f"mean_separation_arcmin: {cached.get('mean_separation_arcmin')}")
-        print(f"detected: {cached.get('n_detected')}/{cached.get('n_total')}")
+        print(f"n_total: {cached.get('n_total')}")
         print("(cached — current.json identical to last iterate)")
         return 0
 
@@ -206,7 +206,7 @@ def cmd_iterate(args) -> int:
 
     print(f"objective: {entry['objective']}")
     print(f"mean_separation_arcmin: {aux['mean_separation_arcmin']}")
-    print(f"detected: {aux['n_detected']}/{aux['n_total']}")
+    print(f"n_total: {aux['n_total']}")
     return 0
 
 
@@ -257,7 +257,7 @@ def cmd_validate(args) -> int:
 
     print(f"validation_objective: {entry['validation_objective']}")
     print(f"mean_separation_arcmin: {aux['mean_separation_arcmin']}")
-    print(f"detected: {aux['n_detected']}/{aux['n_total']}")
+    print(f"n_total: {aux['n_total']}")
     return 0
 
 
@@ -368,7 +368,7 @@ def cmd_search(args) -> int:
         print(f"delta:              {round(delta, 4)}  (improved)")
         print(f"n_evals:            {result.n_evals}")
         print(f"mean_separation_arcmin: {best_aux['mean_separation_arcmin']}")
-        print(f"detected: {best_aux['n_detected']}/{best_aux['n_total']}")
+        print(f"n_total: {best_aux['n_total']}")
         print(f"current.json updated with best found state.")
     else:
         print(f"starting_objective: {round(result.starting_objective, 4)}")

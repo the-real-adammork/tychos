@@ -26,15 +26,16 @@ def compute_objective(results: list[dict]) -> float:
 def aux_stats(results: list[dict]) -> dict:
     """Auxiliary stats printed alongside the objective for the agent's context.
 
-    Not used in the optimization decision — purely informational.
+    Not used in the optimization decision — purely informational. Reports
+    mean angular separation (the "Tychos error") alongside the event count.
+    Detection rate is intentionally omitted: it's a binary threshold signal
+    that can mask real progress in the continuous timing + separation metrics.
     """
     if not results:
-        return {"mean_separation_arcmin": None, "n_detected": 0, "n_total": 0}
+        return {"mean_separation_arcmin": None, "n_total": 0}
     n_total = len(results)
-    n_detected = sum(1 for r in results if r.get("detected"))
     mean_sep = sum(r["min_separation_arcmin"] for r in results) / n_total
     return {
         "mean_separation_arcmin": round(mean_sep, 3),
-        "n_detected": n_detected,
         "n_total": n_total,
     }
