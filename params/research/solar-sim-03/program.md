@@ -21,7 +21,7 @@ matters; Moon deltas are ignored.
 ## The loop
 1. Form a hypothesis about which allowlisted parameter(s) to change and why.
 2. Edit `current.json` (only keys in the allowlist).
-3. Run `python -m server.research iterate solar-sim-03` and read `objective: <n>`.
+3. Run `./research.sh iterate solar-sim-03` and read `objective: <n>`.
    The output includes per-eclipse signed ΔRA and ΔDec vs JPL sorted worst-first.
    Use the sign pattern to guide your hypothesis:
    - Positive sun_dRA = Tychos Sun is **east** of JPL Sun
@@ -38,7 +38,7 @@ Single-parameter grinding gets stuck at coordinate-wise minima. When you
 identify **2–6 coupled parameters**, hand them to Nelder-Mead:
 
 ```
-python -m server.research search solar-sim-03 \
+./research.sh search solar-sim-03 \
     --params sun.start_pos,sun.speed,sun_def.start_pos \
     --budget 60
 ```

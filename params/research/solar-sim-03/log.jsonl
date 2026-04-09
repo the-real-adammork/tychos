@@ -1,0 +1,1 @@
+{"iter": 1, "ts": "2026-04-09T20:27:06.852844+00:00", "kind": "iterate", "params_hash": "6f8875d2f37c2633", "objective": 62.2785, "mode": "solar_position", "mean_sun_error_arcmin": 62.279, "mean_moon_error_arcmin": 115.471, "n_total": 452}
