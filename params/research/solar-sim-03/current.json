@@ -240,14 +240,14 @@
     "start_pos": 518
   },
   "sun": {
-    "orbit_center_a": 1.2,
-    "orbit_center_b": -0.1,
+    "orbit_center_a": 1.8533592260208853,
+    "orbit_center_b": -0.10094482593693355,
     "orbit_center_c": 0,
     "orbit_radius": 100,
-    "orbit_tilt_a": 0.1,
-    "orbit_tilt_b": 0,
-    "speed": 6.283185307179586,
-    "start_pos": 0
+    "orbit_tilt_a": 0.10259375978175397,
+    "orbit_tilt_b": 6.945827730755634e-05,
+    "speed": 6.283196386250857,
+    "start_pos": 7.602027101899373e-05
   },
   "sun_def": {
     "orbit_center_a": 1.4,
