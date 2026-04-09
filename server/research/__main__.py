@@ -16,10 +16,11 @@ def main(argv=None):
     p_init.add_argument("--seed", type=int, default=0, help=argparse.SUPPRESS)
     p_init.add_argument(
         "--mode",
-        choices=["combined", "solar_position"],
+        choices=["combined", "solar_position", "lunar_position"],
         default="combined",
-        help="Objective mode: 'combined' (sun+moon positional error) or "
-             "'solar_position' (sun position only). Default: combined.",
+        help="Objective mode: 'combined' (sun+moon positional error), "
+             "'solar_position' (sun position only), or "
+             "'lunar_position' (moon position only). Default: combined.",
     )
     p_init.add_argument(
         "--scan-window-hours",

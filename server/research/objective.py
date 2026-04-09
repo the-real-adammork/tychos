@@ -1,6 +1,6 @@
 """Objective function for autoresearch iterations.
 
-Supports two modes:
+Supports three modes:
 
   combined (default):
     err = sqrt(sun_dRA^2 + sun_dDec^2 + moon_dRA^2 + moon_dDec^2)
@@ -8,12 +8,15 @@ Supports two modes:
   solar_position:
     err = sqrt(sun_dRA^2 + sun_dDec^2)
 
-Both report mean per-eclipse error in arcmin. Lower is better.
+  lunar_position:
+    err = sqrt(moon_dRA^2 + moon_dDec^2)
+
+All report mean per-eclipse error in arcmin. Lower is better.
 """
 
 import math
 
-MODES = ("combined", "solar_position")
+MODES = ("combined", "solar_position", "lunar_position")
 
 
 class EmptyResults(ValueError):
@@ -32,11 +35,13 @@ def _row_error(row: dict, mode: str) -> float | None:
         return None
     if mode == "solar_position":
         return math.sqrt(s_ra * s_ra + s_dec * s_dec)
-    # combined
     m_ra = row.get("moon_delta_ra_arcmin")
     m_dec = row.get("moon_delta_dec_arcmin")
     if m_ra is None or m_dec is None:
         return None
+    if mode == "lunar_position":
+        return math.sqrt(m_ra * m_ra + m_dec * m_dec)
+    # combined
     return math.sqrt(s_ra * s_ra + s_dec * s_dec + m_ra * m_ra + m_dec * m_dec)
 
 
@@ -79,7 +84,7 @@ def per_eclipse_detail(results: list[dict], mode: str = "combined") -> list[dict
             "sun_dRA": round(r["sun_delta_ra_arcmin"], 4),
             "sun_dDec": round(r["sun_delta_dec_arcmin"], 4),
         }
-        if mode == "combined":
+        if mode in ("combined", "lunar_position"):
             entry["moon_dRA"] = round(r.get("moon_delta_ra_arcmin", 0), 4)
             entry["moon_dDec"] = round(r.get("moon_delta_dec_arcmin", 0), 4)
         details.append(entry)

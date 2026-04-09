@@ -248,6 +248,10 @@ def _print_per_eclipse(results: list[dict], mode: str) -> None:
         print(f"{'date':>22s}  {'error':>8s}  {'sun_dRA':>9s}  {'sun_dDec':>9s}")
         for d in details:
             print(f"{d['date']:>22s}  {d['error']:8.2f}  {d['sun_dRA']:+9.2f}  {d['sun_dDec']:+9.2f}")
+    elif mode == "lunar_position":
+        print(f"{'date':>22s}  {'error':>8s}  {'moon_dRA':>9s}  {'moon_dDec':>9s}")
+        for d in details:
+            print(f"{d['date']:>22s}  {d['error']:8.2f}  {d['moon_dRA']:+9.2f}  {d['moon_dDec']:+9.2f}")
     else:
         print(f"{'date':>22s}  {'error':>8s}  {'sun_dRA':>9s}  {'sun_dDec':>9s}  {'moon_dRA':>9s}  {'moon_dDec':>9s}")
         for d in details:

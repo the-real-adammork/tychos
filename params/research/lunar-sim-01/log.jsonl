@@ -1,0 +1,1 @@
+{"iter": 1, "ts": "2026-04-09T21:33:02.863629+00:00", "kind": "iterate", "params_hash": "bbdedc9025b82145", "objective": 115.4706, "mode": "lunar_position", "mean_sun_error_arcmin": 2.95, "mean_moon_error_arcmin": 115.471, "n_total": 452}
