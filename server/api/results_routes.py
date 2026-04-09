@@ -223,34 +223,73 @@ async def list_saros_groups(
 
         where_clause = "WHERE " + " AND ".join(conditions)
 
+        # Fetch per-eclipse rows so we can compute sqrt-based sun/moon diff in Python
         cursor = await conn.execute(
             f"""
             SELECT
                 ec.saros_num,
-                COUNT(*) AS count,
-                MIN(SUBSTR(er.date, 1, 4)) AS year_start,
-                MAX(SUBSTR(er.date, 1, 4)) AS year_end,
-                AVG(er.tychos_error_arcmin) AS mean_tychos_error,
-                AVG(er.jpl_error_arcmin) AS mean_jpl_error,
-                MAX(er.tychos_error_arcmin) AS max_tychos_error,
-                MAX(er.jpl_error_arcmin) AS max_jpl_error
+                er.tychos_error_arcmin,
+                er.jpl_error_arcmin,
+                er.sun_delta_ra_arcmin,
+                er.sun_delta_dec_arcmin,
+                er.moon_delta_ra_arcmin,
+                er.moon_delta_dec_arcmin,
+                er.timing_offset_min,
+                SUBSTR(er.date, 1, 4) AS year
             FROM eclipse_results er
             JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = ?
             {where_clause}
-            GROUP BY ec.saros_num
-            ORDER BY mean_tychos_error DESC
+            ORDER BY ec.saros_num
             """,
             [dataset_id] + values,
         )
         rows = await cursor.fetchall()
 
-        groups = []
+        import math as _math
+        from collections import defaultdict
+        saros_data: dict = defaultdict(lambda: {
+            "years": [], "tychos_errors": [], "jpl_errors": [],
+            "sun_mags": [], "moon_mags": [], "timing_abs": [], "count": 0,
+        })
         for r in rows:
-            d = dict(r)
-            for k in ("mean_tychos_error", "mean_jpl_error", "max_tychos_error", "max_jpl_error"):
-                if d[k] is not None:
-                    d[k] = round(d[k], 2)
-            groups.append(d)
+            sn = r["saros_num"]
+            sd = saros_data[sn]
+            sd["count"] += 1
+            sd["years"].append(r["year"])
+            if r["tychos_error_arcmin"] is not None:
+                sd["tychos_errors"].append(r["tychos_error_arcmin"])
+            if r["jpl_error_arcmin"] is not None:
+                sd["jpl_errors"].append(r["jpl_error_arcmin"])
+            sra, sdec = r["sun_delta_ra_arcmin"], r["sun_delta_dec_arcmin"]
+            mra, mdec = r["moon_delta_ra_arcmin"], r["moon_delta_dec_arcmin"]
+            if sra is not None and sdec is not None:
+                sd["sun_mags"].append(_math.sqrt(sra * sra + sdec * sdec))
+            if mra is not None and mdec is not None:
+                sd["moon_mags"].append(_math.sqrt(mra * mra + mdec * mdec))
+            if r["timing_offset_min"] is not None:
+                sd["timing_abs"].append(abs(r["timing_offset_min"]))
+
+        def _avg(vals):
+            return round(sum(vals) / len(vals), 2) if vals else None
+
+        def _max(vals):
+            return round(max(vals), 2) if vals else None
+
+        groups = []
+        for sn, sd in sorted(saros_data.items(), key=lambda x: -(_avg(x[1]["sun_mags"]) or 0)):
+            groups.append({
+                "saros_num": sn,
+                "count": sd["count"],
+                "year_start": min(sd["years"]) if sd["years"] else None,
+                "year_end": max(sd["years"]) if sd["years"] else None,
+                "mean_tychos_error": _avg(sd["tychos_errors"]),
+                "mean_jpl_error": _avg(sd["jpl_errors"]),
+                "max_tychos_error": _max(sd["tychos_errors"]),
+                "max_jpl_error": _max(sd["jpl_errors"]),
+                "mean_sun_diff": _avg(sd["sun_mags"]),
+                "mean_moon_diff": _avg(sd["moon_mags"]),
+                "mean_timing_offset": _avg(sd["timing_abs"]),
+            })
 
     return {"groups": groups}
 
@@ -269,6 +308,10 @@ async def get_result(run_id: int, result_id: int):
                    jpl.moon_ra_rad AS jpl_moon_ra_rad, jpl.moon_dec_rad AS jpl_moon_dec_rad,
                    jpl.separation_arcmin AS jpl_separation_arcmin,
                    jpl.moon_ra_vel AS jpl_moon_ra_vel, jpl.moon_dec_vel AS jpl_moon_dec_vel,
+                   jpl.sun_ra_at_best_rad AS jpl_sun_ra_at_best_rad,
+                   jpl.sun_dec_at_best_rad AS jpl_sun_dec_at_best_rad,
+                   jpl.moon_ra_at_best_rad AS jpl_moon_ra_at_best_rad,
+                   jpl.moon_dec_at_best_rad AS jpl_moon_dec_at_best_rad,
                    pred.expected_separation_arcmin,
                    pred.moon_apparent_radius_arcmin,
                    pred.sun_apparent_radius_arcmin,

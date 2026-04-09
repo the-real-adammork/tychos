@@ -23,6 +23,9 @@ interface RunStats {
   median_jpl_error: number | null;
   max_tychos_error: number | null;
   max_jpl_error: number | null;
+  mean_sun_diff: number | null;
+  mean_moon_diff: number | null;
+  mean_timing_offset: number | null;
 }
 
 export default function ResultsPage() {
@@ -85,11 +88,27 @@ export default function ResultsPage() {
                 {run.status}
               </span>
             </span>
-            {stats && stats.mean_tychos_error != null && (
+            {stats && stats.mean_sun_diff != null && (
               <span>
-                Mean Tychos error:{" "}
+                Sun diff:{" "}
                 <span className="font-medium text-foreground">
-                  {stats.mean_tychos_error.toFixed(1)}'
+                  {stats.mean_sun_diff.toFixed(1)}'
+                </span>
+              </span>
+            )}
+            {stats && stats.mean_moon_diff != null && (
+              <span>
+                Moon diff:{" "}
+                <span className="font-medium text-foreground">
+                  {stats.mean_moon_diff.toFixed(1)}'
+                </span>
+              </span>
+            )}
+            {stats && stats.mean_timing_offset != null && (
+              <span>
+                Timing offset:{" "}
+                <span className="font-medium text-foreground">
+                  {stats.mean_timing_offset.toFixed(1)} min
                 </span>
               </span>
             )}

@@ -23,6 +23,9 @@ interface RunRow {
   status: RunStatus;
   total_eclipses: number | null;
   mean_tychos_error: number | null;
+  mean_sun_diff: number | null;
+  mean_moon_diff: number | null;
+  mean_timing_offset: number | null;
   created_at: string;
 }
 
@@ -64,18 +67,33 @@ function meanErrorLabel(error: number | null | undefined): string {
   return `${error.toFixed(1)}'`;
 }
 
+function fmtDiff(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "—";
+  return `${val.toFixed(1)}'`;
+}
+
+function fmtTiming(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "—";
+  return `${val.toFixed(1)} min`;
+}
+
 function StatCard({ title, run }: { title: string; run: RunRow | null }) {
+  const hasData = run && (run.mean_sun_diff != null || run.mean_moon_diff != null || run.mean_timing_offset != null);
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {run && run.mean_tychos_error != null ? (
-          <>
-            <p className="text-3xl font-bold">{run.mean_tychos_error.toFixed(1)}'</p>
-            <p className="text-sm text-muted-foreground mt-1">mean error</p>
-          </>
+        {hasData ? (
+          <div className="space-y-1">
+            <p className="text-3xl font-bold tabular-nums">{fmtDiff(run.mean_sun_diff)}</p>
+            <p className="text-sm text-muted-foreground">sun diff</p>
+            <p className="text-xl font-semibold tabular-nums mt-2">{fmtDiff(run.mean_moon_diff)}</p>
+            <p className="text-sm text-muted-foreground">moon diff</p>
+            <p className="text-xl font-semibold tabular-nums mt-2">{fmtTiming(run.mean_timing_offset)}</p>
+            <p className="text-sm text-muted-foreground">timing offset</p>
+          </div>
         ) : (
           <p className="text-muted-foreground text-sm">No runs yet</p>
         )}
@@ -156,7 +174,7 @@ export default function ParamVersionDetailPage() {
 
   const versionChain: ChainEntry[] = (() => {
     const allVersions: Array<Ancestor & { params_json: string }> = [
-      { ...data, solar_mean_error: solarRun?.mean_tychos_error ?? null, lunar_mean_error: lunarRun?.mean_tychos_error ?? null },
+      { ...data, solar_mean_error: solarRun?.mean_sun_diff ?? solarRun?.mean_tychos_error ?? null, lunar_mean_error: lunarRun?.mean_moon_diff ?? lunarRun?.mean_tychos_error ?? null },
       ...data.ancestors,
     ];
 
@@ -284,8 +302,8 @@ export default function ParamVersionDetailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <StatCard title="Solar Mean Error" run={solarRun} />
-        <StatCard title="Lunar Mean Error" run={lunarRun} />
+        <StatCard title="Solar" run={solarRun} />
+        <StatCard title="Lunar" run={lunarRun} />
       </div>
 
       {/* Runs */}
@@ -299,7 +317,9 @@ export default function ParamVersionDetailPage() {
               <TableRow>
                 <TableHead>Dataset</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Mean Error</TableHead>
+                <TableHead>Sun Diff</TableHead>
+                <TableHead>Moon Diff</TableHead>
+                <TableHead>Timing (min)</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -312,7 +332,9 @@ export default function ParamVersionDetailPage() {
                 >
                   <TableCell className="capitalize">{run.dataset_name}</TableCell>
                   <TableCell><StatusBadge status={run.status} /></TableCell>
-                  <TableCell className="tabular-nums">{meanErrorLabel(run.mean_tychos_error)}</TableCell>
+                  <TableCell className="tabular-nums">{fmtDiff(run.mean_sun_diff)}</TableCell>
+                  <TableCell className="tabular-nums">{fmtDiff(run.mean_moon_diff)}</TableCell>
+                  <TableCell className="tabular-nums">{run.mean_timing_offset != null ? run.mean_timing_offset.toFixed(1) : "—"}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}
                   </TableCell>

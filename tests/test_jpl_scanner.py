@@ -27,6 +27,10 @@ _EXPECTED_KEYS = {
     "moon_ra_vel",
     "moon_dec_vel",
     "best_jd",
+    "sun_ra_at_best_rad",
+    "sun_dec_at_best_rad",
+    "moon_ra_at_best_rad",
+    "moon_dec_at_best_rad",
 }
 
 

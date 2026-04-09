@@ -295,12 +295,20 @@ def _seed_jpl_reference():
         missing_best = conn.execute(
             "SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NULL"
         ).fetchone()[0]
+        missing_best_pos = conn.execute(
+            "SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NOT NULL AND sun_ra_at_best_rad IS NULL"
+        ).fetchone()[0]
 
-    if total > 0 and missing_best == 0:
+    if total > 0 and missing_best == 0 and missing_best_pos == 0:
         return
 
     if total > 0 and missing_best > 0:
         _backfill_jpl_best_jd(missing_best)
+
+    if total > 0 and missing_best_pos > 0:
+        _backfill_jpl_best_positions(missing_best_pos)
+
+    if total > 0:
         return
 
     print("[seed] Computing JPL reference positions (this takes a moment)...")
@@ -335,13 +343,19 @@ def _seed_jpl_reference():
                     r["moon_ra_vel"],
                     r["moon_dec_vel"],
                     r["best_jd"],
+                    r["sun_ra_at_best_rad"],
+                    r["sun_dec_at_best_rad"],
+                    r["moon_ra_at_best_rad"],
+                    r["moon_dec_at_best_rad"],
                 ))
 
     with get_db() as conn:
         conn.executemany(
             """INSERT OR IGNORE INTO jpl_reference
-               (dataset_id, julian_day_tt, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad, separation_arcmin, moon_ra_vel, moon_dec_vel, best_jd)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (dataset_id, julian_day_tt, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
+                separation_arcmin, moon_ra_vel, moon_dec_vel, best_jd,
+                sun_ra_at_best_rad, sun_dec_at_best_rad, moon_ra_at_best_rad, moon_dec_at_best_rad)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
         conn.commit()
@@ -382,6 +396,45 @@ def _backfill_jpl_best_jd(missing_count: int) -> None:
         conn.commit()
 
     print(f"[seed] Backfilled {len(updates)} JPL best_jd values")
+
+
+def _backfill_jpl_best_positions(missing_count: int) -> None:
+    """Populate Sun/Moon positions at best_jd on existing jpl_reference rows."""
+    print(f"[seed] Backfilling JPL positions at best_jd for {missing_count} rows...")
+
+    from skyfield.api import load as skyfield_load
+
+    eph = skyfield_load("de440s.bsp")
+    ts = skyfield_load.timescale()
+    earth = eph["earth"]
+
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, best_jd FROM jpl_reference WHERE best_jd IS NOT NULL AND sun_ra_at_best_rad IS NULL",
+        ).fetchall()
+
+    updates = []
+    for row in rows:
+        t = ts.tt_jd(row["best_jd"])
+        s_ra, s_dec, _ = earth.at(t).observe(eph["sun"]).radec()
+        m_ra, m_dec, _ = earth.at(t).observe(eph["moon"]).radec()
+        updates.append((
+            float(s_ra.radians), float(s_dec.radians),
+            float(m_ra.radians), float(m_dec.radians),
+            row["id"],
+        ))
+
+    with get_db() as conn:
+        conn.executemany(
+            """UPDATE jpl_reference
+               SET sun_ra_at_best_rad = ?, sun_dec_at_best_rad = ?,
+                   moon_ra_at_best_rad = ?, moon_dec_at_best_rad = ?
+             WHERE id = ?""",
+            updates,
+        )
+        conn.commit()
+
+    print(f"[seed] Backfilled {len(updates)} JPL best-position values")
 
 
 def _seed_predicted_reference():

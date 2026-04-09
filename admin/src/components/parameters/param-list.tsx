@@ -15,6 +15,9 @@ interface LatestRun {
   status: string;
   total_eclipses: number | null;
   mean_tychos_error: number | null;
+  mean_sun_diff: number | null;
+  mean_moon_diff: number | null;
+  mean_timing_offset: number | null;
 }
 
 interface ParamSetRow {
@@ -25,10 +28,16 @@ interface ParamSetRow {
   latest_runs: LatestRun[];
 }
 
-function errorCell(runs: LatestRun[], datasetSlug: string): string {
-  const run = runs.find((r) => r.dataset_slug === datasetSlug && r.status === "done");
-  if (!run || run.mean_tychos_error == null) return "—";
-  return `${run.mean_tychos_error.toFixed(1)}'`;
+function findRun(runs: LatestRun[], datasetSlug: string): LatestRun | undefined {
+  return runs.find((r) => r.dataset_slug === datasetSlug && r.status === "done");
+}
+
+function fmtArc(val: number | null | undefined): string {
+  return val != null ? `${val.toFixed(1)}'` : "—";
+}
+
+function fmtMin(val: number | null | undefined): string {
+  return val != null ? `${val.toFixed(1)} min` : "—";
 }
 
 export function ParamList() {
@@ -71,38 +80,46 @@ export function ParamList() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Owner</TableHead>
-              <TableHead>Solar Mean Error</TableHead>
-              <TableHead>Lunar Mean Error</TableHead>
+              <TableHead>Sun Diff</TableHead>
+              <TableHead>Moon Diff</TableHead>
+              <TableHead>Timing</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paramSets.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No parameter sets yet
                 </TableCell>
               </TableRow>
             )}
-            {paramSets.map((ps) => (
-              <TableRow
-                key={ps.id}
-                className="cursor-pointer"
-                onClick={() => navigate(`/parameters/${ps.id}`)}
-              >
-                <TableCell className="font-medium">{ps.name}</TableCell>
-                <TableCell>{ps.owner_name}</TableCell>
-                <TableCell className="tabular-nums">
-                  {errorCell(ps.latest_runs, "solar_eclipse")}
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {errorCell(ps.latest_runs, "lunar_eclipse")}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-xs">
-                  {new Date(ps.created_at).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
+            {paramSets.map((ps) => {
+              const solar = findRun(ps.latest_runs, "solar_eclipse");
+              const lunar = findRun(ps.latest_runs, "lunar_eclipse");
+              return (
+                <TableRow
+                  key={ps.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/parameters/${ps.id}`)}
+                >
+                  <TableCell className="font-medium">{ps.name}</TableCell>
+                  <TableCell>{ps.owner_name}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {fmtArc(solar?.mean_sun_diff ?? lunar?.mean_sun_diff)}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {fmtArc(solar?.mean_moon_diff ?? lunar?.mean_moon_diff)}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {fmtMin(solar?.mean_timing_offset ?? lunar?.mean_timing_offset)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {new Date(ps.created_at).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

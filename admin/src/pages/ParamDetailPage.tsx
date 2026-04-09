@@ -22,6 +22,9 @@ interface RunRow {
   status: RunStatus;
   total_eclipses: number | null;
   mean_tychos_error: number | null;
+  mean_sun_diff: number | null;
+  mean_moon_diff: number | null;
+  mean_timing_offset: number | null;
   created_at: string;
 }
 
@@ -36,6 +39,9 @@ interface VersionRow {
 
 interface StatResult {
   mean_tychos_error: number | null;
+  mean_sun_diff: number | null;
+  mean_moon_diff: number | null;
+  mean_timing_offset: number | null;
   total_eclipses: number;
   version_number: number;
 }
@@ -70,9 +76,14 @@ function StatusBadge({ status }: { status: RunStatus }) {
   return <Badge variant="destructive">failed</Badge>;
 }
 
-function errorLabel(error: number | null): string {
-  if (error == null) return "—";
-  return `${error.toFixed(1)}'`;
+function diffLabel(val: number | null): string {
+  if (val == null) return "—";
+  return `${val.toFixed(1)}'`;
+}
+
+function timingLabel(val: number | null): string {
+  if (val == null) return "—";
+  return val.toFixed(1);
 }
 
 function StatCard({
@@ -90,13 +101,24 @@ function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {stats && stats.mean_tychos_error != null ? (
+        {stats && (stats.mean_sun_diff != null || stats.mean_moon_diff != null) ? (
           <>
-            <p className="text-3xl font-bold">
-              {stats.mean_tychos_error.toFixed(1)}'
-            </p>
+            <div className="flex items-baseline gap-4">
+              <div>
+                <p className="text-3xl font-bold">{diffLabel(stats.mean_sun_diff)}</p>
+                <p className="text-xs text-muted-foreground">sun diff</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold">{diffLabel(stats.mean_moon_diff)}</p>
+                <p className="text-xs text-muted-foreground">moon diff</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold">{timingLabel(stats.mean_timing_offset)}</p>
+                <p className="text-xs text-muted-foreground">timing (min)</p>
+              </div>
+            </div>
             <p className="text-sm text-muted-foreground mt-1">
-              mean error · {stats.total_eclipses} eclipses
+              {stats.total_eclipses} eclipses
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <span className="font-medium">Version:</span> v{stats.version_number}
@@ -333,7 +355,9 @@ export default function ParamDetailPage() {
               <TableRow>
                 <TableHead>Dataset</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Mean Error</TableHead>
+                <TableHead>Sun Diff</TableHead>
+                <TableHead>Moon Diff</TableHead>
+                <TableHead>Timing (min)</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -353,7 +377,13 @@ export default function ParamDetailPage() {
                     <StatusBadge status={run.status} />
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    {errorLabel(run.mean_tychos_error)}
+                    {run.status === "done" ? diffLabel(run.mean_sun_diff) : "—"}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {run.status === "done" ? diffLabel(run.mean_moon_diff) : "—"}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {run.status === "done" ? timingLabel(run.mean_timing_offset) : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(run.created_at), "MMM d, yyyy HH:mm")}

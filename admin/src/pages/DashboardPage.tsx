@@ -24,6 +24,9 @@ interface DashboardData {
     dataset_name: string;
     status: string;
     mean_tychos_error: number | null;
+    mean_sun_diff: number | null;
+    mean_moon_diff: number | null;
+    mean_timing_offset: number | null;
     version_number: number | null;
     param_set_name: string;
   }>;
@@ -70,6 +73,9 @@ export default function DashboardPage() {
             datasetName: r.dataset_name,
             status: r.status,
             meanTychosError: r.mean_tychos_error,
+            meanSunDiff: r.mean_sun_diff,
+            meanMoonDiff: r.mean_moon_diff,
+            meanTimingOffset: r.mean_timing_offset,
             paramSet: { name: `${r.param_set_name} v${r.version_number}` },
           }))}
         />

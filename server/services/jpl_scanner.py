@@ -61,6 +61,11 @@ def scan_jpl_eclipses(
 
         best_jd = _scan_jpl_min_jd(earth, eph, ts, jd, is_lunar, half_window_hours)
 
+        # Positions at best_jd (for overlay diagram)
+        tb = ts.tt_jd(best_jd)
+        bs_ra, bs_dec, _ = earth.at(tb).observe(eph["sun"]).radec()
+        bm_ra, bm_dec, _ = earth.at(tb).observe(eph["moon"]).radec()
+
         rows.append({
             "julian_day_tt": jd,
             "sun_ra_rad": float(s_ra),
@@ -71,6 +76,10 @@ def scan_jpl_eclipses(
             "moon_ra_vel": m_ra_vel,
             "moon_dec_vel": m_dec_vel,
             "best_jd": best_jd,
+            "sun_ra_at_best_rad": float(bs_ra.radians),
+            "sun_dec_at_best_rad": float(bs_dec.radians),
+            "moon_ra_at_best_rad": float(bm_ra.radians),
+            "moon_dec_at_best_rad": float(bm_dec.radians),
         })
 
     return rows

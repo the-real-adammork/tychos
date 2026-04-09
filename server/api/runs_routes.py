@@ -144,7 +144,10 @@ async def rerun_run(run_id: int, request: Request):
                    total_eclipses = NULL,
                    detected = NULL,
                    started_at = NULL,
-                   completed_at = NULL
+                   completed_at = NULL,
+                   mean_sun_diff = NULL,
+                   mean_moon_diff = NULL,
+                   mean_timing_offset = NULL
              WHERE id = ?
             """,
             (run_id,),

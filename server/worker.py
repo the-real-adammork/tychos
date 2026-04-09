@@ -189,8 +189,10 @@ def _process_one() -> None:
                 moon_error_arcmin, moon_ra_vel, moon_dec_vel,
                 tychos_error_arcmin, jpl_error_arcmin, jpl_timing_offset_min,
                 sun_delta_ra_arcmin, sun_delta_dec_arcmin,
-                moon_delta_ra_arcmin, moon_delta_dec_arcmin
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                moon_delta_ra_arcmin, moon_delta_dec_arcmin,
+                tychos_sun_ra_at_jpl_rad, tychos_sun_dec_at_jpl_rad,
+                tychos_moon_ra_at_jpl_rad, tychos_moon_dec_at_jpl_rad
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         rows = [
             (
@@ -203,6 +205,8 @@ def _process_one() -> None:
                 r["tychos_error_arcmin"], r["jpl_error_arcmin"], r["jpl_timing_offset_min"],
                 r["sun_delta_ra_arcmin"], r["sun_delta_dec_arcmin"],
                 r["moon_delta_ra_arcmin"], r["moon_delta_dec_arcmin"],
+                r.get("tychos_sun_ra_at_jpl_rad"), r.get("tychos_sun_dec_at_jpl_rad"),
+                r.get("tychos_moon_ra_at_jpl_rad"), r.get("tychos_moon_dec_at_jpl_rad"),
             )
             for r in results
         ]
@@ -212,6 +216,25 @@ def _process_one() -> None:
                 conn.executemany(insert_sql, chunk)
                 conn.commit()
 
+        # Compute per-run aggregate stats for the runs table
+        sun_mags = []
+        moon_mags = []
+        timing_abs = []
+        for r in results:
+            sra, sdec = r.get("sun_delta_ra_arcmin"), r.get("sun_delta_dec_arcmin")
+            mra, mdec = r.get("moon_delta_ra_arcmin"), r.get("moon_delta_dec_arcmin")
+            if sra is not None and sdec is not None:
+                sun_mags.append(math.sqrt(sra * sra + sdec * sdec))
+            if mra is not None and mdec is not None:
+                moon_mags.append(math.sqrt(mra * mra + mdec * mdec))
+            t = r.get("timing_offset_min")
+            if t is not None:
+                timing_abs.append(abs(t))
+
+        mean_sun_diff = round(sum(sun_mags) / len(sun_mags), 4) if sun_mags else None
+        mean_moon_diff = round(sum(moon_mags) / len(moon_mags), 4) if moon_mags else None
+        mean_timing_offset = round(sum(timing_abs) / len(timing_abs), 4) if timing_abs else None
+
         with get_db() as conn:
             conn.execute(
                 """
@@ -219,10 +242,13 @@ def _process_one() -> None:
                    SET status = 'done',
                        completed_at = ?,
                        total_eclipses = ?,
-                       detected = ?
+                       detected = ?,
+                       mean_sun_diff = ?,
+                       mean_moon_diff = ?,
+                       mean_timing_offset = ?
                  WHERE id = ?
                 """,
-                (_now(), len(results), detected, run_id),
+                (_now(), len(results), detected, mean_sun_diff, mean_moon_diff, mean_timing_offset, run_id),
             )
             conn.commit()
 

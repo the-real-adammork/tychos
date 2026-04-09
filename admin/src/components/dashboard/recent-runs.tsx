@@ -7,6 +7,9 @@ interface RecentRunsProps {
     datasetName: string;
     status: string;
     meanTychosError: number | null;
+    meanSunDiff: number | null;
+    meanMoonDiff: number | null;
+    meanTimingOffset: number | null;
     paramSet: { name: string };
   }>;
 }
@@ -29,10 +32,25 @@ export function RecentRuns({ runs }: RecentRunsProps) {
                 </span>
                 <span className="text-sm">
                   {run.status === "done" ? (
-                    <span className="tabular-nums">
-                      {run.meanTychosError != null
-                        ? `${run.meanTychosError.toFixed(1)}'`
-                        : "—"}
+                    <span className="tabular-nums flex gap-3">
+                      <span title="Sun diff">
+                        ☀{" "}
+                        {run.meanSunDiff != null
+                          ? `${run.meanSunDiff.toFixed(1)}'`
+                          : "—"}
+                      </span>
+                      <span title="Moon diff">
+                        ☽{" "}
+                        {run.meanMoonDiff != null
+                          ? `${run.meanMoonDiff.toFixed(1)}'`
+                          : "—"}
+                      </span>
+                      <span title="Timing offset">
+                        ⏱{" "}
+                        {run.meanTimingOffset != null
+                          ? `${run.meanTimingOffset.toFixed(1)} min`
+                          : "—"}
+                      </span>
                     </span>
                   ) : (
                     <Badge

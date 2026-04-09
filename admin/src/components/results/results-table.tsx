@@ -113,13 +113,13 @@ function ErrorStatsBar({ stats }: { stats: ApiStats }) {
           </div>
         </div>
         <div className="space-y-1">
-          <div className="text-muted-foreground font-medium">Sun Error</div>
+          <div className="text-muted-foreground font-medium">Sun Diff</div>
           <div className="font-mono">
             Mean: {fmt(stats.mean_sun_error)} · Median: {fmt(stats.median_sun_error)} · Max: {fmt(stats.max_sun_error)}
           </div>
         </div>
         <div className="space-y-1">
-          <div className="text-muted-foreground font-medium">Moon Error</div>
+          <div className="text-muted-foreground font-medium">Moon Diff</div>
           <div className="font-mono">
             Mean: {fmt(stats.mean_moon_error)} · Median: {fmt(stats.median_moon_error)} · Max: {fmt(stats.max_moon_error)}
           </div>
@@ -168,6 +168,9 @@ interface SarosGroup {
   mean_jpl_error: number | null
   max_tychos_error: number | null
   max_jpl_error: number | null
+  mean_sun_diff: number | null
+  mean_moon_diff: number | null
+  mean_timing_offset: number | null
 }
 
 export function ResultsTable({ runId }: ResultsTableProps) {
@@ -192,7 +195,7 @@ export function ResultsTable({ runId }: ResultsTableProps) {
   const sortDir = (searchParams.get("sort_dir") || "asc") as SortDir
 
   // Saros view sort state (client-side, separate from per-eclipse sort)
-  const [sarosSortBy, setSarosSortBy] = useState<string>("mean_tychos_error")
+  const [sarosSortBy, setSarosSortBy] = useState<string>("mean_sun_diff")
   const [sarosSortDir, setSarosSortDir] = useState<SortDir>("desc")
 
   function setPage(p: number) {
@@ -440,9 +443,9 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                 <SortHead column="saros_num" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort}>Saros #</SortHead>
                 <SortHead column="count" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Eclipses</SortHead>
                 <SortHead column="year_start" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort}>Year Span</SortHead>
-                <SortHead column="mean_tychos_error" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Mean Tychos Error</SortHead>
-                <SortHead column="max_tychos_error" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Max Tychos Error</SortHead>
-                <SortHead column="mean_jpl_error" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Mean JPL Error</SortHead>
+                <SortHead column="mean_sun_diff" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Sun Diff</SortHead>
+                <SortHead column="mean_moon_diff" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Moon Diff</SortHead>
+                <SortHead column="mean_timing_offset" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Timing (min)</SortHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -457,9 +460,9 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                   <TableCell className="tabular-nums text-muted-foreground text-sm">
                     {g.year_start}–{g.year_end}
                   </TableCell>
-                  <TableCell className="text-right font-mono">{formatSeparation(g.mean_tychos_error)}</TableCell>
-                  <TableCell className="text-right font-mono">{formatSeparation(g.max_tychos_error)}</TableCell>
-                  <TableCell className="text-right font-mono text-muted-foreground">{formatSeparation(g.mean_jpl_error)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatSeparation(g.mean_sun_diff)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatSeparation(g.mean_moon_diff)}</TableCell>
+                  <TableCell className="text-right font-mono">{g.mean_timing_offset != null ? g.mean_timing_offset.toFixed(1) : "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -477,8 +480,8 @@ export function ResultsTable({ runId }: ResultsTableProps) {
               <SortHead column="timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Offset (min)</SortHead>
               <SortHead column="jpl_timing_offset_min" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">JPL Offset (min)</SortHead>
               <SortHead column="min_separation_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Tychos Sep</SortHead>
-              <SortHead column="sun_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Sun Err</SortHead>
-              <SortHead column="moon_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Moon Err</SortHead>
+              <SortHead column="sun_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Sun Diff</SortHead>
+              <SortHead column="moon_error_arcmin" active={sortBy} direction={sortDir} onSort={handleEclipseSort} className="text-right">Moon Diff</SortHead>
             </TableRow>
           </TableHeader>
           <TableBody>

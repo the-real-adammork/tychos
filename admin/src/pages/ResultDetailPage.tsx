@@ -47,6 +47,16 @@ interface ResultDetail {
   moon_delta_ra_arcmin: number | null;
   moon_delta_dec_arcmin: number | null;
   jpl_error_arcmin: number | null;
+  // Tychos positions sampled at JPL's best_jd
+  tychos_sun_ra_at_jpl_rad: number | null;
+  tychos_sun_dec_at_jpl_rad: number | null;
+  tychos_moon_ra_at_jpl_rad: number | null;
+  tychos_moon_dec_at_jpl_rad: number | null;
+  // JPL positions at JPL's best_jd
+  jpl_sun_ra_at_best_rad: number | null;
+  jpl_sun_dec_at_best_rad: number | null;
+  jpl_moon_ra_at_best_rad: number | null;
+  jpl_moon_dec_at_best_rad: number | null;
   dataset_slug: string;
   dataset_name: string;
   version_number: number;
@@ -305,6 +315,7 @@ export default function ResultDetailPage() {
               umbraRadiusArcmin={result.umbra_radius_arcmin}
               penumbraRadiusArcmin={result.penumbra_radius_arcmin}
             />
+            <p className="text-xs text-muted-foreground text-center mt-2">Showing moment of minimum separation</p>
           </CardContent>
         </Card>
 
@@ -328,6 +339,7 @@ export default function ResultDetailPage() {
               umbraRadiusArcmin={result.umbra_radius_arcmin}
               penumbraRadiusArcmin={result.penumbra_radius_arcmin}
             />
+            <p className="text-xs text-muted-foreground text-center mt-2">Showing moment of minimum separation</p>
           </CardContent>
         </Card>
       </div>
@@ -340,20 +352,14 @@ export default function ResultDetailPage() {
         <CardContent className="flex justify-center">
           <OverlayDiagram
             testType={result.test_type}
-            tychosSunRa={result.sun_ra_rad}
-            tychosSunDec={result.sun_dec_rad}
-            tychosMoonRa={result.moon_ra_rad}
-            tychosMoonDec={result.moon_dec_rad}
-            tychosMoonRaVel={result.moon_ra_vel}
-            tychosMoonDecVel={result.moon_dec_vel}
-            tychosSeparationArcmin={result.min_separation_arcmin}
-            jplSunRa={result.jpl_sun_ra_rad}
-            jplSunDec={result.jpl_sun_dec_rad}
-            jplMoonRa={result.jpl_moon_ra_rad}
-            jplMoonDec={result.jpl_moon_dec_rad}
-            jplMoonRaVel={result.jpl_moon_ra_vel}
-            jplMoonDecVel={result.jpl_moon_dec_vel}
-            jplSeparationArcmin={result.jpl_separation_arcmin}
+            tychosSunRa={result.tychos_sun_ra_at_jpl_rad}
+            tychosSunDec={result.tychos_sun_dec_at_jpl_rad}
+            tychosMoonRa={result.tychos_moon_ra_at_jpl_rad}
+            tychosMoonDec={result.tychos_moon_dec_at_jpl_rad}
+            jplSunRa={result.jpl_sun_ra_at_best_rad}
+            jplSunDec={result.jpl_sun_dec_at_best_rad}
+            jplMoonRa={result.jpl_moon_ra_at_best_rad}
+            jplMoonDec={result.jpl_moon_dec_at_best_rad}
             moonRadiusArcmin={moonR}
             sunRadiusArcmin={result.sun_apparent_radius_arcmin}
             umbraRadiusArcmin={result.umbra_radius_arcmin}
@@ -402,34 +408,6 @@ export default function ResultDetailPage() {
                 <span className="text-muted-foreground">Timing Offset</span>
                 <span className="font-mono">{result.timing_offset_min != null ? `${result.timing_offset_min > 0 ? "+" : ""}${result.timing_offset_min.toFixed(1)} min` : "—"}</span>
               </div>
-              {result.sun_delta_ra_arcmin != null && result.sun_delta_dec_arcmin != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sun Error</span>
-                  <span className="font-mono">
-                    <span className="font-semibold">
-                      {Math.sqrt(result.sun_delta_ra_arcmin ** 2 + result.sun_delta_dec_arcmin ** 2).toFixed(2)}'
-                    </span>
-                    <span className="text-muted-foreground">
-                      {" "}ΔRA {result.sun_delta_ra_arcmin >= 0 ? "+" : ""}{result.sun_delta_ra_arcmin.toFixed(2)}'{" "}
-                      ΔDec {result.sun_delta_dec_arcmin >= 0 ? "+" : ""}{result.sun_delta_dec_arcmin.toFixed(2)}'
-                    </span>
-                  </span>
-                </div>
-              )}
-              {result.moon_delta_ra_arcmin != null && result.moon_delta_dec_arcmin != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Moon Error</span>
-                  <span className="font-mono">
-                    <span className="font-semibold">
-                      {Math.sqrt(result.moon_delta_ra_arcmin ** 2 + result.moon_delta_dec_arcmin ** 2).toFixed(2)}'
-                    </span>
-                    <span className="text-muted-foreground">
-                      {" "}ΔRA {result.moon_delta_ra_arcmin >= 0 ? "+" : ""}{result.moon_delta_ra_arcmin.toFixed(2)}'{" "}
-                      ΔDec {result.moon_delta_dec_arcmin >= 0 ? "+" : ""}{result.moon_delta_dec_arcmin.toFixed(2)}'
-                    </span>
-                  </span>
-                </div>
-              )}
               {result.sun_ra_rad != null && (
                 <>
                   <div className="flex justify-between font-mono text-xs">
@@ -441,6 +419,34 @@ export default function ResultDetailPage() {
                     <span>{radToHMS(result.moon_ra_rad!)} {radToDMS(result.moon_dec_rad!)}</span>
                   </div>
                 </>
+              )}
+              {result.sun_delta_ra_arcmin != null && result.sun_delta_dec_arcmin != null && (
+                <div className="flex justify-between font-mono text-xs">
+                  <span className="text-muted-foreground">Sun Diff</span>
+                  <span>
+                    <span className="font-semibold">
+                      {Math.sqrt(result.sun_delta_ra_arcmin ** 2 + result.sun_delta_dec_arcmin ** 2).toFixed(2)}'
+                    </span>
+                    <span className="text-muted-foreground">
+                      {" "}ΔRA {result.sun_delta_ra_arcmin >= 0 ? "+" : ""}{result.sun_delta_ra_arcmin.toFixed(2)}'{" "}
+                      ΔDec {result.sun_delta_dec_arcmin >= 0 ? "+" : ""}{result.sun_delta_dec_arcmin.toFixed(2)}'
+                    </span>
+                  </span>
+                </div>
+              )}
+              {result.moon_delta_ra_arcmin != null && result.moon_delta_dec_arcmin != null && (
+                <div className="flex justify-between font-mono text-xs">
+                  <span className="text-muted-foreground">Moon Diff</span>
+                  <span>
+                    <span className="font-semibold">
+                      {Math.sqrt(result.moon_delta_ra_arcmin ** 2 + result.moon_delta_dec_arcmin ** 2).toFixed(2)}'
+                    </span>
+                    <span className="text-muted-foreground">
+                      {" "}ΔRA {result.moon_delta_ra_arcmin >= 0 ? "+" : ""}{result.moon_delta_ra_arcmin.toFixed(2)}'{" "}
+                      ΔDec {result.moon_delta_dec_arcmin >= 0 ? "+" : ""}{result.moon_delta_dec_arcmin.toFixed(2)}'
+                    </span>
+                  </span>
+                </div>
               )}
             </div>
             <div className="space-y-2">

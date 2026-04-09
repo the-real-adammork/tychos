@@ -28,6 +28,9 @@ interface Run {
   status: RunStatus
   totalEclipses: number | null
   meanTychosError: number | null
+  meanSunDiff: number | null
+  meanMoonDiff: number | null
+  meanTimingOffset: number | null
   createdAt: string
   versionNumber: number | null
   paramSet: {
@@ -66,10 +69,10 @@ function StatusBadge({ status }: { status: RunStatus }) {
   )
 }
 
-function meanErrorDisplay(run: Run): string {
+function fmtStat(run: Run, val: number | null, suffix: string = "'"): string {
   if (run.status !== "done") return "—"
-  if (run.meanTychosError === null) return "—"
-  return `${run.meanTychosError.toFixed(1)}'`
+  if (val === null) return "—"
+  return `${val.toFixed(1)}${suffix}`
 }
 
 type FilterStatus = "all" | RunStatus
@@ -100,6 +103,9 @@ export default function RunTable() {
           status: r.status,
           totalEclipses: r.total_eclipses,
           meanTychosError: r.mean_tychos_error ?? null,
+          meanSunDiff: r.mean_sun_diff ?? null,
+          meanMoonDiff: r.mean_moon_diff ?? null,
+          meanTimingOffset: r.mean_timing_offset ?? null,
           createdAt: r.created_at,
           versionNumber: r.version_number ?? null,
           paramSet: {
@@ -169,7 +175,9 @@ export default function RunTable() {
               <TableHead>Owner</TableHead>
               <TableHead>Dataset</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Mean Error</TableHead>
+              <TableHead>Sun Diff</TableHead>
+              <TableHead>Moon Diff</TableHead>
+              <TableHead>Timing (min)</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="w-24"></TableHead>
             </TableRow>
@@ -204,9 +212,9 @@ export default function RunTable() {
                 <TableCell>
                   <StatusBadge status={run.status} />
                 </TableCell>
-                <TableCell className="tabular-nums">
-                  {meanErrorDisplay(run)}
-                </TableCell>
+                <TableCell className="tabular-nums">{fmtStat(run, run.meanSunDiff)}</TableCell>
+                <TableCell className="tabular-nums">{fmtStat(run, run.meanMoonDiff)}</TableCell>
+                <TableCell className="tabular-nums">{fmtStat(run, run.meanTimingOffset, "")}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {format(new Date(run.createdAt), "MMM d, yyyy HH:mm")}
                 </TableCell>
