@@ -235,6 +235,8 @@ async def list_saros_groups(
                 er.moon_delta_ra_arcmin,
                 er.moon_delta_dec_arcmin,
                 er.timing_offset_min,
+                er.jpl_timing_offset_min,
+                er.min_separation_arcmin,
                 SUBSTR(er.date, 1, 4) AS year
             FROM eclipse_results er
             JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = ?
@@ -249,7 +251,8 @@ async def list_saros_groups(
         from collections import defaultdict
         saros_data: dict = defaultdict(lambda: {
             "years": [], "tychos_errors": [], "jpl_errors": [],
-            "sun_mags": [], "moon_mags": [], "timing_abs": [], "count": 0,
+            "sun_mags": [], "moon_mags": [], "timing_abs": [],
+            "jpl_timing_abs": [], "separations": [], "count": 0,
         })
         for r in rows:
             sn = r["saros_num"]
@@ -268,6 +271,10 @@ async def list_saros_groups(
                 sd["moon_mags"].append(_math.sqrt(mra * mra + mdec * mdec))
             if r["timing_offset_min"] is not None:
                 sd["timing_abs"].append(abs(r["timing_offset_min"]))
+            if r["jpl_timing_offset_min"] is not None:
+                sd["jpl_timing_abs"].append(abs(r["jpl_timing_offset_min"]))
+            if r["min_separation_arcmin"] is not None:
+                sd["separations"].append(r["min_separation_arcmin"])
 
         def _avg(vals):
             return round(sum(vals) / len(vals), 2) if vals else None
@@ -286,9 +293,11 @@ async def list_saros_groups(
                 "mean_jpl_error": _avg(sd["jpl_errors"]),
                 "max_tychos_error": _max(sd["tychos_errors"]),
                 "max_jpl_error": _max(sd["jpl_errors"]),
+                "mean_timing_offset": _avg(sd["timing_abs"]),
+                "mean_jpl_timing_offset": _avg(sd["jpl_timing_abs"]),
+                "mean_separation": _avg(sd["separations"]),
                 "mean_sun_diff": _avg(sd["sun_mags"]),
                 "mean_moon_diff": _avg(sd["moon_mags"]),
-                "mean_timing_offset": _avg(sd["timing_abs"]),
             })
 
     return {"groups": groups}

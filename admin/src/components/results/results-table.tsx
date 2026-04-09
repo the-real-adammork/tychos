@@ -168,9 +168,11 @@ interface SarosGroup {
   mean_jpl_error: number | null
   max_tychos_error: number | null
   max_jpl_error: number | null
+  mean_timing_offset: number | null
+  mean_jpl_timing_offset: number | null
+  mean_separation: number | null
   mean_sun_diff: number | null
   mean_moon_diff: number | null
-  mean_timing_offset: number | null
 }
 
 export function ResultsTable({ runId }: ResultsTableProps) {
@@ -443,9 +445,11 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                 <SortHead column="saros_num" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort}>Saros #</SortHead>
                 <SortHead column="count" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Eclipses</SortHead>
                 <SortHead column="year_start" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort}>Year Span</SortHead>
+                <SortHead column="mean_timing_offset" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Tychos Offset (min)</SortHead>
+                <SortHead column="mean_jpl_timing_offset" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">JPL Offset (min)</SortHead>
+                <SortHead column="mean_separation" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Tychos Sep</SortHead>
                 <SortHead column="mean_sun_diff" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Sun Diff</SortHead>
                 <SortHead column="mean_moon_diff" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Moon Diff</SortHead>
-                <SortHead column="mean_timing_offset" active={sarosSortBy} direction={sarosSortDir} onSort={handleSarosSort} className="text-right">Timing (min)</SortHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -460,9 +464,11 @@ export function ResultsTable({ runId }: ResultsTableProps) {
                   <TableCell className="tabular-nums text-muted-foreground text-sm">
                     {g.year_start}–{g.year_end}
                   </TableCell>
+                  <TableCell className="text-right font-mono">{g.mean_timing_offset != null ? g.mean_timing_offset.toFixed(1) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono">{g.mean_jpl_timing_offset != null ? g.mean_jpl_timing_offset.toFixed(1) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono">{formatSeparation(g.mean_separation)}</TableCell>
                   <TableCell className="text-right font-mono">{formatSeparation(g.mean_sun_diff)}</TableCell>
                   <TableCell className="text-right font-mono">{formatSeparation(g.mean_moon_diff)}</TableCell>
-                  <TableCell className="text-right font-mono">{g.mean_timing_offset != null ? g.mean_timing_offset.toFixed(1) : "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
