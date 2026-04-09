@@ -232,6 +232,7 @@ POST   /api/research/{job_id}/iterations     -- log an iteration
 
 POST   /api/research/{job_id}/checkpoint/{version_id}  -- mark version as checkpoint
 POST   /api/research/{job_id}/restore/{version_id}     -- create new version from checkpoint's params
+POST   /api/research/{job_id}/search                   -- run server-side Nelder-Mead search
 ```
 
 ### Modified Existing Endpoints
@@ -274,9 +275,42 @@ The API renders instructions from a template (Tychos model background, parameter
 8. If worse: `POST /api/research/{job_id}/restore/{last_checkpoint_version_id}` → new version from checkpoint, continue from there
 9. Repeat
 
-### Nelder-Mead Search
+### Nelder-Mead Search (Server-Side)
 
-Same flow in a loop. Each evaluation = steps 3–6 with `kind='search_eval'`. The winner gets `kind='search_winner'` + checkpoint. The researcher (Claude Code) orchestrates the Nelder-Mead logic itself — no special server-side search endpoint needed. The `search.py` Nelder-Mead code can be included in the program.md instructions or provided as a utility the researcher calls.
+The researcher can also invoke a server-side Nelder-Mead search for coupled parameters:
+
+```
+POST /api/research/{job_id}/search
+{
+    "param_keys": ["sun.start_pos", "sun.speed", "sun_def.start_pos"],
+    "budget": 60,
+    "scale": 0.01
+}
+```
+
+The server runs the search internally:
+- Runs the scanner in-process (no queue overhead — same as the old CLI search)
+- Creates a `param_version` row for each evaluation (marked `kind='search_eval'`)
+- Does NOT create `eclipse_results` for intermediate evaluations (speed)
+- Computes objectives by querying the job's SQL view against in-memory results
+- When done, the winning params get a real version + queued run through the worker for full persisted results (marked `kind='search_winner'` + checkpoint)
+
+Returns:
+```json
+{
+    "starting_objective": 62.28,
+    "best_objective": 41.15,
+    "delta": -21.13,
+    "improved": true,
+    "n_evals": 58,
+    "winner_version_id": 234,
+    "winner_run_id": 567
+}
+```
+
+The researcher chooses between:
+- **Manual iteration** (steps 1–9 above) — for exploration, hypothesis-driven tuning, and reading per-eclipse patterns to inform strategy
+- **Server-side search** — for mechanical grinding of coupled parameters once the researcher knows which ones matter and at what scale
 
 ### Allowlist Validation
 
@@ -337,7 +371,7 @@ The entire filesystem-based research system:
 - `server/research/program_md.py` — instructions rendered by API from template
 - `server/research/allowlist.py` — validation moves to API endpoint
 - `server/research/objective.py` — replaced by SQL views + `AVG(error)`
-- `server/research/search.py` — Nelder-Mead logic stays but moves to researcher-side (Claude Code orchestrates via API)
+- `server/research/search.py` — Nelder-Mead logic moves to the search API endpoint (`POST /api/research/{job_id}/search`)
 - `research.sh` — no wrapper needed
 - `params/research/*/` — all filesystem artifacts (baseline.json, current.json, subset.json, program.md, log.jsonl)
 - Templates directory for program.md rendering
