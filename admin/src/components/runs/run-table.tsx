@@ -234,7 +234,7 @@ export default function RunTable() {
                     </Button>
                     {openMenuId === run.id && (
                       <div
-                        className="absolute right-0 z-20 mt-1 w-44 rounded-md border bg-popover text-popover-foreground shadow-md"
+                        className="absolute right-0 z-20 bottom-full mb-1 w-44 rounded-md border bg-popover text-popover-foreground shadow-md"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button

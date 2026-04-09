@@ -122,7 +122,7 @@ def _scan_solar_eclipses_serial(
     jpl_best_jd_by_catalog_jd: Optional[dict] = None,
 ) -> list[dict]:
     """In-process serial path. Used for small inputs and max_workers=1."""
-    system = T.TychosSystem(params=params)
+    system = T.TychosSystem(params=params, bodies=["sun", "moon"])
     threshold_arcmin = np.degrees(SOLAR_DETECTION_THRESHOLD) * 60
     rows = []
 
@@ -201,7 +201,7 @@ def _scan_lunar_eclipses_serial(
     jpl_best_jd_by_catalog_jd: Optional[dict] = None,
 ) -> list[dict]:
     """In-process serial path. Used for small inputs and max_workers=1."""
-    system = T.TychosSystem(params=params)
+    system = T.TychosSystem(params=params, bodies=["sun", "moon"])
     rows = []
 
     for ecl in eclipses:
@@ -277,7 +277,7 @@ def _get_worker_system(params: dict):
         _WORKER_LAST_PARAMS is params or _WORKER_LAST_PARAMS == params
     ):
         return _WORKER_LAST_SYSTEM
-    _WORKER_LAST_SYSTEM = T.TychosSystem(params=params)
+    _WORKER_LAST_SYSTEM = T.TychosSystem(params=params, bodies=["sun", "moon"])
     _WORKER_LAST_PARAMS = params
     return _WORKER_LAST_SYSTEM
 
