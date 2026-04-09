@@ -24,6 +24,7 @@ from server.research.allowlist import (
 )
 from server.research.objective import (
     compute_objective,
+    per_eclipse_detail,
     aux_stats,
     EmptyResults,
     NoScorableResults,
@@ -75,25 +76,25 @@ def cmd_init(args) -> int:
     write_json(paths.baseline_json, base_params)
     write_json(paths.current_json, base_params)
 
-    # subset.json — frozen stratified pick
+    # subset.json — full catalog (subsets removed — scans are fast enough now)
     catalog = load_eclipses_for_dataset(dataset_slug)
     if not catalog:
         print(f"error: no eclipses found for dataset {dataset_slug}", file=sys.stderr)
         return 3
-    chosen = select_subset(catalog, n=args.subset_size, seed=args.seed)
 
     # Scan window: CLI override wins, otherwise use the dataset's stored default.
     scan_window_hours = args.scan_window_hours
     if scan_window_hours is None:
         scan_window_hours = get_dataset_scan_window(dataset_slug)
 
+    mode = getattr(args, "mode", "combined")
+
     write_json(paths.subset_json, {
         "dataset_slug": dataset_slug,
-        "n_requested": args.subset_size,
-        "seed": args.seed,
+        "mode": mode,
         "scan_window_hours": scan_window_hours,
         "selected_at": _now_iso(),
-        "events": chosen,
+        "events": catalog,
     })
 
     # program.md — render from template
@@ -110,8 +111,9 @@ def cmd_init(args) -> int:
 
     print(f"Initialized job at {paths.root}")
     print(f"  dataset: {dataset_slug}")
+    print(f"  mode:    {mode}")
     print(f"  base:    {args.base}")
-    print(f"  subset:  {len(chosen)} events (seed={args.seed})")
+    print(f"  events:  {len(catalog)} (full catalog)")
     print(f"  window:  ±{scan_window_hours}h")
     print()
     print(f"Next: open `claude` in this repo and point it at:")
@@ -236,6 +238,23 @@ def _next_iter_number(log_path) -> int:
     return int(tail[0].get("iter", 0)) + 1
 
 
+def _print_per_eclipse(results: list[dict], mode: str) -> None:
+    """Print per-eclipse detail sorted worst-first for the AI agent."""
+    details = per_eclipse_detail(results, mode)
+    if not details:
+        return
+    print(f"\n--- per-eclipse detail (worst first, {len(details)} events) ---")
+    if mode == "solar_position":
+        print(f"{'date':>22s}  {'error':>8s}  {'sun_dRA':>9s}  {'sun_dDec':>9s}")
+        for d in details:
+            print(f"{d['date']:>22s}  {d['error']:8.2f}  {d['sun_dRA']:+9.2f}  {d['sun_dDec']:+9.2f}")
+    else:
+        print(f"{'date':>22s}  {'error':>8s}  {'sun_dRA':>9s}  {'sun_dDec':>9s}  {'moon_dRA':>9s}  {'moon_dDec':>9s}")
+        for d in details:
+            print(f"{d['date']:>22s}  {d['error']:8.2f}  {d['sun_dRA']:+9.2f}  {d['sun_dDec']:+9.2f}  {d['moon_dRA']:+9.2f}  {d['moon_dDec']:+9.2f}")
+    print("---")
+
+
 def cmd_iterate(args) -> int:
     try:
         paths, current, baseline, frontmatter, subset_blob = _load_job_state(args.job)
@@ -268,12 +287,18 @@ def cmd_iterate(args) -> int:
         return 0
 
     dataset_slug = subset_blob["dataset_slug"]
-    eclipses = subset_blob["events"]
+    mode = subset_blob.get("mode", "combined")
     window = float(subset_blob.get("scan_window_hours", 2.0))
+
+    # Always scan the full catalog (fast enough with selective body init)
+    eclipses = load_eclipses_for_dataset(dataset_slug)
+    if not eclipses:
+        print(f"error: no eclipses found for dataset {dataset_slug}", file=sys.stderr)
+        return 3
 
     try:
         results = _run_scan(dataset_slug, current, eclipses, half_window_hours=window)
-        objective = compute_objective(results)
+        objective = compute_objective(results, mode=mode)
     except (EmptyResults, NoScorableResults) as e:
         print(f"error: {e}", file=sys.stderr)
         return 5
@@ -286,14 +311,17 @@ def cmd_iterate(args) -> int:
         "kind": "iterate",
         "params_hash": h,
         "objective": round(objective, 4),
+        "mode": mode,
         **aux,
     }
     append_log(paths.log_jsonl, entry)
 
     print(f"objective: {entry['objective']}")
+    print(f"mode: {mode}")
     print(f"mean_sun_error_arcmin: {aux['mean_sun_error_arcmin']}")
     print(f"mean_moon_error_arcmin: {aux['mean_moon_error_arcmin']}")
     print(f"n_total: {aux['n_total']}")
+    _print_per_eclipse(results, mode)
     return 0
 
 
@@ -317,6 +345,7 @@ def cmd_validate(args) -> int:
         return 4
 
     dataset_slug = subset_blob["dataset_slug"]
+    mode = subset_blob.get("mode", "combined")
     window = float(subset_blob.get("scan_window_hours", 2.0))
     full_catalog = load_eclipses_for_dataset(dataset_slug)
     if not full_catalog:
@@ -325,7 +354,7 @@ def cmd_validate(args) -> int:
 
     try:
         results = _run_scan(dataset_slug, current, full_catalog, half_window_hours=window)
-        objective = compute_objective(results)
+        objective = compute_objective(results, mode=mode)
     except (EmptyResults, NoScorableResults) as e:
         print(f"error: {e}", file=sys.stderr)
         return 5
@@ -338,14 +367,17 @@ def cmd_validate(args) -> int:
         "kind": "validate",
         "params_hash": params_hash(current),
         "validation_objective": round(objective, 4),
+        "mode": mode,
         **aux,
     }
     append_log(paths.log_jsonl, entry)
 
     print(f"validation_objective: {entry['validation_objective']}")
+    print(f"mode: {mode}")
     print(f"mean_sun_error_arcmin: {aux['mean_sun_error_arcmin']}")
     print(f"mean_moon_error_arcmin: {aux['mean_moon_error_arcmin']}")
     print(f"n_total: {aux['n_total']}")
+    _print_per_eclipse(results, mode)
     return 0
 
 
@@ -398,14 +430,20 @@ def cmd_search(args) -> int:
         return 4
 
     dataset_slug = subset_blob["dataset_slug"]
-    eclipses = subset_blob["events"]
+    mode = subset_blob.get("mode", "combined")
     window = float(subset_blob.get("scan_window_hours", 2.0))
+
+    # Search uses full catalog too
+    eclipses = load_eclipses_for_dataset(dataset_slug)
+    if not eclipses:
+        print(f"error: no eclipses found for dataset {dataset_slug}", file=sys.stderr)
+        return 3
 
     def _evaluate(candidate: dict) -> float:
         results = _run_scan(
             dataset_slug, candidate, eclipses, half_window_hours=window
         )
-        return compute_objective(results)
+        return compute_objective(results, mode=mode)
 
     print(f"search: {len(param_keys)} params, budget={args.budget}, "
           f"scale={args.scale}")

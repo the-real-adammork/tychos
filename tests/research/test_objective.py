@@ -63,3 +63,15 @@ def test_aux_stats_reports_per_body_mean_magnitudes():
     assert aux["mean_sun_error_arcmin"] == pytest.approx(2.5)
     assert aux["mean_moon_error_arcmin"] == pytest.approx(5.0)
     assert aux["n_total"] == 2
+
+
+def test_solar_position_mode_uses_sun_only():
+    rows = [_row(3, 4, 99, 99)]  # sun magnitude = 5, ignores moon
+    assert compute_objective(rows, mode="solar_position") == pytest.approx(5.0)
+
+
+def test_solar_position_mode_ignores_moon_deltas():
+    # Even with None moon deltas, solar_position mode works
+    row = {"sun_delta_ra_arcmin": 3.0, "sun_delta_dec_arcmin": 4.0,
+           "moon_delta_ra_arcmin": None, "moon_delta_dec_arcmin": None}
+    assert compute_objective([row], mode="solar_position") == pytest.approx(5.0)

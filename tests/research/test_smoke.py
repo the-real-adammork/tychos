@@ -4,9 +4,10 @@ from types import SimpleNamespace
 from server.research import cli
 
 
-def _init_args(job, base="v1-original/v1", dataset="solar"):
+def _init_args(job, base="v1-original/v1", dataset="solar", mode="combined"):
     return SimpleNamespace(
         job=job, base=base, dataset=dataset, subset_size=3, seed=42,
+        mode=mode,
         # Explicit override avoids the dataset-default DB lookup path so
         # smoke tests stay isolated from the live datasets table.
         scan_window_hours=2.0,
@@ -26,10 +27,11 @@ def test_init_creates_all_sandbox_files(
     assert job_root.exists()
     for name in ("baseline.json", "current.json", "subset.json", "program.md", "log.jsonl"):
         assert (job_root / name).exists(), f"missing {name}"
-    # Sanity: subset has the requested 3 events + the explicit window override.
+    # Sanity: subset.json has all catalog events + the explicit window override.
     subset = json.loads((job_root / "subset.json").read_text())
     assert subset["scan_window_hours"] == 2.0
-    assert len(subset["events"]) == 3
+    assert len(subset["events"]) == 3  # fixture has 3 solar eclipses
+    assert subset["mode"] == "combined"
 
 
 def test_iterate_prints_objective_and_logs(
@@ -115,7 +117,7 @@ def test_init_falls_back_to_dataset_scan_window(
 
     args = SimpleNamespace(
         job="smoke-6", base="v1-original/v1", dataset="solar",
-        subset_size=3, seed=42, scan_window_hours=None,
+        subset_size=3, seed=42, mode="combined", scan_window_hours=None,
     )
     rc = cli.cmd_init(args)
     assert rc == 0
