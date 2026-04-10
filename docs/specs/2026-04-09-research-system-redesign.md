@@ -96,6 +96,8 @@ CREATE TABLE research_jobs (
     dataset_id INTEGER NOT NULL REFERENCES datasets(id),
     view_name TEXT NOT NULL,              -- references a SQL view (e.g. 'v_solar_position')
     allowlist TEXT[] NOT NULL,            -- parameter glob patterns (e.g. '{sun.*,sun_def.*}')
+    date_start TEXT,                      -- optional: filter eclipses to this date range (ISO 8601)
+    date_end TEXT,                        -- e.g. '1900-01-01' to '2050-12-31'
     status TEXT NOT NULL DEFAULT 'active', -- 'active', 'paused', 'completed'
     instructions TEXT,                    -- rendered program.md content
     created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
@@ -119,6 +121,10 @@ CREATE TABLE research_iterations (
 ```sql
 -- param_versions gains checkpoint flag
 ALTER TABLE param_versions ADD COLUMN is_checkpoint BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- runs gain optional date range for filtered scans
+ALTER TABLE runs ADD COLUMN date_start TEXT;
+ALTER TABLE runs ADD COLUMN date_end TEXT;
 ```
 
 ### LISTEN/NOTIFY Triggers
@@ -187,6 +193,30 @@ WHERE sun_delta_ra_arcmin IS NOT NULL
 ```
 
 Adding a new view = one migration with a `CREATE VIEW` statement. The API endpoint validates the view name against a whitelist of known views.
+
+### Date Filtering
+
+Date filtering applies at two levels:
+
+**1. View query (API-side):** The view endpoint applies the research job's `date_start`/`date_end` as a WHERE clause on the view query:
+```sql
+SELECT * FROM v_solar_position
+WHERE run_id = $1
+  AND date >= $2 AND date <= $3
+ORDER BY error DESC
+```
+The objective (`AVG(error)`) is also computed over only the filtered rows. This means two research jobs with different date ranges produce different objectives from the same run — the view is a lens, not a copy.
+
+**2. Run-level (scanner-side):** When a research job has date filters, the runs it queues should only scan eclipses within that range. This saves scanner time — scanning 200 eclipses (1900–2000) instead of 452 (full catalog).
+
+Implementation: the `runs` table gains optional `date_start`/`date_end` columns. When the research version endpoint (`POST /api/research/{job_id}/version`) creates a run, it copies the job's date range to the run. The worker filters the eclipse catalog to that range before calling the scanner:
+```python
+eclipses = load_eclipse_catalog(dataset_id)
+if run_date_start:
+    eclipses = [e for e in eclipses if run_date_start <= e["date"] <= run_date_end]
+```
+
+Non-research runs (created via `POST /api/runs`) have NULL date filters and scan the full catalog as today.
 
 ---
 
@@ -257,9 +287,13 @@ POST /api/research
     "param_set_id": 5,
     "dataset_id": 1,
     "view_name": "v_solar_position",
-    "allowlist": ["sun.*", "sun_def.*", "earth.*"]
+    "allowlist": ["sun.*", "sun_def.*", "earth.*"],
+    "date_start": "1900-01-01",
+    "date_end": "2050-12-31"
 }
 ```
+
+Date filters are optional — omit them to use the full catalog.
 
 The API renders instructions from a template (Tychos model background, parameter guidance, the specific allowlist/view/dataset) and stores them in `research_jobs.instructions`.
 

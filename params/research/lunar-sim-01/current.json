@@ -150,34 +150,34 @@
     "start_pos": 33
   },
   "moon": {
-    "orbit_center_a": 0.020404103265166628,
-    "orbit_center_b": -0.02065915455598121,
-    "orbit_center_c": -0.00178535903570208,
-    "orbit_radius": 0.25505129081458283,
-    "orbit_tilt_a": -1.8,
-    "orbit_tilt_b": -2.6,
-    "speed": 83.28521,
-    "start_pos": 261.2
+    "orbit_center_a": 0.021385274823371936,
+    "orbit_center_b": -0.023893434165046048,
+    "orbit_center_c": -0.0014496400492860257,
+    "orbit_radius": 0.2607076010218773,
+    "orbit_tilt_a": -1.2165055463519843,
+    "orbit_tilt_b": -2.376826361594693,
+    "speed": 83.28528197989556,
+    "start_pos": 261.14748668467433
   },
   "moon_def_a": {
-    "orbit_center_a": 0,
-    "orbit_center_b": 0,
-    "orbit_center_c": 0,
-    "orbit_radius": 0.000712491685519208,
-    "orbit_tilt_a": -0.2,
-    "orbit_tilt_b": 0.5,
-    "speed": 0.71015440177343,
-    "start_pos": 226.4
+    "orbit_center_a": -0.000896121783206615,
+    "orbit_center_b": 0.00033719022232045785,
+    "orbit_center_c": 0.00012060867177406007,
+    "orbit_radius": 0.0007807490402452258,
+    "orbit_tilt_a": -0.01134414296879539,
+    "orbit_tilt_b": -0.042204442041606276,
+    "speed": 0.7101700580045843,
+    "start_pos": 225.77664662447935
   },
   "moon_def_b": {
-    "orbit_center_a": -0.009691949050954147,
-    "orbit_center_b": 0.005611128397920822,
+    "orbit_center_a": -0.009698625075412522,
+    "orbit_center_b": 0.00523150276116212,
     "orbit_center_c": 0,
-    "orbit_radius": 0,
-    "orbit_tilt_a": 2.3,
-    "orbit_tilt_b": 2.6,
-    "speed": 0,
-    "start_pos": -1.8
+    "orbit_radius": 0.00010164720642916594,
+    "orbit_tilt_a": 1.311682996399894,
+    "orbit_tilt_b": 2.3250885811013045,
+    "speed": -8.016259860609798e-05,
+    "start_pos": -1.6440690100872368
   },
   "neptune": {
     "orbit_center_a": 0,
