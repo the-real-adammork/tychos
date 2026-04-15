@@ -223,6 +223,142 @@ async def mark_checkpoint(job_id: int, version_id: int, request: Request):
     return dict(row)
 
 
+class SearchBody(BaseModel):
+    param_keys: list[str]
+    budget: int = 60
+    scale: float = 0.01
+
+
+@router.post("/{job_id}/search")
+async def run_research_search(job_id: int, body: SearchBody, request: Request):
+    await require_user(request)
+    from server.research.search_engine import run_search
+    from server.research.allowlist import expand_globs
+    from server.services.scanner import scan_solar_eclipses, scan_lunar_eclipses
+    import math
+
+    async with get_async_db() as conn:
+        job = await conn.fetchrow("SELECT * FROM research_jobs WHERE id=$1", job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Research job not found")
+        # Starting params = latest checkpoint or v1
+        row = await conn.fetchrow(
+            "SELECT id, params_json FROM param_versions WHERE param_set_id=$1 AND is_checkpoint=TRUE ORDER BY version_number DESC LIMIT 1",
+            job["param_set_id"],
+        )
+        if row is None:
+            row = await conn.fetchrow(
+                "SELECT id, params_json FROM param_versions WHERE param_set_id=$1 ORDER BY version_number ASC LIMIT 1",
+                job["param_set_id"],
+            )
+        starting = _json.loads(row["params_json"])
+
+        allowed = expand_globs(list(job["allowlist"]), list(starting.keys()))
+        forbidden = [k for k in body.param_keys if k not in allowed]
+        if forbidden:
+            raise HTTPException(status_code=400, detail=f"param_keys not in allowlist: {forbidden}")
+
+        ds = await conn.fetchrow("SELECT slug, scan_window_hours FROM datasets WHERE id=$1", job["dataset_id"])
+        jpl_rows = await conn.fetch(
+            "SELECT julian_day_tt, best_jd, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad "
+            "FROM jpl_reference WHERE dataset_id=$1",
+            job["dataset_id"],
+        )
+        cat_filters = ["dataset_id=$1"]
+        cat_args = [job["dataset_id"]]
+        if job["date_start"]:
+            cat_filters.append(f"date >= ${len(cat_args)+1}")
+            cat_args.append(job["date_start"])
+        if job["date_end"]:
+            cat_filters.append(f"date <= ${len(cat_args)+1}")
+            cat_args.append(job["date_end"])
+        eclipses = [dict(r) for r in await conn.fetch(
+            f"SELECT catalog_number, julian_day_tt, date, type, magnitude, gamma, "
+            f"pen_mag, um_mag FROM eclipse_catalog WHERE {' AND '.join(cat_filters)} ORDER BY julian_day_tt",
+            *cat_args,
+        )]
+
+    jpl_by_jd = {r["julian_day_tt"]: r for r in jpl_rows}
+    jpl_best_lookup = {jd: r["best_jd"] for jd, r in jpl_by_jd.items() if r["best_jd"] is not None}
+
+    RAD_TO_ARCMIN = (180.0 / math.pi) * 60.0
+
+    def _evaluate(candidate: dict) -> float:
+        scan_fn = scan_solar_eclipses if ds["slug"] == "solar_eclipse" else scan_lunar_eclipses
+        results = scan_fn(
+            candidate, eclipses,
+            half_window_hours=float(ds["scan_window_hours"]),
+            jpl_best_jd_by_catalog_jd=jpl_best_lookup,
+        )
+        errs = []
+        for r in results:
+            jpl = jpl_by_jd.get(r["julian_day_tt"])
+            if not jpl or r.get("tychos_sun_ra_at_jpl_rad") is None:
+                continue
+            cos_s = math.cos(jpl["sun_dec_rad"])
+            cos_m = math.cos(jpl["moon_dec_rad"])
+            s_dra = (r["tychos_sun_ra_at_jpl_rad"] - jpl["sun_ra_rad"]) * cos_s * RAD_TO_ARCMIN
+            s_ddec = (r["tychos_sun_dec_at_jpl_rad"] - jpl["sun_dec_rad"]) * RAD_TO_ARCMIN
+            if job["view_name"] == "v_solar_position":
+                errs.append(math.sqrt(s_dra*s_dra + s_ddec*s_ddec))
+            else:
+                m_dra = (r["tychos_moon_ra_at_jpl_rad"] - jpl["moon_ra_rad"]) * cos_m * RAD_TO_ARCMIN
+                m_ddec = (r["tychos_moon_dec_at_jpl_rad"] - jpl["moon_dec_rad"]) * RAD_TO_ARCMIN
+                if job["view_name"] == "v_moon_position":
+                    errs.append(math.sqrt(m_dra*m_dra + m_ddec*m_ddec))
+                else:
+                    errs.append(math.sqrt(s_dra*s_dra + s_ddec*s_ddec + m_dra*m_dra + m_ddec*m_ddec))
+        return float("inf") if not errs else sum(errs)/len(errs)
+
+    search_result = run_search(
+        current=starting,
+        param_keys=body.param_keys,
+        evaluate=_evaluate,
+        budget=body.budget,
+        scale=body.scale,
+    )
+
+    improved = search_result.best_objective < search_result.starting_objective
+    winner_version_id = None
+    winner_run_id = None
+
+    if improved:
+        async with get_async_db() as conn:
+            job = await conn.fetchrow("SELECT * FROM research_jobs WHERE id=$1", job_id)
+            latest_num = await conn.fetchval(
+                "SELECT COALESCE(MAX(version_number),0) FROM param_versions WHERE param_set_id=$1",
+                job["param_set_id"],
+            )
+            params_json = _json.dumps(search_result.best_params, sort_keys=True)
+            md5 = hashlib.md5(params_json.encode()).hexdigest()
+            winner_version_id = await conn.fetchval(
+                "INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json, notes, is_checkpoint) "
+                "VALUES ($1,$2,$3,$4,$5,TRUE) RETURNING id",
+                job["param_set_id"], latest_num + 1, md5, params_json,
+                f"search winner: {body.param_keys} (budget {body.budget})",
+            )
+            winner_run_id = await conn.fetchval(
+                "INSERT INTO runs (param_version_id, dataset_id, status, date_start, date_end) "
+                "VALUES ($1,$2,'queued',$3,$4) RETURNING id",
+                winner_version_id, job["dataset_id"], job["date_start"], job["date_end"],
+            )
+            await conn.execute(
+                "INSERT INTO research_iterations (research_job_id, param_version_id, run_id, kind, objective) "
+                "VALUES ($1,$2,$3,'search_winner',$4)",
+                job_id, winner_version_id, winner_run_id, search_result.best_objective,
+            )
+
+    return {
+        "starting_objective": search_result.starting_objective,
+        "best_objective": search_result.best_objective,
+        "delta": search_result.best_objective - search_result.starting_objective,
+        "improved": improved,
+        "n_evals": search_result.n_evals,
+        "winner_version_id": winner_version_id,
+        "winner_run_id": winner_run_id,
+    }
+
+
 @router.post("/{job_id}/restore/{version_id}", status_code=201)
 async def restore_from_version(job_id: int, version_id: int, request: Request):
     await require_user(request)
