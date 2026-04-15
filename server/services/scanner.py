@@ -77,10 +77,12 @@ def _tychos_moon_velocity(system, jd, m_ra, m_dec):
 def load_eclipse_catalog(dataset_id: int) -> list[dict]:
     """Load eclipse catalog entries for a dataset from the DB."""
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT julian_day_tt, date, type, magnitude FROM eclipse_catalog WHERE dataset_id = ? ORDER BY julian_day_tt",
-            (dataset_id,),
-        ).fetchall()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT julian_day_tt, date, type, magnitude FROM eclipse_catalog WHERE dataset_id = %s ORDER BY julian_day_tt",
+                (dataset_id,),
+            )
+            rows = cur.fetchall()
     return [dict(r) for r in rows]
 
 

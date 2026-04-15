@@ -7,13 +7,35 @@ import os
 from pathlib import Path
 from contextlib import contextmanager, asynccontextmanager
 
+import numpy as np
 import psycopg2
 import psycopg2.extras
+import psycopg2.extensions
 import psycopg2.pool
 import asyncpg
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 MIGRATIONS_DIR = Path(__file__).parent / "migrations" / "pg"
+
+
+# Teach psycopg2 how to adapt numpy scalars produced by the scanner.
+def _adapt_np_floating(x):
+    return psycopg2.extensions.AsIs(repr(float(x)))
+
+
+def _adapt_np_integer(x):
+    return psycopg2.extensions.AsIs(repr(int(x)))
+
+
+def _adapt_np_bool(x):
+    return psycopg2.extensions.AsIs("TRUE" if bool(x) else "FALSE")
+
+
+for _t in (np.float64, np.float32, np.float16):
+    psycopg2.extensions.register_adapter(_t, _adapt_np_floating)
+for _t in (np.int64, np.int32, np.int16, np.int8):
+    psycopg2.extensions.register_adapter(_t, _adapt_np_integer)
+psycopg2.extensions.register_adapter(np.bool_, _adapt_np_bool)
 
 _sync_pool: psycopg2.pool.SimpleConnectionPool | None = None
 _async_pool: "asyncpg.Pool | None" = None

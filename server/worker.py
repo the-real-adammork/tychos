@@ -163,7 +163,7 @@ def _process_one() -> bool:
         rows = [
             (
                 run_id, r["julian_day_tt"], r["date"], r["catalog_type"], r["magnitude"],
-                r["detected"], r["threshold_arcmin"], r["min_separation_arcmin"],
+                bool(r["detected"]), r["threshold_arcmin"], r["min_separation_arcmin"],
                 r["timing_offset_min"], r["best_jd"],
                 r["sun_ra_rad"], r["sun_dec_rad"], r["moon_ra_rad"], r["moon_dec_rad"],
                 r["moon_error_arcmin"], r.get("moon_ra_vel"), r.get("moon_dec_vel"),
