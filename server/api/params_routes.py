@@ -22,22 +22,22 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-async def auto_queue_runs(conn, param_version_id: int):
+async def auto_queue_runs(conn, param_version_id: int, date_start: str | None = None, date_end: str | None = None):
     """Queue a run for each dataset for a new param version."""
-    ds_rows = await (await conn.execute("SELECT id FROM datasets ORDER BY id")).fetchall()
+    ds_rows = await conn.fetch("SELECT id FROM datasets ORDER BY id")
     for ds in ds_rows:
         await conn.execute(
-            "INSERT INTO runs (param_version_id, dataset_id, status) VALUES (?, ?, 'queued')",
-            (param_version_id, ds["id"]),
+            "INSERT INTO runs (param_version_id, dataset_id, status, date_start, date_end) "
+            "VALUES ($1,$2,'queued',$3,$4)",
+            param_version_id, ds["id"], date_start, date_end,
         )
-    await conn.commit()
 
 
 @router.get("")
 async def list_param_sets():
     """List all param sets with owner info and latest version detection rates."""
     async with get_async_db() as conn:
-        cursor = await conn.execute(
+        rows = await conn.fetch(
             """
             SELECT ps.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets ps
@@ -45,7 +45,6 @@ async def list_param_sets():
             ORDER BY ps.created_at DESC
             """
         )
-        rows = await cursor.fetchall()
 
         result = []
         for row in rows:
@@ -53,50 +52,46 @@ async def list_param_sets():
 
             # Resolve forked_from name
             if item.get("forked_from_id"):
-                fork_cursor = await conn.execute(
-                    "SELECT name FROM param_sets WHERE id = ?",
-                    (item["forked_from_id"],),
+                fork_row = await conn.fetchrow(
+                    "SELECT name FROM param_sets WHERE id = $1",
+                    item["forked_from_id"],
                 )
-                fork_row = await fork_cursor.fetchone()
                 item["forked_from_name"] = fork_row["name"] if fork_row else None
             else:
                 item["forked_from_name"] = None
 
             # Find latest version
-            ver_cursor = await conn.execute(
+            ver_row = await conn.fetchrow(
                 """
                 SELECT id FROM param_versions
-                WHERE param_set_id = ?
+                WHERE param_set_id = $1
                 ORDER BY version_number DESC
                 LIMIT 1
                 """,
-                (item["id"],),
+                item["id"],
             )
-            ver_row = await ver_cursor.fetchone()
 
             if ver_row:
                 latest_version_id = ver_row["id"]
                 # Latest done runs for latest version (one per dataset)
-                run_cursor = await conn.execute(
+                run_rows = await conn.fetch(
                     """
                     SELECT r.id, r.dataset_id, d.slug AS dataset_slug, r.status, r.total_eclipses, r.detected, r.completed_at
                     FROM runs r
                     JOIN datasets d ON r.dataset_id = d.id
-                    WHERE r.param_version_id = ? AND r.status = 'done'
+                    WHERE r.param_version_id = $1 AND r.status = 'done'
                     ORDER BY r.completed_at DESC
                     """,
-                    (latest_version_id,),
+                    latest_version_id,
                 )
-                run_rows = await run_cursor.fetchall()
                 latest_runs = []
                 for rr in run_rows:
                     rd = _row_to_dict(rr)
-                    err_cursor = await conn.execute(
-                        "SELECT AVG(tychos_error_arcmin) AS mean_error FROM eclipse_results WHERE run_id = ?",
-                        (rd["id"],),
+                    mean_err = await conn.fetchval(
+                        "SELECT AVG(tychos_error_arcmin) FROM eclipse_results WHERE run_id = $1",
+                        rd["id"],
                     )
-                    err_row = await err_cursor.fetchone()
-                    rd["mean_tychos_error"] = round(err_row["mean_error"], 2) if err_row["mean_error"] is not None else None
+                    rd["mean_tychos_error"] = round(mean_err, 2) if mean_err is not None else None
                     latest_runs.append(rd)
                 item["latest_runs"] = latest_runs
             else:
@@ -131,39 +126,35 @@ async def create_param_set(body: CreateParamSetBody, request: Request):
 
     async with get_async_db() as conn:
         # Create param set (no params_json/params_md5 on the set itself)
-        ps_cursor = await conn.execute(
+        param_set_id = await conn.fetchval(
             """
             INSERT INTO param_sets (name, description, owner_id)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3) RETURNING id
             """,
-            (body.name.strip(), body.description, user["id"]),
+            body.name.strip(), body.description, user["id"],
         )
-        param_set_id = ps_cursor.lastrowid
 
         # Create first version
-        pv_cursor = await conn.execute(
+        param_version_id = await conn.fetchval(
             """
             INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json, notes)
-            VALUES (?, 1, ?, ?, ?)
+            VALUES ($1, 1, $2, $3, $4) RETURNING id
             """,
-            (param_set_id, params_md5, body.params_json, body.notes),
+            param_set_id, params_md5, body.params_json, body.notes,
         )
-        param_version_id = pv_cursor.lastrowid
-        await conn.commit()
 
         # Auto-queue solar and lunar runs
         await auto_queue_runs(conn, param_version_id)
 
-        row_cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT ps.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets ps
             JOIN users u ON ps.owner_id = u.id
-            WHERE ps.id = ?
+            WHERE ps.id = $1
             """,
-            (param_set_id,),
+            param_set_id,
         )
-        row = await row_cursor.fetchone()
 
     # Persist to disk
     save_param_set(body.name.strip(), body.description)
@@ -180,16 +171,15 @@ async def create_param_set(body: CreateParamSetBody, request: Request):
 async def get_param_set(param_set_id: int):
     """Get a single param set with owner info, all versions, and latest version's runs."""
     async with get_async_db() as conn:
-        cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT ps.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets ps
             JOIN users u ON ps.owner_id = u.id
-            WHERE ps.id = ?
+            WHERE ps.id = $1
             """,
-            (param_set_id,),
+            param_set_id,
         )
-        row = await cursor.fetchone()
 
         if row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
@@ -197,26 +187,28 @@ async def get_param_set(param_set_id: int):
         item = _row_to_dict(row)
 
         # All versions (newest first)
-        ver_cursor = await conn.execute(
+        ver_rows = await conn.fetch(
             """
             SELECT id, version_number, parent_version_id, created_at, params_md5, notes
             FROM param_versions
-            WHERE param_set_id = ?
+            WHERE param_set_id = $1
             ORDER BY version_number DESC
             """,
-            (param_set_id,),
+            param_set_id,
         )
-        versions = [_row_to_dict(v) for v in await ver_cursor.fetchall()]
+        versions = [_row_to_dict(v) for v in ver_rows]
         item["versions"] = versions
 
         # Best detection across ALL versions
         version_ids = [v["id"] for v in versions]
         if version_ids:
-            placeholders = ",".join("?" * len(version_ids))
+            # Build $-placeholders for version_ids IN clause
+            placeholders = ",".join(f"${i+1}" for i in range(len(version_ids)))
+            ds_placeholder = f"${len(version_ids)+1}"
 
-            ds_rows = await (await conn.execute("SELECT id, slug FROM datasets ORDER BY id")).fetchall()
+            ds_rows = await conn.fetch("SELECT id, slug FROM datasets ORDER BY id")
             for ds in ds_rows:
-                best_cursor = await conn.execute(
+                best_row = await conn.fetchrow(
                     f"""
                     SELECT r.id AS run_id, r.total_eclipses, pv.version_number,
                            AVG(er.tychos_error_arcmin) AS mean_error
@@ -224,16 +216,15 @@ async def get_param_set(param_set_id: int):
                     JOIN param_versions pv ON r.param_version_id = pv.id
                     JOIN eclipse_results er ON er.run_id = r.id
                     WHERE r.param_version_id IN ({placeholders})
-                      AND r.dataset_id = ? AND r.status = 'done'
+                      AND r.dataset_id = {ds_placeholder} AND r.status = 'done'
                       AND r.total_eclipses > 0
                       AND er.tychos_error_arcmin IS NOT NULL
-                    GROUP BY r.id
+                    GROUP BY r.id, pv.version_number
                     ORDER BY mean_error ASC
                     LIMIT 1
                     """,
-                    (*version_ids, ds["id"]),
+                    *version_ids, ds["id"],
                 )
-                best_row = await best_cursor.fetchone()
                 if best_row:
                     item[f"{ds['slug']}_stats"] = {
                         "mean_tychos_error": round(best_row["mean_error"], 2) if best_row["mean_error"] is not None else None,
@@ -245,20 +236,18 @@ async def get_param_set(param_set_id: int):
 
             # All runs for latest version
             latest_version_id = versions[0]["id"]
-            runs_cursor = await conn.execute(
+            runs_rows = await conn.fetch(
                 """
                 SELECT r.id, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name,
                        r.status, r.total_eclipses, r.detected, r.created_at, r.completed_at
                 FROM runs r
                 JOIN datasets d ON r.dataset_id = d.id
-                WHERE r.param_version_id = ?
+                WHERE r.param_version_id = $1
                 ORDER BY r.created_at DESC
                 """,
-                (latest_version_id,),
+                latest_version_id,
             )
-            item["latest_version_runs"] = [
-                _row_to_dict(r) for r in await runs_cursor.fetchall()
-            ]
+            item["latest_version_runs"] = [_row_to_dict(r) for r in runs_rows]
         else:
             item["solar_eclipse_stats"] = None
             item["lunar_eclipse_stats"] = None
@@ -281,10 +270,9 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
     user = await require_user(request)
 
     async with get_async_db() as conn:
-        cursor = await conn.execute(
-            "SELECT * FROM param_sets WHERE id = ?", (param_set_id,)
+        row = await conn.fetchrow(
+            "SELECT * FROM param_sets WHERE id = $1", param_set_id
         )
-        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
         if row["owner_id"] != user["id"]:
@@ -298,12 +286,18 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
             meta_updates["description"] = body.description
 
         if meta_updates:
-            set_clause = ", ".join(f"{k} = ?" for k in meta_updates)
-            values = list(meta_updates.values()) + [param_set_id]
+            set_parts = []
+            values = []
+            i = 1
+            for k, v in meta_updates.items():
+                set_parts.append(f"{k} = ${i}")
+                values.append(v)
+                i += 1
+            values.append(param_set_id)
             await conn.execute(
-                f"UPDATE param_sets SET {set_clause} WHERE id = ?", values
+                f"UPDATE param_sets SET {', '.join(set_parts)} WHERE id = ${i}",
+                *values,
             )
-            await conn.commit()
 
         # Handle params_json: create new version only if md5 differs from latest
         new_version_id = None
@@ -315,17 +309,16 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
                     status_code=422, detail=f"params_json is not valid JSON: {exc}"
                 )
 
-            latest_cursor = await conn.execute(
+            latest_ver = await conn.fetchrow(
                 """
                 SELECT id, version_number, params_md5
                 FROM param_versions
-                WHERE param_set_id = ?
+                WHERE param_set_id = $1
                 ORDER BY version_number DESC
                 LIMIT 1
                 """,
-                (param_set_id,),
+                param_set_id,
             )
-            latest_ver = await latest_cursor.fetchone()
 
             if latest_ver is None or latest_ver["params_md5"] != new_md5:
                 next_version = (latest_ver["version_number"] + 1) if latest_ver else 1
@@ -333,31 +326,29 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
                 parent_id = body.parent_version_id
                 if parent_id is None and latest_ver is not None:
                     parent_id = latest_ver["id"]
-                pv_cursor = await conn.execute(
+                param_version_id = await conn.fetchval(
                     """
                     INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
                     """,
-                    (param_set_id, next_version, parent_id, new_md5, body.params_json, body.notes),
+                    param_set_id, next_version, parent_id, new_md5, body.params_json, body.notes,
                 )
-                param_version_id = pv_cursor.lastrowid
                 new_version_id = param_version_id
-                await conn.commit()
                 await auto_queue_runs(conn, param_version_id)
 
                 # Persist new version to disk
                 parent_label = None
                 if parent_id:
-                    par_cursor = await conn.execute(
-                        "SELECT pv.version_number, ps.name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = ?",
-                        (parent_id,),
+                    par_row = await conn.fetchrow(
+                        "SELECT pv.version_number, ps.name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = $1",
+                        parent_id,
                     )
-                    par_row = await par_cursor.fetchone()
                     if par_row:
                         parent_label = f"{par_row['name']}/v{par_row['version_number']}"
 
-                ps_name_cursor = await conn.execute("SELECT name FROM param_sets WHERE id = ?", (param_set_id,))
-                ps_name_row = await ps_name_cursor.fetchone()
+                ps_name_row = await conn.fetchrow(
+                    "SELECT name FROM param_sets WHERE id = $1", param_set_id
+                )
                 save_param_version(
                     ps_name_row["name"], next_version,
                     json.loads(body.params_json),
@@ -365,16 +356,15 @@ async def update_param_set(param_set_id: int, body: UpdateParamSetBody, request:
                     parent_version=parent_label,
                 )
 
-        updated_cursor = await conn.execute(
+        updated = await conn.fetchrow(
             """
             SELECT ps.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets ps
             JOIN users u ON ps.owner_id = u.id
-            WHERE ps.id = ?
+            WHERE ps.id = $1
             """,
-            (param_set_id,),
+            param_set_id,
         )
-        updated = await updated_cursor.fetchone()
 
     result = _row_to_dict(updated)
     if new_version_id is not None:
@@ -388,17 +378,15 @@ async def delete_param_set(param_set_id: int, request: Request):
     user = await require_user(request)
 
     async with get_async_db() as conn:
-        cursor = await conn.execute(
-            "SELECT owner_id FROM param_sets WHERE id = ?", (param_set_id,)
+        row = await conn.fetchrow(
+            "SELECT owner_id FROM param_sets WHERE id = $1", param_set_id
         )
-        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
         if row["owner_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Not the owner")
 
-        await conn.execute("DELETE FROM param_sets WHERE id = ?", (param_set_id,))
-        await conn.commit()
+        await conn.execute("DELETE FROM param_sets WHERE id = $1", param_set_id)
 
 
 @router.delete("/{param_set_id}/versions/{version_id}", status_code=204)
@@ -414,29 +402,26 @@ async def delete_param_version(param_set_id: int, version_id: int, request: Requ
 
     async with get_async_db() as conn:
         # Verify ownership and existence
-        ps_cursor = await conn.execute(
-            "SELECT owner_id FROM param_sets WHERE id = ?", (param_set_id,)
+        ps_row = await conn.fetchrow(
+            "SELECT owner_id FROM param_sets WHERE id = $1", param_set_id
         )
-        ps_row = await ps_cursor.fetchone()
         if ps_row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
         if ps_row["owner_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Not the owner")
 
-        ver_cursor = await conn.execute(
-            "SELECT id, parent_version_id FROM param_versions WHERE id = ? AND param_set_id = ?",
-            (version_id, param_set_id),
+        ver_row = await conn.fetchrow(
+            "SELECT id, parent_version_id FROM param_versions WHERE id = $1 AND param_set_id = $2",
+            version_id, param_set_id,
         )
-        ver_row = await ver_cursor.fetchone()
         if ver_row is None:
             raise HTTPException(status_code=404, detail="Version not found in this param set")
 
         # Refuse to delete the last remaining version
-        count_cursor = await conn.execute(
-            "SELECT COUNT(*) AS n FROM param_versions WHERE param_set_id = ?",
-            (param_set_id,),
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM param_versions WHERE param_set_id = $1",
+            param_set_id,
         )
-        count = (await count_cursor.fetchone())["n"]
         if count <= 1:
             raise HTTPException(
                 status_code=409,
@@ -445,13 +430,12 @@ async def delete_param_version(param_set_id: int, version_id: int, request: Requ
 
         # Re-parent any child versions to this version's parent so the chain stays intact
         await conn.execute(
-            "UPDATE param_versions SET parent_version_id = ? WHERE parent_version_id = ?",
-            (ver_row["parent_version_id"], version_id),
+            "UPDATE param_versions SET parent_version_id = $1 WHERE parent_version_id = $2",
+            ver_row["parent_version_id"], version_id,
         )
 
         # Delete the version (runs + eclipse_results cascade via FK)
-        await conn.execute("DELETE FROM param_versions WHERE id = ?", (version_id,))
-        await conn.commit()
+        await conn.execute("DELETE FROM param_versions WHERE id = $1", version_id)
 
 
 class ForkBody(BaseModel):
@@ -464,61 +448,55 @@ async def fork_param_set(param_set_id: int, request: Request, body: ForkBody = F
     user = await require_user(request)
 
     async with get_async_db() as conn:
-        source_cursor = await conn.execute(
-            "SELECT * FROM param_sets WHERE id = ?", (param_set_id,)
+        source = await conn.fetchrow(
+            "SELECT * FROM param_sets WHERE id = $1", param_set_id
         )
-        source = await source_cursor.fetchone()
         if source is None:
             raise HTTPException(status_code=404, detail="Param set not found")
 
         # Get latest version's params
-        ver_cursor = await conn.execute(
+        latest_ver = await conn.fetchrow(
             """
             SELECT version_number, params_json, params_md5
             FROM param_versions
-            WHERE param_set_id = ?
+            WHERE param_set_id = $1
             ORDER BY version_number DESC
             LIMIT 1
             """,
-            (param_set_id,),
+            param_set_id,
         )
-        latest_ver = await ver_cursor.fetchone()
         if latest_ver is None:
             raise HTTPException(status_code=404, detail="Source param set has no versions")
 
         fork_name = body.name or f"{source['name']} (fork)"
 
-        ps_cursor = await conn.execute(
+        new_param_set_id = await conn.fetchval(
             """
             INSERT INTO param_sets (name, description, owner_id, forked_from_id)
-            VALUES (?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4) RETURNING id
             """,
-            (fork_name, source["description"], user["id"], param_set_id),
+            fork_name, source["description"], user["id"], param_set_id,
         )
-        new_param_set_id = ps_cursor.lastrowid
 
-        pv_cursor = await conn.execute(
+        param_version_id = await conn.fetchval(
             """
             INSERT INTO param_versions (param_set_id, version_number, params_md5, params_json)
-            VALUES (?, 1, ?, ?)
+            VALUES ($1, 1, $2, $3) RETURNING id
             """,
-            (new_param_set_id, latest_ver["params_md5"], latest_ver["params_json"]),
+            new_param_set_id, latest_ver["params_md5"], latest_ver["params_json"],
         )
-        param_version_id = pv_cursor.lastrowid
-        await conn.commit()
 
         await auto_queue_runs(conn, param_version_id)
 
-        row_cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT ps.*, u.name AS owner_name, u.email AS owner_email
             FROM param_sets ps
             JOIN users u ON ps.owner_id = u.id
-            WHERE ps.id = ?
+            WHERE ps.id = $1
             """,
-            (new_param_set_id,),
+            new_param_set_id,
         )
-        row = await row_cursor.fetchone()
 
     # Persist fork to disk
     save_param_set(fork_name, source["description"], forked_from=source["name"])
@@ -535,22 +513,21 @@ async def fork_param_set(param_set_id: int, request: Request, body: ForkBody = F
 async def list_versions(param_set_id: int):
     """List all versions for a param set."""
     async with get_async_db() as conn:
-        ps_cursor = await conn.execute(
-            "SELECT id FROM param_sets WHERE id = ?", (param_set_id,)
+        ps_row = await conn.fetchrow(
+            "SELECT id FROM param_sets WHERE id = $1", param_set_id
         )
-        if await ps_cursor.fetchone() is None:
+        if ps_row is None:
             raise HTTPException(status_code=404, detail="Param set not found")
 
-        cursor = await conn.execute(
+        rows = await conn.fetch(
             """
             SELECT id, version_number, parent_version_id, params_md5, created_at
             FROM param_versions
-            WHERE param_set_id = ?
+            WHERE param_set_id = $1
             ORDER BY version_number DESC
             """,
-            (param_set_id,),
+            param_set_id,
         )
-        rows = await cursor.fetchall()
 
     return [_row_to_dict(r) for r in rows]
 
@@ -559,45 +536,43 @@ async def list_versions(param_set_id: int):
 async def get_version(param_set_id: int, version_id: int):
     """Get a specific version detail with its runs."""
     async with get_async_db() as conn:
-        cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT id, version_number, parent_version_id, params_md5, params_json, notes, created_at
             FROM param_versions
-            WHERE id = ? AND param_set_id = ?
+            WHERE id = $1 AND param_set_id = $2
             """,
-            (version_id, param_set_id),
+            version_id, param_set_id,
         )
-        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Version not found")
 
         item = _row_to_dict(row)
 
-        runs_cursor = await conn.execute(
+        runs_rows = await conn.fetch(
             """
             SELECT r.id, r.dataset_id, d.slug AS dataset_slug, d.name AS dataset_name,
                    r.status, r.total_eclipses, r.detected, r.created_at, r.completed_at
             FROM runs r
             JOIN datasets d ON r.dataset_id = d.id
-            WHERE r.param_version_id = ?
+            WHERE r.param_version_id = $1
             ORDER BY r.created_at DESC
             """,
-            (version_id,),
+            version_id,
         )
-        runs_list = [_row_to_dict(r) for r in await runs_cursor.fetchall()]
+        runs_list = [_row_to_dict(r) for r in runs_rows]
 
         # Compute mean_tychos_error for each done run
         for run in runs_list:
             if run["status"] == "done":
-                err_cursor = await conn.execute(
+                mean_err = await conn.fetchval(
                     """
-                    SELECT AVG(tychos_error_arcmin) AS mean_error
-                    FROM eclipse_results WHERE run_id = ?
+                    SELECT AVG(tychos_error_arcmin)
+                    FROM eclipse_results WHERE run_id = $1
                     """,
-                    (run["id"],),
+                    run["id"],
                 )
-                err_row = await err_cursor.fetchone()
-                run["mean_tychos_error"] = round(err_row["mean_error"], 2) if err_row["mean_error"] is not None else None
+                run["mean_tychos_error"] = round(mean_err, 2) if mean_err is not None else None
             else:
                 run["mean_tychos_error"] = None
 
@@ -609,31 +584,29 @@ async def get_version(param_set_id: int, version_id: int):
         seen = set()
         while current_parent_id and current_parent_id not in seen:
             seen.add(current_parent_id)
-            anc_cursor = await conn.execute(
+            anc_row = await conn.fetchrow(
                 """
                 SELECT pv.id, pv.version_number, pv.parent_version_id, pv.params_md5, pv.params_json, pv.notes, pv.created_at
                 FROM param_versions pv
-                WHERE pv.id = ?
+                WHERE pv.id = $1
                 """,
-                (current_parent_id,),
+                current_parent_id,
             )
-            anc_row = await anc_cursor.fetchone()
             if not anc_row:
                 break
             anc = _row_to_dict(anc_row)
 
             # Get detection stats for this ancestor
-            ds_rows2 = await (await conn.execute("SELECT id, slug FROM datasets ORDER BY id")).fetchall()
+            ds_rows2 = await conn.fetch("SELECT id, slug FROM datasets ORDER BY id")
             for ds in ds_rows2:
-                stat_cursor = await conn.execute(
+                stat_row = await conn.fetchrow(
                     """
                     SELECT detected, total_eclipses FROM runs
-                    WHERE param_version_id = ? AND dataset_id = ? AND status = 'done'
+                    WHERE param_version_id = $1 AND dataset_id = $2 AND status = 'done'
                     ORDER BY completed_at DESC LIMIT 1
                     """,
-                    (current_parent_id, ds["id"]),
+                    current_parent_id, ds["id"],
                 )
-                stat_row = await stat_cursor.fetchone()
                 if stat_row:
                     anc[f"{ds['slug']}_detected"] = stat_row["detected"]
                     anc[f"{ds['slug']}_total"] = stat_row["total_eclipses"]
@@ -659,41 +632,37 @@ async def update_version_notes(param_set_id: int, version_id: int, body: UpdateV
     user = await require_user(request)
 
     async with get_async_db() as conn:
-        cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT pv.id, ps.owner_id
             FROM param_versions pv
             JOIN param_sets ps ON pv.param_set_id = ps.id
-            WHERE pv.id = ? AND pv.param_set_id = ?
+            WHERE pv.id = $1 AND pv.param_set_id = $2
             """,
-            (version_id, param_set_id),
+            version_id, param_set_id,
         )
-        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Version not found")
         if row["owner_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Not the owner")
 
         await conn.execute(
-            "UPDATE param_versions SET notes = ? WHERE id = ?",
-            (body.notes, version_id),
+            "UPDATE param_versions SET notes = $1 WHERE id = $2",
+            body.notes, version_id,
         )
-        await conn.commit()
 
         # Update the version file on disk
-        ver_cursor = await conn.execute(
-            "SELECT pv.version_number, pv.params_json, pv.parent_version_id, ps.name AS ps_name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = ?",
-            (version_id,),
+        ver_row = await conn.fetchrow(
+            "SELECT pv.version_number, pv.params_json, pv.parent_version_id, ps.name AS ps_name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = $1",
+            version_id,
         )
-        ver_row = await ver_cursor.fetchone()
         if ver_row:
             parent_label = None
             if ver_row["parent_version_id"]:
-                par_cursor = await conn.execute(
-                    "SELECT pv.version_number, ps.name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = ?",
-                    (ver_row["parent_version_id"],),
+                par_row = await conn.fetchrow(
+                    "SELECT pv.version_number, ps.name FROM param_versions pv JOIN param_sets ps ON pv.param_set_id = ps.id WHERE pv.id = $1",
+                    ver_row["parent_version_id"],
                 )
-                par_row = await par_cursor.fetchone()
                 if par_row:
                     parent_label = f"{par_row['name']}/v{par_row['version_number']}"
 

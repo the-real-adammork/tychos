@@ -22,16 +22,16 @@ async def list_runs(
     values: list = []
 
     if param_set_id is not None:
-        conditions.append("pv.param_set_id = ?")
         values.append(param_set_id)
+        conditions.append(f"pv.param_set_id = ${len(values)}")
     if status is not None:
-        conditions.append("r.status = ?")
         values.append(status)
+        conditions.append(f"r.status = ${len(values)}")
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
     async with get_async_db() as conn:
-        cursor = await conn.execute(
+        rows = await conn.fetch(
             f"""
             SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name,
                    u.name AS owner_name, d.slug AS dataset_slug, d.name AS dataset_name
@@ -44,20 +44,18 @@ async def list_runs(
             ORDER BY r.created_at DESC
             LIMIT 100
             """,
-            values,
+            *values,
         )
-        rows = await cursor.fetchall()
 
         result = []
         for row in rows:
             d = _row_to_dict(row)
             if d["status"] == "done":
-                err_cursor = await conn.execute(
-                    "SELECT AVG(tychos_error_arcmin) AS mean_error FROM eclipse_results WHERE run_id = ?",
-                    (d["id"],),
+                mean_err = await conn.fetchval(
+                    "SELECT AVG(tychos_error_arcmin) FROM eclipse_results WHERE run_id = $1",
+                    d["id"],
                 )
-                err_row = await err_cursor.fetchone()
-                d["mean_tychos_error"] = round(err_row["mean_error"], 2) if err_row["mean_error"] else None
+                d["mean_tychos_error"] = round(mean_err, 2) if mean_err else None
             else:
                 d["mean_tychos_error"] = None
             result.append(d)
@@ -76,35 +74,35 @@ async def create_run(body: CreateRunBody, request: Request):
     user = await require_user(request)
 
     async with get_async_db() as conn:
-        ds_cursor = await conn.execute("SELECT id FROM datasets WHERE id = ?", (body.dataset_id,))
-        if await ds_cursor.fetchone() is None:
+        ds_row = await conn.fetchrow(
+            "SELECT id FROM datasets WHERE id = $1", body.dataset_id
+        )
+        if ds_row is None:
             raise HTTPException(status_code=404, detail="Dataset not found")
 
-        ver_cursor = await conn.execute(
+        latest_ver = await conn.fetchrow(
             """
             SELECT id FROM param_versions
-            WHERE param_set_id = ?
+            WHERE param_set_id = $1
             ORDER BY version_number DESC
             LIMIT 1
             """,
-            (body.param_set_id,),
+            body.param_set_id,
         )
-        latest_ver = await ver_cursor.fetchone()
         if latest_ver is None:
             raise HTTPException(status_code=404, detail="Param set not found or has no versions")
 
         param_version_id = latest_ver["id"]
 
-        cursor = await conn.execute(
+        new_run_id = await conn.fetchval(
             """
             INSERT INTO runs (param_version_id, dataset_id, status)
-            VALUES (?, ?, 'queued')
+            VALUES ($1, $2, 'queued') RETURNING id
             """,
-            (param_version_id, body.dataset_id),
+            param_version_id, body.dataset_id,
         )
-        await conn.commit()
 
-        row_cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name,
                    u.name AS owner_name, d.slug AS dataset_slug, d.name AS dataset_name
@@ -113,11 +111,10 @@ async def create_run(body: CreateRunBody, request: Request):
             JOIN param_sets ps ON pv.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
             JOIN datasets d ON r.dataset_id = d.id
-            WHERE r.id = ?
+            WHERE r.id = $1
             """,
-            (cursor.lastrowid,),
+            new_run_id,
         )
-        row = await row_cursor.fetchone()
 
     return _row_to_dict(row)
 
@@ -132,11 +129,11 @@ async def rerun_run(run_id: int, request: Request):
     await require_user(request)
 
     async with get_async_db() as conn:
-        cursor = await conn.execute("SELECT id FROM runs WHERE id = ?", (run_id,))
-        if await cursor.fetchone() is None:
+        row = await conn.fetchrow("SELECT id FROM runs WHERE id = $1", run_id)
+        if row is None:
             raise HTTPException(status_code=404, detail="Run not found")
 
-        await conn.execute("DELETE FROM eclipse_results WHERE run_id = ?", (run_id,))
+        await conn.execute("DELETE FROM eclipse_results WHERE run_id = $1", run_id)
         await conn.execute(
             """
             UPDATE runs
@@ -148,11 +145,10 @@ async def rerun_run(run_id: int, request: Request):
                    mean_sun_diff = NULL,
                    mean_moon_diff = NULL,
                    mean_timing_offset = NULL
-             WHERE id = ?
+             WHERE id = $1
             """,
-            (run_id,),
+            run_id,
         )
-        await conn.commit()
 
     return {"id": run_id, "status": "queued"}
 
@@ -161,7 +157,7 @@ async def rerun_run(run_id: int, request: Request):
 async def get_run(run_id: int):
     """Get a single run with param set and dataset info."""
     async with get_async_db() as conn:
-        cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT r.*, pv.version_number, ps.id AS param_set_id, ps.name AS param_set_name,
                    u.name AS owner_name, d.slug AS dataset_slug, d.name AS dataset_name
@@ -170,11 +166,10 @@ async def get_run(run_id: int):
             JOIN param_sets ps ON pv.param_set_id = ps.id
             JOIN users u ON ps.owner_id = u.id
             JOIN datasets d ON r.dataset_id = d.id
-            WHERE r.id = ?
+            WHERE r.id = $1
             """,
-            (run_id,),
+            run_id,
         )
-        row = await cursor.fetchone()
 
     if row is None:
         raise HTTPException(status_code=404, detail="Run not found")

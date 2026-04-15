@@ -26,10 +26,9 @@ async def create_session(user_id: int) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_LIFETIME_DAYS)
     async with get_async_db() as conn:
         await conn.execute(
-            "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-            (session_id, user_id, expires_at.isoformat()),
+            "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)",
+            session_id, user_id, expires_at.isoformat(),
         )
-        await conn.commit()
     return session_id
 
 
@@ -43,20 +42,18 @@ async def get_session_user(session_id: str) -> dict | None:
         now = datetime.now(timezone.utc).isoformat()
         # Purge any expired sessions for this id
         await conn.execute(
-            "DELETE FROM sessions WHERE id = ? AND expires_at <= ?",
-            (session_id, now),
+            "DELETE FROM sessions WHERE id = $1 AND expires_at <= $2",
+            session_id, now,
         )
-        await conn.commit()
-        cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT u.id, u.email, u.name
             FROM sessions s
             JOIN users u ON u.id = s.user_id
-            WHERE s.id = ?
+            WHERE s.id = $1
             """,
-            (session_id,),
+            session_id,
         )
-        row = await cursor.fetchone()
     if row is None:
         return None
     return {"id": row["id"], "email": row["email"], "name": row["name"]}
@@ -65,8 +62,7 @@ async def get_session_user(session_id: str) -> dict | None:
 async def delete_session(session_id: str) -> None:
     """Delete a session from the database."""
     async with get_async_db() as conn:
-        await conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        await conn.commit()
+        await conn.execute("DELETE FROM sessions WHERE id = $1", session_id)
 
 
 async def require_user(request: Request) -> dict:

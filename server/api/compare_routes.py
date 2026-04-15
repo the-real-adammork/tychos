@@ -12,7 +12,7 @@ def _row_to_dict(row) -> dict:
 
 async def _get_latest_done_run(conn, param_set_id: int, dataset_id: int):
     """Return the latest done run for a param_set + dataset via param_versions, or None."""
-    cursor = await conn.execute(
+    return await conn.fetchrow(
         """
         SELECT r.id, r.total_eclipses, ps.name AS param_set_name,
                u.name AS owner_name, pv.params_json
@@ -20,13 +20,12 @@ async def _get_latest_done_run(conn, param_set_id: int, dataset_id: int):
         JOIN param_versions pv ON r.param_version_id = pv.id
         JOIN param_sets ps ON pv.param_set_id = ps.id
         JOIN users u ON ps.owner_id = u.id
-        WHERE pv.param_set_id = ? AND r.dataset_id = ? AND r.status = 'done'
+        WHERE pv.param_set_id = $1 AND r.dataset_id = $2 AND r.status = 'done'
         ORDER BY r.completed_at DESC
         LIMIT 1
         """,
-        (param_set_id, dataset_id),
+        param_set_id, dataset_id,
     )
-    return await cursor.fetchone()
 
 
 @router.get("")
@@ -37,8 +36,7 @@ async def compare(
 ):
     """Compare latest done runs for two param sets."""
     async with get_async_db() as conn:
-        ds_cursor = await conn.execute("SELECT id FROM datasets WHERE slug = ?", (dataset,))
-        ds_row = await ds_cursor.fetchone()
+        ds_row = await conn.fetchrow("SELECT id FROM datasets WHERE slug = $1", dataset)
         if ds_row is None:
             raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
         dataset_id = ds_row["id"]
@@ -58,23 +56,21 @@ async def compare(
             )
 
         # Fetch all eclipse results for both runs indexed by julian_day_tt + catalog_type
-        cursor_a = await conn.execute(
+        results_a = await conn.fetch(
             """
             SELECT julian_day_tt, date, catalog_type, min_separation_arcmin, tychos_error_arcmin
-            FROM eclipse_results WHERE run_id = ?
+            FROM eclipse_results WHERE run_id = $1
             """,
-            (run_a["id"],),
+            run_a["id"],
         )
-        results_a = await cursor_a.fetchall()
 
-        cursor_b = await conn.execute(
+        results_b = await conn.fetch(
             """
             SELECT julian_day_tt, date, catalog_type, min_separation_arcmin, tychos_error_arcmin
-            FROM eclipse_results WHERE run_id = ?
+            FROM eclipse_results WHERE run_id = $1
             """,
-            (run_b["id"],),
+            run_b["id"],
         )
-        results_b = await cursor_b.fetchall()
 
     # Build lookup maps keyed by (julian_day_tt, catalog_type)
     map_a = {
@@ -136,7 +132,7 @@ async def compare(
 
 async def _saros_groups_for_run(conn, run_id: int, dataset_id: int) -> list[dict]:
     """Compute Saros groups for a run by joining results with the catalog."""
-    cursor = await conn.execute(
+    rows = await conn.fetch(
         """
         SELECT
             ec.saros_num,
@@ -146,14 +142,13 @@ async def _saros_groups_for_run(conn, run_id: int, dataset_id: int) -> list[dict
             AVG(er.tychos_error_arcmin) AS mean_tychos_error,
             AVG(er.jpl_error_arcmin) AS mean_jpl_error
         FROM eclipse_results er
-        JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = ?
-        WHERE er.run_id = ? AND ec.saros_num IS NOT NULL
+        JOIN eclipse_catalog ec ON ec.julian_day_tt = er.julian_day_tt AND ec.dataset_id = $1
+        WHERE er.run_id = $2 AND ec.saros_num IS NOT NULL
         GROUP BY ec.saros_num
         ORDER BY ec.saros_num
         """,
-        (dataset_id, run_id),
+        dataset_id, run_id,
     )
-    rows = await cursor.fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -176,8 +171,7 @@ async def compare_saros(
     If `b` is given, returns groups from both runs joined by saros_num with delta.
     """
     async with get_async_db() as conn:
-        ds_cursor = await conn.execute("SELECT id FROM datasets WHERE slug = ?", (dataset,))
-        ds_row = await ds_cursor.fetchone()
+        ds_row = await conn.fetchrow("SELECT id FROM datasets WHERE slug = $1", dataset)
         if ds_row is None:
             raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
         dataset_id = ds_row["id"]

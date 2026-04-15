@@ -10,8 +10,7 @@ router = APIRouter(prefix="/api/datasets")
 async def list_datasets():
     """Return all datasets with metadata."""
     async with get_async_db() as conn:
-        cursor = await conn.execute("SELECT * FROM datasets ORDER BY id")
-        rows = await cursor.fetchall()
+        rows = await conn.fetch("SELECT * FROM datasets ORDER BY id")
     return [dict(r) for r in rows]
 
 
@@ -19,28 +18,26 @@ async def list_datasets():
 async def dataset_summary():
     """Return summary stats for all datasets, keyed by slug."""
     async with get_async_db() as conn:
-        ds_cursor = await conn.execute("SELECT id, slug FROM datasets ORDER BY id")
-        datasets = await ds_cursor.fetchall()
+        datasets = await conn.fetch("SELECT id, slug FROM datasets ORDER BY id")
 
         results = {}
         for ds in datasets:
-            type_cursor = await conn.execute(
+            type_rows = await conn.fetch(
                 """
                 SELECT type AS catalog_type, COUNT(*) AS count
                 FROM eclipse_catalog
-                WHERE dataset_id = ?
+                WHERE dataset_id = $1
                 GROUP BY type
                 ORDER BY count DESC
                 """,
-                (ds["id"],),
+                ds["id"],
             )
-            breakdown = [dict(r) for r in await type_cursor.fetchall()]
+            breakdown = [dict(r) for r in type_rows]
 
-            count_cursor = await conn.execute(
-                "SELECT COUNT(*) FROM eclipse_catalog WHERE dataset_id = ?",
-                (ds["id"],),
+            total = await conn.fetchval(
+                "SELECT COUNT(*) FROM eclipse_catalog WHERE dataset_id = $1",
+                ds["id"],
             )
-            total = (await count_cursor.fetchone())[0]
 
             results[ds["slug"]] = {"total": total, "breakdown": breakdown}
 
@@ -57,10 +54,9 @@ async def get_dataset_catalog(
 ):
     """Return paginated catalog data for a dataset by slug."""
     async with get_async_db() as conn:
-        ds_cursor = await conn.execute(
-            "SELECT * FROM datasets WHERE slug = ?", (slug,)
+        ds = await conn.fetchrow(
+            "SELECT * FROM datasets WHERE slug = $1", slug
         )
-        ds = await ds_cursor.fetchone()
         if not ds:
             raise HTTPException(status_code=404, detail=f"Dataset '{slug}' not found")
 
@@ -69,23 +65,22 @@ async def get_dataset_catalog(
         event_type = ds_dict["event_type"]
         offset = (page - 1) * page_size
 
-        conditions = ["dataset_id = ?"]
         values: list = [dataset_id]
+        conditions = [f"dataset_id = ${len(values)}"]
 
         if catalog_type:
-            conditions.append("type = ?")
             values.append(catalog_type)
+            conditions.append(f"type = ${len(values)}")
 
         if saros is not None:
-            conditions.append("saros_num = ?")
             values.append(saros)
+            conditions.append(f"saros_num = ${len(values)}")
 
         where = " AND ".join(conditions)
 
-        count_cursor = await conn.execute(
-            f"SELECT COUNT(*) FROM eclipse_catalog WHERE {where}", values
+        total = await conn.fetchval(
+            f"SELECT COUNT(*) FROM eclipse_catalog WHERE {where}", *values
         )
-        total = (await count_cursor.fetchone())[0]
 
         if event_type == "solar_eclipse":
             cols = """id, catalog_number, julian_day_tt, date, delta_t_s,
@@ -98,17 +93,19 @@ async def get_dataset_catalog(
                       pen_duration_min, par_duration_min, total_duration_min,
                       zenith_lat, zenith_lon"""
 
-        cursor = await conn.execute(
+        paginated_values = values + [page_size, offset]
+        limit_idx = len(values) + 1
+        offset_idx = len(values) + 2
+        rows = await conn.fetch(
             f"""
             SELECT {cols}
             FROM eclipse_catalog
             WHERE {where}
             ORDER BY julian_day_tt
-            LIMIT ? OFFSET ?
+            LIMIT ${limit_idx} OFFSET ${offset_idx}
             """,
-            values + [page_size, offset],
+            *paginated_values,
         )
-        rows = [dict(r) for r in await cursor.fetchall()]
 
     return {
         "dataset": {
@@ -118,7 +115,7 @@ async def get_dataset_catalog(
             "event_type": event_type,
             "record_count": ds_dict["record_count"],
         },
-        "eclipses": rows,
+        "eclipses": [dict(r) for r in rows],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -130,10 +127,9 @@ async def get_dataset_catalog(
 async def get_dataset_eclipse(slug: str, eclipse_id: int):
     """Return a single eclipse catalog record + its predicted geometry."""
     async with get_async_db() as conn:
-        ds_cursor = await conn.execute(
-            "SELECT * FROM datasets WHERE slug = ?", (slug,)
+        ds = await conn.fetchrow(
+            "SELECT * FROM datasets WHERE slug = $1", slug
         )
-        ds = await ds_cursor.fetchone()
         if not ds:
             raise HTTPException(status_code=404, detail=f"Dataset '{slug}' not found")
 
@@ -142,7 +138,7 @@ async def get_dataset_eclipse(slug: str, eclipse_id: int):
         event_type = ds_dict["event_type"]
         test_type = slug.replace("_eclipse", "")
 
-        cursor = await conn.execute(
+        row = await conn.fetchrow(
             """
             SELECT ec.*,
                    pr.expected_separation_arcmin,
@@ -153,12 +149,11 @@ async def get_dataset_eclipse(slug: str, eclipse_id: int):
                    pr.approach_angle_deg
             FROM eclipse_catalog ec
             LEFT JOIN predicted_reference pr ON pr.julian_day_tt = ec.julian_day_tt
-                AND pr.test_type = ?
-            WHERE ec.id = ? AND ec.dataset_id = ?
+                AND pr.test_type = $1
+            WHERE ec.id = $2 AND ec.dataset_id = $3
             """,
-            (test_type, eclipse_id, dataset_id),
+            test_type, eclipse_id, dataset_id,
         )
-        row = await cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Eclipse not found")
 
@@ -173,16 +168,16 @@ async def get_dataset_eclipse(slug: str, eclipse_id: int):
             "saros_neighbors": [],
         }
         if saros_num is not None:
-            series_cursor = await conn.execute(
+            series_rows = await conn.fetch(
                 """
                 SELECT id, julian_day_tt, date, type
                 FROM eclipse_catalog
-                WHERE dataset_id = ? AND saros_num = ?
+                WHERE dataset_id = $1 AND saros_num = $2
                 ORDER BY julian_day_tt
                 """,
-                (dataset_id, saros_num),
+                dataset_id, saros_num,
             )
-            series = [dict(r) for r in await series_cursor.fetchall()]
+            series = [dict(r) for r in series_rows]
             position = next((i for i, s in enumerate(series) if s["id"] == eclipse_id), 0)
 
             saros_context["saros_total"] = len(series)
