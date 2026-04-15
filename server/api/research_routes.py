@@ -168,3 +168,89 @@ async def create_research_version(job_id: int, body: CreateVersionBody, request:
         )
 
     return {"version_id": version_id, "run_id": run_id}
+
+
+class LogIterationBody(BaseModel):
+    param_version_id: int
+    run_id: int | None = None
+    kind: str
+    objective: float | None = None
+    aux_stats: dict | None = None
+
+
+@router.get("/{job_id}/iterations")
+async def list_iterations(job_id: int):
+    async with get_async_db() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM research_iterations WHERE research_job_id=$1 ORDER BY created_at ASC",
+            job_id,
+        )
+    return [dict(r) for r in rows]
+
+
+@router.post("/{job_id}/iterations", status_code=201)
+async def log_iteration(job_id: int, body: LogIterationBody, request: Request):
+    await require_user(request)
+    if body.kind not in ("iterate", "search_eval", "search_winner"):
+        raise HTTPException(status_code=422, detail="Invalid kind")
+    async with get_async_db() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO research_iterations (research_job_id, param_version_id, run_id, kind, objective, aux_stats) "
+            "VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
+            job_id, body.param_version_id, body.run_id, body.kind, body.objective,
+            _json.dumps(body.aux_stats) if body.aux_stats else None,
+        )
+    return dict(row)
+
+
+@router.post("/{job_id}/checkpoint/{version_id}")
+async def mark_checkpoint(job_id: int, version_id: int, request: Request):
+    await require_user(request)
+    async with get_async_db() as conn:
+        job = await conn.fetchrow("SELECT param_set_id FROM research_jobs WHERE id=$1", job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Research job not found")
+        v = await conn.fetchrow(
+            "SELECT id FROM param_versions WHERE id=$1 AND param_set_id=$2",
+            version_id, job["param_set_id"],
+        )
+        if not v:
+            raise HTTPException(status_code=404, detail="Version not found on this job's param set")
+        row = await conn.fetchrow(
+            "UPDATE param_versions SET is_checkpoint=TRUE WHERE id=$1 RETURNING *",
+            version_id,
+        )
+    return dict(row)
+
+
+@router.post("/{job_id}/restore/{version_id}", status_code=201)
+async def restore_from_version(job_id: int, version_id: int, request: Request):
+    await require_user(request)
+    async with get_async_db() as conn:
+        job = await conn.fetchrow("SELECT * FROM research_jobs WHERE id=$1", job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Research job not found")
+        src = await conn.fetchrow(
+            "SELECT params_json FROM param_versions WHERE id=$1 AND param_set_id=$2",
+            version_id, job["param_set_id"],
+        )
+        if not src:
+            raise HTTPException(status_code=404, detail="Source version not found on this job's param set")
+        params_json = src["params_json"]
+        md5 = hashlib.md5(_json.dumps(_json.loads(params_json), sort_keys=True).encode()).hexdigest()
+        latest_num = await conn.fetchval(
+            "SELECT COALESCE(MAX(version_number),0) FROM param_versions WHERE param_set_id=$1",
+            job["param_set_id"],
+        )
+        new_version_id = await conn.fetchval(
+            "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) "
+            "VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+            job["param_set_id"], latest_num + 1, version_id, md5, params_json,
+            f"restored from version {version_id}",
+        )
+        run_id = await conn.fetchval(
+            "INSERT INTO runs (param_version_id, dataset_id, status, date_start, date_end) "
+            "VALUES ($1,$2,'queued',$3,$4) RETURNING id",
+            new_version_id, job["dataset_id"], job["date_start"], job["date_end"],
+        )
+    return {"version_id": new_version_id, "run_id": run_id}
