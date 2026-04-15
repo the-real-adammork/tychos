@@ -1,0 +1,32 @@
+---
+job: {job_name}
+dataset: {dataset_slug}
+view: {view_name}
+date_range: {date_range}
+allowlist:
+{allowlist_yaml}
+---
+
+# Research job: {job_name}
+
+## Goal
+Lower `objective = AVG(error)` from SQL view `{view_name}` on dataset `{dataset_slug}`
+{date_range_sentence}
+by editing allowlisted parameters of param_set {param_set_id}. Lower is better.
+
+## The loop (API-driven)
+1. `GET /api/research/{job_id}` — read this config and the latest checkpoint version_id.
+2. `GET /api/params/<param_set_id>/versions/<latest_checkpoint_version_id>` — read current params.
+3. Edit allowlisted keys only, then `POST /api/research/{job_id}/version` with `{{ "params_json": "..." }}` — returns `version_id`, `run_id`.
+4. Poll `GET /api/runs/<run_id>` until `status=="done"`.
+5. `GET /api/results/<run_id>/view/{view_name}` — returns `objective`, `n_scored`, per-eclipse `detail` (worst-first).
+6. `POST /api/research/{job_id}/iterations` with the `version_id`, `run_id`, `kind="iterate"`, `objective`, `aux_stats` — logs the iteration.
+7. If improved: `POST /api/research/{job_id}/checkpoint/{{{{version_id}}}}` marks the winner.
+8. If worse: `POST /api/research/{job_id}/restore/<last_checkpoint_version_id>` creates a new version from the checkpoint params.
+
+## Joint search (server-side Nelder-Mead)
+`POST /api/research/{job_id}/search` with `param_keys`, `budget`, `scale`.
+Uses the in-process scanner; winner gets a new version + queued run + checkpoint.
+
+## Background
+{background}
