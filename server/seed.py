@@ -5,12 +5,13 @@ Called automatically by init_db() after migrations. Idempotent.
 import hashlib
 import json
 import os
-import sqlite3
 import sys
 from pathlib import Path
 
 import bcrypt
 import numpy as np
+import psycopg2
+import psycopg2.errors
 
 from server.db import get_db
 from server.params_store import load_all_param_sets
@@ -61,7 +62,9 @@ def _seed_admin_user():
     with get_db() as conn:
         # If any user exists at all, skip seeding so we never overwrite
         # an admin and never re-prompt for env vars on every boot.
-        any_user = conn.execute("SELECT id FROM users LIMIT 1").fetchone()
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users LIMIT 1")
+            any_user = cur.fetchone()
         if any_user:
             return
 
@@ -76,34 +79,39 @@ def _seed_admin_user():
     with get_db() as conn:
         password_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
         try:
-            conn.execute(
-                "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
-                (admin_email, "Admin", password_hash),
-            )
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO users (email, name, password_hash) VALUES (%s, %s, %s)",
+                    (admin_email, "Admin", password_hash),
+                )
             conn.commit()
             print(f"[seed] Created admin user ({admin_email})")
-        except sqlite3.IntegrityError:
+        except psycopg2.errors.UniqueViolation:
             # Another process (e.g. the worker started in parallel) raced us
             # and inserted the admin first. That's fine — the seed is meant
             # to be idempotent.
-            pass
+            conn.rollback()
 
 
 def _seed_datasets():
-    """Ensure dataset rows exist. Idempotent via INSERT OR IGNORE on slug."""
+    """Ensure dataset rows exist. Idempotent via ON CONFLICT on slug."""
     with get_db() as conn:
-        for ds in DATASET_SEEDS:
-            conn.execute(
-                """INSERT OR IGNORE INTO datasets (slug, name, event_type, source_url, description)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (ds["slug"], ds["name"], ds["event_type"], ds["source_url"], ds["description"]),
-            )
+        with conn.cursor() as cur:
+            for ds in DATASET_SEEDS:
+                cur.execute(
+                    """INSERT INTO datasets (slug, name, event_type, source_url, description)
+                       VALUES (%s, %s, %s, %s, %s)
+                       ON CONFLICT (slug) DO NOTHING""",
+                    (ds["slug"], ds["name"], ds["event_type"], ds["source_url"], ds["description"]),
+                )
         conn.commit()
 
 
 def _get_all_datasets(conn) -> list[dict]:
     """Return all dataset rows as dicts."""
-    rows = conn.execute("SELECT * FROM datasets ORDER BY id").fetchall()
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM datasets ORDER BY id")
+        rows = cur.fetchall()
     return [dict(r) for r in rows]
 
 
@@ -116,7 +124,9 @@ def _seed_param_sets_from_disk():
     with get_db() as conn:
         # Assign ownership to whichever user was seeded first (the admin).
         # If no users exist yet, skip — _seed_admin_user runs before this.
-        user = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+            user = cur.fetchone()
         if not user:
             return
 
@@ -124,7 +134,9 @@ def _seed_param_sets_from_disk():
         name_to_id = {}
 
         for ps in param_sets:
-            existing = conn.execute("SELECT id FROM param_sets WHERE name = ?", (ps["name"],)).fetchone()
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM param_sets WHERE name = %s", (ps["name"],))
+                existing = cur.fetchone()
             if existing:
                 name_to_id[ps["name"]] = existing["id"]
                 _seed_missing_versions(conn, existing["id"], ps["name"], ps["versions"], datasets)
@@ -132,11 +144,12 @@ def _seed_param_sets_from_disk():
 
             forked_from_id = name_to_id.get(ps.get("forked_from")) if ps.get("forked_from") else None
 
-            cur = conn.execute(
-                "INSERT INTO param_sets (name, description, owner_id, forked_from_id) VALUES (?, ?, ?, ?)",
-                (ps["name"], ps.get("description"), user["id"], forked_from_id),
-            )
-            param_set_id = cur.lastrowid
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO param_sets (name, description, owner_id, forked_from_id) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (ps["name"], ps.get("description"), user["id"], forked_from_id),
+                )
+                param_set_id = cur.fetchone()[0]
             name_to_id[ps["name"]] = param_set_id
 
             prev_version_id = None
@@ -144,19 +157,21 @@ def _seed_param_sets_from_disk():
                 params_json = json.dumps(ver["params"], sort_keys=True)
                 params_md5 = hashlib.md5(params_json.encode()).hexdigest()
 
-                cur = conn.execute(
-                    "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) VALUES (?, ?, ?, ?, ?, ?)",
-                    (param_set_id, ver["version_number"], prev_version_id, params_md5, params_json, ver.get("notes")),
-                )
-                version_id = cur.lastrowid
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                        (param_set_id, ver["version_number"], prev_version_id, params_md5, params_json, ver.get("notes")),
+                    )
+                    version_id = cur.fetchone()[0]
                 prev_version_id = version_id
 
                 if ver == ps["versions"][-1]:
-                    for ds in datasets:
-                        conn.execute(
-                            "INSERT INTO runs (param_version_id, dataset_id, status) VALUES (?, ?, 'queued')",
-                            (version_id, ds["id"]),
-                        )
+                    with conn.cursor() as cur:
+                        for ds in datasets:
+                            cur.execute(
+                                "INSERT INTO runs (param_version_id, dataset_id, status) VALUES (%s, %s, 'queued')",
+                                (version_id, ds["id"]),
+                            )
 
             conn.commit()
             print(f"[seed] Created {ps['name']} with {len(ps['versions'])} version(s) and {len(datasets)} queued runs")
@@ -164,27 +179,29 @@ def _seed_param_sets_from_disk():
 
 def _seed_missing_versions(conn, param_set_id: int, name: str, versions: list[dict], datasets: list[dict]):
     """Seed any versions from disk that don't yet exist in the DB."""
-    existing_nums = {
-        row[0]
-        for row in conn.execute(
-            "SELECT version_number FROM param_versions WHERE param_set_id = ?", (param_set_id,)
-        ).fetchall()
-    }
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT version_number FROM param_versions WHERE param_set_id = %s", (param_set_id,)
+        )
+        existing_nums = {row[0] for row in cur.fetchall()}
 
-    prev_cursor = conn.execute(
-        "SELECT id FROM param_versions WHERE param_set_id = ? ORDER BY version_number DESC LIMIT 1",
-        (param_set_id,),
-    )
-    prev_row = prev_cursor.fetchone()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM param_versions WHERE param_set_id = %s ORDER BY version_number DESC LIMIT 1",
+            (param_set_id,),
+        )
+        prev_row = cur.fetchone()
     prev_version_id = prev_row["id"] if prev_row else None
 
     added = 0
     for ver in versions:
         if ver["version_number"] in existing_nums:
-            row = conn.execute(
-                "SELECT id FROM param_versions WHERE param_set_id = ? AND version_number = ?",
-                (param_set_id, ver["version_number"]),
-            ).fetchone()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id FROM param_versions WHERE param_set_id = %s AND version_number = %s",
+                    (param_set_id, ver["version_number"]),
+                )
+                row = cur.fetchone()
             if row:
                 prev_version_id = row["id"]
             continue
@@ -192,18 +209,20 @@ def _seed_missing_versions(conn, param_set_id: int, name: str, versions: list[di
         params_json = json.dumps(ver["params"], sort_keys=True)
         params_md5 = hashlib.md5(params_json.encode()).hexdigest()
 
-        cur = conn.execute(
-            "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) VALUES (?, ?, ?, ?, ?, ?)",
-            (param_set_id, ver["version_number"], prev_version_id, params_md5, params_json, ver.get("notes")),
-        )
-        prev_version_id = cur.lastrowid
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO param_versions (param_set_id, version_number, parent_version_id, params_md5, params_json, notes) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (param_set_id, ver["version_number"], prev_version_id, params_md5, params_json, ver.get("notes")),
+            )
+            prev_version_id = cur.fetchone()[0]
         added += 1
 
-        for ds in datasets:
-            conn.execute(
-                "INSERT INTO runs (param_version_id, dataset_id, status) VALUES (?, ?, 'queued')",
-                (prev_version_id, ds["id"]),
-            )
+        with conn.cursor() as cur:
+            for ds in datasets:
+                cur.execute(
+                    "INSERT INTO runs (param_version_id, dataset_id, status) VALUES (%s, %s, 'queued')",
+                    (prev_version_id, ds["id"]),
+                )
 
     if added:
         conn.commit()
@@ -213,10 +232,12 @@ def _seed_missing_versions(conn, param_set_id: int, name: str, versions: list[di
 def _seed_eclipse_catalog():
     """Load NASA eclipse catalog JSON into the eclipse_catalog table.
 
-    Idempotent via INSERT OR IGNORE on the unique (dataset_id, julian_day_tt) index.
+    Idempotent via ON CONFLICT on the unique (dataset_id, julian_day_tt) index.
     """
     with get_db() as conn:
-        initial_count = conn.execute("SELECT COUNT(*) FROM eclipse_catalog").fetchone()[0]
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM eclipse_catalog")
+            initial_count = cur.fetchone()[0]
 
     total_inserted = 0
     for ds_seed in DATASET_SEEDS:
@@ -227,7 +248,9 @@ def _seed_eclipse_catalog():
             catalog = json.load(f)
 
         with get_db() as conn:
-            ds_row = conn.execute("SELECT id FROM datasets WHERE slug = ?", (ds_seed["slug"],)).fetchone()
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM datasets WHERE slug = %s", (ds_seed["slug"],))
+                ds_row = cur.fetchone()
             if not ds_row:
                 continue
             dataset_id = ds_row["id"]
@@ -262,20 +285,24 @@ def _seed_eclipse_catalog():
                     ecl.get("zenith_lon"),
                 ))
 
-            conn.executemany(
-                """INSERT OR IGNORE INTO eclipse_catalog
-                   (dataset_id, catalog_number, julian_day_tt, date, delta_t_s,
-                    luna_num, saros_num, type_raw, type, gamma, magnitude,
-                    qle, lat, lon, sun_alt_deg, path_width_km, duration_s,
-                    qse, pen_mag, um_mag, pen_duration_min, par_duration_min,
-                    total_duration_min, zenith_lat, zenith_lon)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                rows,
-            )
+            with conn.cursor() as cur:
+                cur.executemany(
+                    """INSERT INTO eclipse_catalog
+                       (dataset_id, catalog_number, julian_day_tt, date, delta_t_s,
+                        luna_num, saros_num, type_raw, type, gamma, magnitude,
+                        qle, lat, lon, sun_alt_deg, path_width_km, duration_s,
+                        qse, pen_mag, um_mag, pen_duration_min, par_duration_min,
+                        total_duration_min, zenith_lat, zenith_lon)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (dataset_id, julian_day_tt) DO NOTHING""",
+                    rows,
+                )
             conn.commit()
 
-            count = conn.execute("SELECT COUNT(*) FROM eclipse_catalog WHERE dataset_id = ?", (dataset_id,)).fetchone()[0]
-            conn.execute("UPDATE datasets SET record_count = ? WHERE id = ?", (count, dataset_id))
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM eclipse_catalog WHERE dataset_id = %s", (dataset_id,))
+                count = cur.fetchone()[0]
+                cur.execute("UPDATE datasets SET record_count = %s WHERE id = %s", (count, dataset_id))
             conn.commit()
             total_inserted += count
 
@@ -291,13 +318,15 @@ def _seed_jpl_reference():
     that need them.
     """
     with get_db() as conn:
-        total = conn.execute("SELECT COUNT(*) FROM jpl_reference").fetchone()[0]
-        missing_best = conn.execute(
-            "SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NULL"
-        ).fetchone()[0]
-        missing_best_pos = conn.execute(
-            "SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NOT NULL AND sun_ra_at_best_rad IS NULL"
-        ).fetchone()[0]
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM jpl_reference")
+            total = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NULL")
+            missing_best = cur.fetchone()[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM jpl_reference WHERE best_jd IS NOT NULL AND sun_ra_at_best_rad IS NULL"
+            )
+            missing_best_pos = cur.fetchone()[0]
 
     if total > 0 and missing_best == 0 and missing_best_pos == 0:
         return
@@ -320,10 +349,12 @@ def _seed_jpl_reference():
         datasets = _get_all_datasets(conn)
         for ds in datasets:
             is_lunar = ds["slug"] == "lunar_eclipse"
-            eclipses = conn.execute(
-                "SELECT julian_day_tt FROM eclipse_catalog WHERE dataset_id = ? ORDER BY julian_day_tt",
-                (ds["id"],),
-            ).fetchall()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT julian_day_tt FROM eclipse_catalog WHERE dataset_id = %s ORDER BY julian_day_tt",
+                    (ds["id"],),
+                )
+                eclipses = cur.fetchall()
 
             jpl_rows = scan_jpl_eclipses(
                 [{"julian_day_tt": e["julian_day_tt"]} for e in eclipses],
@@ -350,14 +381,16 @@ def _seed_jpl_reference():
                 ))
 
     with get_db() as conn:
-        conn.executemany(
-            """INSERT OR IGNORE INTO jpl_reference
-               (dataset_id, julian_day_tt, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
-                separation_arcmin, moon_ra_vel, moon_dec_vel, best_jd,
-                sun_ra_at_best_rad, sun_dec_at_best_rad, moon_ra_at_best_rad, moon_dec_at_best_rad)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            rows,
-        )
+        with conn.cursor() as cur:
+            cur.executemany(
+                """INSERT INTO jpl_reference
+                   (dataset_id, julian_day_tt, sun_ra_rad, sun_dec_rad, moon_ra_rad, moon_dec_rad,
+                    separation_arcmin, moon_ra_vel, moon_dec_vel, best_jd,
+                    sun_ra_at_best_rad, sun_dec_at_best_rad, moon_ra_at_best_rad, moon_dec_at_best_rad)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (dataset_id, julian_day_tt) DO NOTHING""",
+                rows,
+            )
         conn.commit()
 
     print(f"[seed] Computed {len(rows)} JPL reference positions")
@@ -375,12 +408,14 @@ def _backfill_jpl_best_jd(missing_count: int) -> None:
     earth = eph["earth"]
 
     with get_db() as conn:
-        rows = conn.execute(
-            """SELECT j.id, j.julian_day_tt, d.slug
-                 FROM jpl_reference j
-                 JOIN datasets d ON j.dataset_id = d.id
-                WHERE j.best_jd IS NULL""",
-        ).fetchall()
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT j.id, j.julian_day_tt, d.slug
+                     FROM jpl_reference j
+                     JOIN datasets d ON j.dataset_id = d.id
+                    WHERE j.best_jd IS NULL""",
+            )
+            rows = cur.fetchall()
 
     updates = []
     for row in rows:
@@ -389,10 +424,11 @@ def _backfill_jpl_best_jd(missing_count: int) -> None:
         updates.append((best_jd, row["id"]))
 
     with get_db() as conn:
-        conn.executemany(
-            "UPDATE jpl_reference SET best_jd = ? WHERE id = ?",
-            updates,
-        )
+        with conn.cursor() as cur:
+            cur.executemany(
+                "UPDATE jpl_reference SET best_jd = %s WHERE id = %s",
+                updates,
+            )
         conn.commit()
 
     print(f"[seed] Backfilled {len(updates)} JPL best_jd values")
@@ -409,9 +445,11 @@ def _backfill_jpl_best_positions(missing_count: int) -> None:
     earth = eph["earth"]
 
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT id, best_jd FROM jpl_reference WHERE best_jd IS NOT NULL AND sun_ra_at_best_rad IS NULL",
-        ).fetchall()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, best_jd FROM jpl_reference WHERE best_jd IS NOT NULL AND sun_ra_at_best_rad IS NULL",
+            )
+            rows = cur.fetchall()
 
     updates = []
     for row in rows:
@@ -425,13 +463,14 @@ def _backfill_jpl_best_positions(missing_count: int) -> None:
         ))
 
     with get_db() as conn:
-        conn.executemany(
-            """UPDATE jpl_reference
-               SET sun_ra_at_best_rad = ?, sun_dec_at_best_rad = ?,
-                   moon_ra_at_best_rad = ?, moon_dec_at_best_rad = ?
-             WHERE id = ?""",
-            updates,
-        )
+        with conn.cursor() as cur:
+            cur.executemany(
+                """UPDATE jpl_reference
+                   SET sun_ra_at_best_rad = %s, sun_dec_at_best_rad = %s,
+                       moon_ra_at_best_rad = %s, moon_dec_at_best_rad = %s
+                 WHERE id = %s""",
+                updates,
+            )
         conn.commit()
 
     print(f"[seed] Backfilled {len(updates)} JPL best-position values")
@@ -444,7 +483,9 @@ def _seed_predicted_reference():
     Only runs once — skips if predicted_reference table already has data.
     """
     with get_db() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM predicted_reference").fetchone()[0]
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM predicted_reference")
+            count = cur.fetchone()[0]
         if count > 0:
             return
 
@@ -494,15 +535,17 @@ def _seed_predicted_reference():
         ))
 
     with get_db() as conn:
-        conn.executemany(
-            """INSERT OR IGNORE INTO predicted_reference
-               (julian_day_tt, test_type, expected_separation_arcmin,
-                moon_apparent_radius_arcmin, sun_apparent_radius_arcmin,
-                umbra_radius_arcmin, penumbra_radius_arcmin,
-                approach_angle_deg, gamma, catalog_magnitude)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            rows,
-        )
+        with conn.cursor() as cur:
+            cur.executemany(
+                """INSERT INTO predicted_reference
+                   (julian_day_tt, test_type, expected_separation_arcmin,
+                    moon_apparent_radius_arcmin, sun_apparent_radius_arcmin,
+                    umbra_radius_arcmin, penumbra_radius_arcmin,
+                    approach_angle_deg, gamma, catalog_magnitude)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (julian_day_tt, test_type) DO NOTHING""",
+                rows,
+            )
         conn.commit()
 
     print(f"[seed] Computed {len(rows)} predicted reference geometries")
