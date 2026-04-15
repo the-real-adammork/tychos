@@ -1,3 +1,11 @@
 numpy
 scipy
 pytest
+pytest-asyncio
+fastapi
+uvicorn[standard]
+pydantic
+bcrypt
+asyncpg
+psycopg2-binary
+httpx
