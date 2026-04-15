@@ -1,85 +1,95 @@
-"""SQLite database connection and schema management via migrations.
+"""Postgres database connection and schema management.
 
-Migrations are numbered SQL files in server/migrations/.
+Migrations are numbered SQL files in server/migrations/pg/.
 A _migrations table tracks which have been applied.
 """
-import sqlite3
+import os
 from pathlib import Path
 from contextlib import contextmanager, asynccontextmanager
 
-import aiosqlite
+import psycopg2
+import psycopg2.extras
+import psycopg2.pool
+import asyncpg
 
-DB_PATH = Path(__file__).parent.parent / "results" / "tychos_results.db"
-MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+MIGRATIONS_DIR = Path(__file__).parent / "migrations" / "pg"
+
+_sync_pool: psycopg2.pool.SimpleConnectionPool | None = None
+_async_pool: "asyncpg.Pool | None" = None
+
+
+def _ensure_sync_pool() -> psycopg2.pool.SimpleConnectionPool:
+    global _sync_pool
+    if _sync_pool is None:
+        if not DATABASE_URL:
+            raise RuntimeError("DATABASE_URL env var is not set")
+        _sync_pool = psycopg2.pool.SimpleConnectionPool(1, 5, dsn=DATABASE_URL)
+    return _sync_pool
+
+
+async def _ensure_async_pool() -> "asyncpg.Pool":
+    global _async_pool
+    if _async_pool is None:
+        if not DATABASE_URL:
+            raise RuntimeError("DATABASE_URL env var is not set")
+        _async_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
+    return _async_pool
 
 
 def init_db():
-    """Apply any unapplied migrations, then run seed. Creates the db file if needed."""
+    """Apply any unapplied migrations, then run seed."""
     _run_migrations()
-    _run_seed()
-
-
-def _run_migrations():
-    """Apply any unapplied SQL migrations."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA foreign_keys = ON")
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS _migrations (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-
-    applied = {row[0] for row in conn.execute("SELECT name FROM _migrations").fetchall()}
-
-    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    for migration_file in migration_files:
-        name = migration_file.name
-        if name in applied:
-            continue
-        print(f"[db] Applying migration: {name}")
-        sql = migration_file.read_text()
-        conn.executescript(sql)
-        conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
-        conn.commit()
-
-    conn.close()
-
-
-def _run_seed():
-    """Run the seed script (idempotent)."""
     from server.seed import seed
     seed()
 
 
-# --- Sync access (used by worker process) ---
+def _run_migrations():
+    pool = _ensure_sync_pool()
+    conn = pool.getconn()
+    try:
+        conn.autocommit = False
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS _migrations (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+            """)
+            conn.commit()
+            cur.execute("SELECT name FROM _migrations")
+            applied = {row[0] for row in cur.fetchall()}
+
+        for migration_file in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            name = migration_file.name
+            if name in applied:
+                continue
+            print(f"[db] Applying migration: {name}")
+            sql = migration_file.read_text()
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                cur.execute("INSERT INTO _migrations (name) VALUES (%s)", (name,))
+            conn.commit()
+    finally:
+        pool.putconn(conn)
+
 
 @contextmanager
 def get_db():
-    """Yield a sync sqlite3 connection with row_factory set to Row."""
-    conn = sqlite3.connect(str(DB_PATH), timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    """Yield a sync psycopg2 connection with DictCursor rows."""
+    pool = _ensure_sync_pool()
+    conn = pool.getconn()
+    conn.cursor_factory = psycopg2.extras.DictCursor
     try:
         yield conn
     finally:
-        conn.close()
+        pool.putconn(conn)
 
-
-# --- Async access (used by API server) ---
 
 @asynccontextmanager
 async def get_async_db():
-    """Yield an async aiosqlite connection with row_factory set to Row."""
-    conn = await aiosqlite.connect(str(DB_PATH), timeout=10)
-    conn.row_factory = aiosqlite.Row
-    await conn.execute("PRAGMA foreign_keys = ON")
-    try:
+    """Yield an asyncpg connection from the pool."""
+    pool = await _ensure_async_pool()
+    async with pool.acquire() as conn:
         yield conn
-    finally:
-        await conn.close()
