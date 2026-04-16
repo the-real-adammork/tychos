@@ -34,7 +34,7 @@ async def test_create_and_get_research_job():
         assert r.status_code == 201, r.text
         job = r.json()
         assert job["id"] > 0
-        assert job["status"] == "active"
+        assert job["status"] == "pending"
         assert job["instructions"]  # populated by template
 
         r2 = await c.get(f"/api/research/{job['id']}")

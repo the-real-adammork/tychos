@@ -10,6 +10,10 @@ from server.db import init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    import server.researcher.manager as mgr
+    count = await mgr.recover_active_jobs()
+    if count:
+        print(f"[researcher] Resumed {count} active research job(s)")
     yield
 
 

@@ -13,7 +13,7 @@ from server.research.instructions import render_instructions
 router = APIRouter(prefix="/api/research")
 
 _ALLOWED_VIEWS = {"v_solar_position", "v_moon_position", "v_combined_position"}
-_ALLOWED_STATUSES = {"active", "paused", "completed"}
+_ALLOWED_STATUSES = {"active", "paused", "completed", "pending"}
 
 
 class CreateJobBody(BaseModel):
@@ -24,6 +24,10 @@ class CreateJobBody(BaseModel):
     allowlist: list[str]
     date_start: str | None = None
     date_end: str | None = None
+    model: str = "claude-sonnet-4-6"
+    max_iterations: int = 40
+    max_wall_clock_seconds: int = 3600
+    no_improvement_plateau: int = 6
 
 
 class UpdateJobBody(BaseModel):
@@ -56,10 +60,12 @@ async def create_research_job(body: CreateJobBody, request: Request):
             raise HTTPException(status_code=404, detail="dataset_id not found")
 
         job_id = await conn.fetchval(
-            "INSERT INTO research_jobs (name, param_set_id, dataset_id, view_name, allowlist, date_start, date_end) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+            "INSERT INTO research_jobs (name, param_set_id, dataset_id, view_name, allowlist, date_start, date_end, "
+            "model, max_iterations, max_wall_clock_seconds, no_improvement_plateau, status) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending') RETURNING id",
             body.name, body.param_set_id, body.dataset_id, body.view_name,
             body.allowlist, body.date_start, body.date_end,
+            body.model, body.max_iterations, body.max_wall_clock_seconds, body.no_improvement_plateau,
         )
 
         instructions = render_instructions(
@@ -390,3 +396,56 @@ async def restore_from_version(job_id: int, version_id: int, request: Request):
             new_version_id, job["dataset_id"], job["date_start"], job["date_end"],
         )
     return {"version_id": new_version_id, "run_id": run_id}
+
+
+import server.researcher.manager as _manager
+
+
+class InjectMessageBody(BaseModel):
+    content: str
+
+
+@router.post("/{job_id}/start")
+async def start_research(job_id: int, request: Request):
+    await require_user(request)
+    async with get_async_db() as conn:
+        job = await conn.fetchrow("SELECT id FROM research_jobs WHERE id=$1", job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Research job not found")
+    await _manager.start(job_id)
+    return {"ok": True, "job_id": job_id, "status": "active"}
+
+
+@router.post("/{job_id}/pause")
+async def pause_research(job_id: int, request: Request):
+    await require_user(request)
+    await _manager.pause(job_id)
+    return {"ok": True, "job_id": job_id, "status": "paused"}
+
+
+@router.post("/{job_id}/resume")
+async def resume_research(job_id: int, request: Request):
+    await require_user(request)
+    await _manager.resume(job_id)
+    return {"ok": True, "job_id": job_id, "status": "active"}
+
+
+@router.post("/{job_id}/message", status_code=201)
+async def inject_message(job_id: int, body: InjectMessageBody, request: Request):
+    await require_user(request)
+    async with get_async_db() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO research_messages (research_job_id, content) VALUES ($1,$2) RETURNING *",
+            job_id, body.content,
+        )
+    return dict(row)
+
+
+@router.get("/{job_id}/logs")
+async def get_logs(job_id: int, limit: int = 100, offset: int = 0):
+    async with get_async_db() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM research_logs WHERE research_job_id=$1 ORDER BY created_at ASC, id ASC LIMIT $2 OFFSET $3",
+            job_id, limit, offset,
+        )
+    return [dict(r) for r in rows]
