@@ -126,7 +126,7 @@ export default function ResearchJobDetailPage() {
       </div>
 
       {/* Timeline (scrollable) */}
-      <div className="flex-1 overflow-y-auto min-h-0 border rounded-lg bg-[#0a0a0a] px-4">
+      <div className="flex-1 overflow-y-auto min-h-0 border rounded-lg bg-muted/30 px-4">
         <Timeline jobId={jobId} jobStatus={job.status} />
       </div>
 
@@ -138,7 +138,7 @@ export default function ResearchJobDetailPage() {
           placeholder={job.status === "active" ? "Send guidance to the researcher agent…" : "Agent is not active"}
           disabled={job.status !== "active"}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          className="bg-[#111] border-[#333]"
+          className="bg-background"
         />
         <Button onClick={handleSend} disabled={sending || !message.trim() || job.status !== "active"} size="sm">
           <Send className="h-4 w-4" />

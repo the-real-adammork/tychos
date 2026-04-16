@@ -188,7 +188,7 @@ function TimelineEvent({ group, prevGroup }: { group: EventGroup; prevGroup?: Ev
   if (group.type === "user_inject") {
     return (
       <div className="flex gap-2.5 justify-end">
-        <div className="bg-blue-950/50 border border-blue-600/20 rounded-lg px-3.5 py-2.5 max-w-[75%]">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-3.5 py-2.5 max-w-[75%]">
           <div className="text-blue-400 text-[10px] mb-1">You</div>
           <div className="text-sm whitespace-pre-wrap">{group.content}</div>
         </div>
@@ -204,7 +204,7 @@ function TimelineEvent({ group, prevGroup }: { group: EventGroup; prevGroup?: Ev
       <div className="flex gap-2.5">
         <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center shrink-0 text-[11px] font-semibold text-white">AI</div>
         <div className="flex-1 max-w-[85%]">
-          <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg px-3.5 py-2.5">
+          <div className="bg-accent/50 border border-border rounded-lg px-3.5 py-2.5">
             <span className="text-muted-foreground text-xs">🔧 propose_params</span>
           </div>
           {result.run_id && (
@@ -227,7 +227,7 @@ function TimelineEvent({ group, prevGroup }: { group: EventGroup; prevGroup?: Ev
       <div className="flex gap-2.5">
         <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center shrink-0 text-[11px] font-semibold text-white">AI</div>
         <div className="flex-1 max-w-[85%]">
-          <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg px-3.5 py-2.5">
+          <div className="bg-accent/50 border border-border rounded-lg px-3.5 py-2.5">
             <span className="text-purple-400 text-xs">🔍 search</span>
             <div className="bg-[#0d1117] border border-[#1c2333] rounded-md px-3 py-2 mt-1.5 font-mono text-xs">
               <div className="text-muted-foreground">
@@ -257,7 +257,7 @@ function TimelineEvent({ group, prevGroup }: { group: EventGroup; prevGroup?: Ev
   return (
     <div className="flex gap-2.5">
       <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center shrink-0 text-[11px] font-semibold text-white">AI</div>
-      <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg px-3.5 py-2.5 max-w-[85%]">
+      <div className="bg-accent/50 border border-border rounded-lg px-3.5 py-2.5 max-w-[85%]">
         <div className="text-sm whitespace-pre-wrap">{group.content}</div>
       </div>
     </div>

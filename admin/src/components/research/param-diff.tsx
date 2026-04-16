@@ -21,14 +21,14 @@ export function ParamDiff({ prevLabel, nextLabel, prev, next }: ParamDiffProps) 
 
   if (diffs.length === 0) {
     return (
-      <div className="bg-[#0d1117] border border-[#1c2333] rounded-md px-3 py-2 mt-1.5 font-mono text-xs leading-relaxed">
+      <div className="bg-muted border border-border rounded-md px-3 py-2 mt-1.5 font-mono text-xs leading-relaxed">
         <div className="text-muted-foreground">{prevLabel} → {nextLabel} (no changes)</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#0d1117] border border-[#1c2333] rounded-md px-3 py-2 mt-1.5 font-mono text-xs leading-relaxed">
+    <div className="bg-muted border border-border rounded-md px-3 py-2 mt-1.5 font-mono text-xs leading-relaxed">
       <div className="text-muted-foreground mb-1">{prevLabel} → {nextLabel}</div>
       {diffs.map((d) => (
         <div key={d.key}>

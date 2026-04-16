@@ -29,7 +29,7 @@ export function SearchResultCard({
   const delta = bestObjective - startingObjective;
 
   return (
-    <div className="bg-[#111] border border-purple-500/20 rounded-md p-3 mt-1">
+    <div className="bg-muted/50 border border-purple-500/20 rounded-md p-3 mt-1">
       <div className="flex items-center gap-2.5 mb-2">
         <span className="text-purple-400 text-xs font-semibold">Search complete</span>
         <span className="text-muted-foreground text-xs">{nEvals} evals</span>

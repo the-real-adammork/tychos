@@ -47,9 +47,14 @@ export default function ResearchPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/research");
-    if (res.ok) setJobs(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch("/api/research");
+      if (res.ok) setJobs(await res.json());
+    } catch (err) {
+      console.error("Failed to load research jobs:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);

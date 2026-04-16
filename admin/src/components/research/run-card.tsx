@@ -16,7 +16,7 @@ export function RunCard({ runId, objective, nScored, status = "done", prevObject
     <Link
       to={`/results/${runId}`}
       onClick={(e) => e.stopPropagation()}
-      className="flex items-center gap-2.5 bg-[#111] border border-[#2a2a2a] rounded-md px-3 py-2 mt-1 hover:border-[#444] transition-colors"
+      className="flex items-center gap-2.5 bg-muted/50 border border-border rounded-md px-3 py-2 mt-1 hover:border-ring transition-colors"
     >
       <div className={`w-2 h-2 rounded-full shrink-0 ${
         status === "done" ? "bg-green-500" :
@@ -37,7 +37,7 @@ export function RunCard({ runId, objective, nScored, status = "done", prevObject
           {worsened && " ↑"}
         </span>
       )}
-      <span className="text-[#555] text-xs">→</span>
+      <span className="text-muted-foreground text-xs">→</span>
     </Link>
   );
 }
