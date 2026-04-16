@@ -1,8 +1,12 @@
 """Research job endpoints."""
+import asyncio
 import hashlib
 import json as _json
+import os
 
+import asyncpg as _asyncpg
 from fastapi import APIRouter, HTTPException, Request
+from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 
 from server.auth import require_user
@@ -449,3 +453,32 @@ async def get_logs(job_id: int, limit: int = 100, offset: int = 0):
             job_id, limit, offset,
         )
     return [dict(r) for r in rows]
+
+
+@router.get("/{job_id}/logs/stream")
+async def stream_logs(job_id: int):
+    async def event_generator():
+        conn = await _asyncpg.connect(dsn=os.environ.get("DATABASE_URL", ""))
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def _on_notify(conn_ref, pid, channel, payload):
+            queue.put_nowait(payload)
+
+        await conn.add_listener("research_log_append", _on_notify)
+        try:
+            while True:
+                try:
+                    payload = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    data = _json.loads(payload)
+                    if data.get("job_id") == job_id:
+                        async with get_async_db() as db:
+                            row = await db.fetchrow("SELECT * FROM research_logs WHERE id=$1", data["log_id"])
+                        if row:
+                            yield {"event": "log", "data": _json.dumps(dict(row), default=str)}
+                except asyncio.TimeoutError:
+                    yield {"event": "ping", "data": ""}
+        finally:
+            await conn.remove_listener("research_log_append", _on_notify)
+            await conn.close()
+
+    return EventSourceResponse(event_generator())
