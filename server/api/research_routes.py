@@ -442,6 +442,10 @@ async def inject_message(job_id: int, body: InjectMessageBody, request: Request)
             "INSERT INTO research_messages (research_job_id, content) VALUES ($1,$2) RETURNING *",
             job_id, body.content,
         )
+        await conn.execute(
+            "INSERT INTO research_logs (research_job_id, role, content) VALUES ($1, 'user_inject', $2)",
+            job_id, body.content,
+        )
     return dict(row)
 
 
