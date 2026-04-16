@@ -116,7 +116,29 @@ async def _rebuild_conversation(job_id: int) -> tuple[str, list[dict]]:
     if not messages:
         return await _build_initial_context(job_id)
 
-    return system, messages
+    # Fix orphaned tool_use blocks: ensure every assistant message containing
+    # tool_use has a following user message with matching tool_result(s).
+    fixed: list[dict] = []
+    for i, msg in enumerate(messages):
+        fixed.append(msg)
+        if msg["role"] == "assistant" and isinstance(msg["content"], list):
+            tool_ids = [b["id"] for b in msg["content"] if isinstance(b, dict) and b.get("type") == "tool_use"]
+            if tool_ids:
+                next_msg = messages[i + 1] if i + 1 < len(messages) else None
+                has_results = False
+                if next_msg and next_msg["role"] == "user" and isinstance(next_msg["content"], list):
+                    result_ids = {b["tool_use_id"] for b in next_msg["content"] if isinstance(b, dict) and b.get("type") == "tool_result"}
+                    has_results = all(tid in result_ids for tid in tool_ids)
+                if not has_results:
+                    fixed.append({
+                        "role": "user",
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": tid, "content": "Error: session interrupted before tool completed", "is_error": True}
+                            for tid in tool_ids
+                        ],
+                    })
+
+    return system, fixed
 
 
 async def run_research_session(job_id: int) -> None:
