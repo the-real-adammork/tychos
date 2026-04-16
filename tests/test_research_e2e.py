@@ -5,7 +5,6 @@ view endpoint returns objective -> iteration logged -> checkpoint -> restore.
 """
 import asyncio
 import json
-import time
 
 import httpx
 import pytest
@@ -14,14 +13,13 @@ import pytest_asyncio
 import server.db as _dbmod
 from server.app import app
 from server.db import init_db, get_db, DATABASE_URL
-from server.worker import start_worker
+from server.worker import _process_one
 
 
 @pytest.fixture(autouse=True, scope="module")
 def _init():
     import psycopg2
 
-    # Reset the schema BEFORE init_db() so we start from a clean state.
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
     with conn.cursor() as cur:
@@ -30,14 +28,10 @@ def _init():
 
     init_db()
 
-    # Drain all pre-existing queued runs so the worker only picks up the run
-    # created by this test. This keeps the test fast and deterministic.
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM runs WHERE status='queued'")
         conn.commit()
-
-    start_worker()
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -105,17 +99,10 @@ async def test_full_research_flow():
         assert created["run_id"] > 0
         assert created["version_id"] > 0
 
-        # 5. Poll for run completion
-        deadline = time.time() + 180
-        run = None
-        while time.time() < deadline:
-            r = await c.get(f"/api/runs/{created['run_id']}")
-            if r.status_code == 200:
-                run = r.json()
-                if run["status"] in ("done", "failed"):
-                    break
-            await asyncio.sleep(0.5)
-        assert run is not None, "never got a run response"
+        # 5. Process the queued run inline (no daemon worker thread to leak).
+        processed = await asyncio.to_thread(_process_one)
+        assert processed is True, "worker did not pick up the queued run"
+        run = (await c.get(f"/api/runs/{created['run_id']}")).json()
         assert run["status"] == "done", f"run did not complete: {run}"
 
         # 6. GET view endpoint and verify objective is populated
