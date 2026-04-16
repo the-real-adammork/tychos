@@ -236,17 +236,34 @@ async def run_research_session(job_id: int) -> None:
                         json.dumps({"tool_use_id": block.id, "result": result_str}),
                         tool_name=block.name)
 
-                # Update iteration counters for propose_params and search
+                # Update iteration counters + log research_iterations for propose_params and search
                 if block.name in ("propose_params", "search"):
                     is_checkpoint = False
+                    try:
+                        parsed = json.loads(result_str)
+                    except Exception:
+                        parsed = {}
+
                     if block.name == "search":
-                        try:
-                            sr = json.loads(result_str)
-                            is_checkpoint = sr.get("improved", False)
-                        except Exception:
-                            pass
+                        is_checkpoint = parsed.get("improved", False)
+
+                    kind = "search_winner" if (block.name == "search" and is_checkpoint) else block.name
+                    if block.name == "search" and not is_checkpoint:
+                        kind = "search_eval"
+                    elif block.name == "propose_params":
+                        kind = "iterate"
 
                     async with get_async_db() as conn:
+                        version_id = parsed.get("version_id") or parsed.get("winner_version_id")
+                        run_id = parsed.get("run_id") or parsed.get("winner_run_id")
+                        objective = parsed.get("objective") or parsed.get("best_objective")
+                        if version_id:
+                            await conn.execute(
+                                "INSERT INTO research_iterations (research_job_id, param_version_id, run_id, kind, objective) "
+                                "VALUES ($1,$2,$3,$4,$5)",
+                                job_id, version_id, run_id, kind, objective,
+                            )
+
                         if is_checkpoint:
                             await conn.execute(
                                 "UPDATE research_jobs SET current_iteration=current_iteration+1, iterations_since_checkpoint=0 WHERE id=$1",
