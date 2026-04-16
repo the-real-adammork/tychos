@@ -9,3 +9,5 @@ bcrypt
 asyncpg
 psycopg2-binary
 httpx
+anthropic
+sse-starlette
