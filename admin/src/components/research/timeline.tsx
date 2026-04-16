@@ -35,7 +35,6 @@ export function Timeline({ jobId, jobStatus }: TimelineProps) {
   }, [jobId]);
 
   useEffect(() => {
-    if (jobStatus !== "active") return;
     const es = new EventSource(`/api/research/${jobId}/logs/stream`);
     sseRef.current = es;
     es.addEventListener("log", (e) => {
@@ -48,7 +47,7 @@ export function Timeline({ jobId, jobStatus }: TimelineProps) {
       } catch {}
     });
     return () => { es.close(); sseRef.current = null; };
-  }, [jobId, jobStatus]);
+  }, [jobId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
