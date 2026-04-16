@@ -5,6 +5,7 @@ import {
   Play,
   GitCompare,
   Database,
+  FlaskConical,
   LogOut,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/parameters", label: "Parameters", icon: Settings2 },
   { href: "/runs", label: "Runs", icon: Play },
+  { href: "/research", label: "Research", icon: FlaskConical },
   { href: "/datasets", label: "Datasets", icon: Database },
   { href: "/compare", label: "Compare", icon: GitCompare },
 ];

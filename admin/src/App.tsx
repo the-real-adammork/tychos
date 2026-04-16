@@ -16,6 +16,8 @@ import ComparePage from "@/pages/ComparePage";
 import DatasetsPage from "@/pages/DatasetsPage";
 import DatasetDetailPage from "@/pages/DatasetDetailPage";
 import EclipseCatalogDetailPage from "@/pages/EclipseCatalogDetailPage";
+import ResearchPage from "@/pages/ResearchPage";
+import ResearchJobDetailPage from "@/pages/ResearchJobDetailPage";
 
 type User = { id: number; email: string; name: string } | null;
 
@@ -66,6 +68,8 @@ export default function App() {
                     <Route path="/datasets/:slug" element={<DatasetDetailPage />} />
                     <Route path="/datasets/:slug/:eclipseId" element={<EclipseCatalogDetailPage />} />
                     <Route path="/compare" element={<ComparePage />} />
+                    <Route path="/research" element={<ResearchPage />} />
+                    <Route path="/research/:id" element={<ResearchJobDetailPage />} />
                   </Routes>
                 </main>
               </div>
