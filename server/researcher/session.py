@@ -184,7 +184,6 @@ async def run_research_session(job_id: int) -> None:
             )
             for msg in pending:
                 messages.append({"role": "user", "content": msg["content"]})
-                await _log(conn, job_id, "user_inject", msg["content"])
                 await conn.execute("UPDATE research_messages SET consumed=TRUE WHERE id=$1", msg["id"])
 
         # SDK turn
